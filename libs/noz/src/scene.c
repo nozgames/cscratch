@@ -8,5 +8,5 @@ void scene_init()
 
 void scene_uninit()
 {
-
+    camera_uninit();
 }

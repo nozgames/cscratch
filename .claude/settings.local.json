@@ -12,7 +12,12 @@
       "Bash(git remote add:*)",
       "Bash(git remote set-url:*)",
       "Bash(git push:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(wget:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(cat:*)",
+      "Bash(cmake:*)"
     ],
     "deny": [],
     "ask": []

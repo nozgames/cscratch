@@ -172,6 +172,24 @@ GMATH_INLINE vec3_t vec3_one()
     return (vec3_t){1.0f, 1.0f, 1.0f};
 }
 
+GMATH_INLINE vec3_t vec3_min(vec3_t a, vec3_t b)
+{
+	return (vec3_t) {
+        fminf(a.x, b.x),
+        fminf(a.y, b.y),
+        fminf(a.z, b.z)
+	};
+}
+
+GMATH_INLINE vec3_t vec3_max(vec3_t a, vec3_t b)
+{
+    return (vec3_t) {
+        fmaxf(a.x, b.x),
+            fmaxf(a.y, b.y),
+            fmaxf(a.z, b.z)
+    };
+}
+
 GMATH_INLINE float vec3_mag(vec3_t vec)
 {
     return sqrtf((vec.x * vec.x) + (vec.y * vec.y) + (vec.z * vec.z));
@@ -955,3 +973,6 @@ GMATH_INLINE float to_degrees(float radians)
 }
 
 #endif
+
+
+#include "bounds3.h"

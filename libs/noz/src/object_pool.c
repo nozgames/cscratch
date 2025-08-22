@@ -14,14 +14,10 @@ typedef struct object_pool_impl {
     size_t capacity;
     size_t used_count;
     free_node_t* free_list;
-} object_pool_impl;
+} object_pool_impl_t;
 
 static object_type_t g_object_pool_type = NULL;
 
-void object_pool_init() 
-{
-    g_object_pool_type = object_type_create("object_pool");
-}
 
 object_pool_t object_pool_create(object_type_t object_type, size_t object_size, size_t capacity) {
     assert(object_type);
@@ -137,4 +133,16 @@ size_t object_pool_free_count(object_pool_t pool) {
     if (!pool) return 0;
     object_pool_impl* impl = (object_pool_impl*)object_impl((object_t)pool, g_object_pool_type);
     return impl->capacity - impl->used_count;
+}
+
+
+void object_pool_init()
+{
+    g_object_pool_type = object_type_create("object_pool", sizeof(object_pool_impl_t));
+}
+
+void object_pool_uninit()
+{
+    assert(g_object_pool_type);
+    g_object_pool_type = nullptr;
 }

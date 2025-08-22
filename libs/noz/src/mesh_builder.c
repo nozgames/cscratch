@@ -8,168 +8,313 @@
 
 typedef struct mesh_builder_impl
 {
-    mesh_vertex* vertices;
+    vec3_t* positions;
+    vec3_t* normals;
+    vec2_t* uv0;
+    uint8_t* bones;
     uint16_t* indices;
-    uint32_t vertex_count;
-    uint32_t max_vertices;
-    uint32_t index_count;
-    uint32_t max_indices;
-} mesh_builder_impl;
+    size_t vertex_count;
+    size_t vertex_max;
+    size_t index_count;
+    size_t index_max;
+    bool is_full;
+} mesh_builder_impl_t;
 
-static object_type_t g_mesh_builder_type = nullptr;
+static object_type_t g_mesh_builder_type = NULL;
+
+static inline mesh_builder_impl_t* to_impl(mesh_builder_t builder)
+{
+    assert(builder);
+    return (mesh_builder_impl_t*)object_impl((object_t)builder, g_mesh_builder_type);
+}
+
+mesh_builder_t mesh_builder_create(int max_vertices, int max_indices)
+{
+    object_t object = object_create(g_mesh_builder_type, sizeof(mesh_builder_impl_t));
+    if (!object)
+        return NULL;
+    
+	mesh_builder_t builder = (mesh_builder_t)object;
+    mesh_builder_impl_t* impl = to_impl(builder);
+    
+    impl->vertex_max = max_vertices;
+    impl->index_max = max_indices;
+    impl->vertex_count = 0;
+    impl->index_count = 0;
+    
+    // Allocate arrays
+    impl->positions = malloc(sizeof(vec3_t) * max_vertices);
+    impl->normals = malloc(sizeof(vec3_t) * max_vertices);
+    impl->uv0 = malloc(sizeof(vec2_t) * max_vertices);
+    impl->bones = malloc(sizeof(uint8_t) * max_vertices);
+    impl->indices = malloc(sizeof(uint16_t) * max_indices);
+    
+    if (!impl->positions || !impl->normals || !impl->uv0 || !impl->bones || !impl->indices) {
+        free(impl->positions);
+        free(impl->normals);
+        free(impl->uv0);
+        free(impl->bones);
+        free(impl->indices);
+        object_destroy(object);
+        return NULL;
+    }
+    
+    return builder;
+}
+
+void mesh_builder_destroy(mesh_builder_t builder)
+{
+    if (!builder) return;
+    
+    mesh_builder_impl_t* impl = to_impl(builder);    
+    free(impl->positions);
+    free(impl->normals);
+    free(impl->uv0);
+    free(impl->bones);
+    free(impl->indices);
+    
+    object_destroy((object_t)builder);
+}
+
+void mesh_builder_clear(mesh_builder_t builder)
+{
+    if (!builder) return;
+    
+    mesh_builder_impl_t* impl = to_impl(builder);
+    impl->vertex_count = 0;
+    impl->index_count = 0;
+}
+
+const vec3_t* mesh_builder_positions(mesh_builder_t builder)
+{
+    return to_impl(builder)->positions;
+}
+
+const vec3_t* mesh_builder_normals(mesh_builder_t builder)
+{
+    return to_impl(builder)->normals;
+}
+
+const vec2_t* mesh_builder_uv0(mesh_builder_t builder)
+{
+    return to_impl(builder)->uv0;
+}
+
+const uint8_t* mesh_builder_bones(mesh_builder_t builder)
+{
+    return to_impl(builder)->bones;
+}
+
+const uint16_t* mesh_builder_indices(mesh_builder_t builder)
+{
+    return to_impl(builder)->indices;
+}
+
+size_t mesh_builder_vertex_count(mesh_builder_t builder)
+{
+    return to_impl(builder)->vertex_count;
+}
+
+size_t mesh_builder_index_count(mesh_builder_t builder)
+{
+    return to_impl(builder)->index_count;
+}
 
 void mesh_builder_init()
 {
     g_mesh_builder_type = object_type_create("mesh_builder");
 }
 
-#if 0
-mesh_builder_t mesh_builder_create(int max_vertices, int max_indices)
+void mesh_builder_add_vertex(
+	mesh_builder_t builder,
+    vec3_t position,
+    vec3_t normal,
+    vec2_t uv,
+    uint8_t bone_index)
 {
-    size_t object_size = sizeof(mesh_vertex) * max_vertices + sizeof(uint16_t) * max_indices;
-    object_t object = object_create(mesh_builder_type(), object_size);
+    mesh_builder_impl_t* impl = to_impl(builder);
+    impl->is_full = impl->is_full && impl->vertex_count + 1 >= impl->vertex_max;
+    if (impl->is_full)
+        return;
 
-    _positions.reserve(initial_size);
-    _normals.reserve(initial_size);
-    _uv0.reserve(initial_size);
-    _bones.reserve(initial_size);
-    _indices.reserve(initial_size * 3);
+    size_t index = impl->vertex_count;
+    impl->vertex_count++;
+	impl->positions[index] = position;
+	impl->normals[index] = normal;
+	impl->uv0[index] = uv;
+	impl->bones[index] = bone_index;
 }
 
-void mesh_builder::clear()
+void mesh_builder_add_index(mesh_builder_t builder, uint16_t index)
 {
-    _positions.clear();
-    _normals.clear();
-    _uv0.clear();
-    _bones.clear();
-    _indices.clear();
+    mesh_builder_impl_t* impl = to_impl(builder);
+    impl->is_full = impl->is_full && impl->index_count + 1 >= impl->index_max;
+    if (impl->is_full)
+        return;
+
+    impl->indices[impl->index_count] = index;
+    impl->index_count++;    
 }
 
-void mesh_builder::add_vertex(const vec3& position, const vec3& normal, const vec2& uv, uint32_t boneIndex)
+void mesh_builder_add_triangle_indices(mesh_builder_t builder, uint16_t a, uint16_t b, uint16_t c)
 {
-    _positions.push_back(position);
-    _normals.push_back(normal);
-    _uv0.push_back(uv);
-    _bones.push_back(boneIndex);
+    mesh_builder_impl_t* impl = to_impl(builder);
+    impl->is_full = impl->is_full && impl->index_count + 3 >= impl->index_max;
+    if (impl->is_full)
+        return;
+
+    impl->indices[impl->index_count + 0] = a;
+    impl->indices[impl->index_count + 1] = b;
+    impl->indices[impl->index_count + 2] = c;
+    impl->index_count+=3;
 }
 
-void mesh_builder::add_index(uint16_t index)
-{
-    _indices.push_back(index);
-}
-
-void mesh_builder::add_triangle(uint16_t a, uint16_t b, uint16_t c)
-{
-    _indices.push_back(a);
-    _indices.push_back(b);
-    _indices.push_back(c);
-}
-
-void mesh_builder::add_triangle(const glm::vec3& a, const glm::vec3& b, const glm::vec3& c, uint32_t boneIndex)
+void mesh_builder_add_triangle(
+    mesh_builder_t builder,
+    vec3_t a,
+    vec3_t b,
+    vec3_t c,
+    uint8_t bone_index)
 {
     // Calculate face normal
-    glm::vec3 v1 = b - a;
-    glm::vec3 v2 = c - a;
-    glm::vec3 normal = glm::normalize(glm::cross(v2, v1));
+    vec3_t v1 = vec3_sub(b, a);
+    vec3_t v2 = vec3_sub(c, a);
+    vec3_t normal = vec3_normalize(vec3_cross(v2, v1));
 
     // Add vertices with computed normal
-    uint16_t indexA = static_cast<uint16_t>(_positions.size());
-    add_vertex(a, normal, glm::vec2(0.0f, 0.0f), boneIndex);
-
-    uint16_t indexB = static_cast<uint16_t>(_positions.size());
-    add_vertex(b, normal, glm::vec2(1.0f, 0.0f), boneIndex);
-
-    uint16_t indexC = static_cast<uint16_t>(_positions.size());
-    add_vertex(c, normal, glm::vec2(0.5f, 1.0f), boneIndex);
-
-    // Add triangle indices
-    add_triangle(indexA, indexB, indexC);
+    auto vertex_index = to_impl(builder)->vertex_count;
+	add_vertex(a, normal, (vec2_t) { 0.0f, 0.0f }, bone_index);
+    add_vertex(a, normal, (vec2_t) { 1.0f, 0.0f }, bone_index);
+    add_vertex(a, normal, (vec2_t) { 0.5f, 1.0f }, bone_index);
+    mesh_builder_add_triangle_indices(builder, vertex_index, vertex_index + 1, vertex_index + 2);
 }
 
-void mesh_builder::add_pyramid(const glm::vec3& start, const glm::vec3& end, float size, uint32_t boneIndex)
+void mesh_builder_add_pyramid(vec3_t start, vec3_t end, float size, uint8_t bone_index)
 {
     // Calculate direction and create base
-    glm::vec3 direction = glm::normalize(end - start);
-    float length = glm::distance(start, end);
+    vec3_t direction = vec3_normalize(vec3_sub(end, start));
+    float length = vec3_distance(start, end);
 
     // Create rotation matrix to align with direction
-    glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
-    if (glm::abs(glm::dot(direction, up)) > 0.9f)
-        up = glm::vec3(1.0f, 0.0f, 0.0f);
+    vec3_t up = { 0.0f, 1.0f, 0.0f };
+    if (fabs(vec3_dot(direction, up)) > 0.9f)
+        up = (vec3_t){ 1.0f, 0.0f, 0.0f };
 
-    glm::vec3 right = glm::normalize(glm::cross(direction, up));
-    up = glm::normalize(glm::cross(right, direction));
+    vec3_t right = vec3_normalize(vec3_cross(direction, up));
+    up = vec3_normalize(vec3_cross(right, direction));
 
     auto hsize = size * 0.5f;
-    add_triangle(start + right * hsize + up * hsize, start + right * hsize - up * hsize, end, boneIndex);
+	right = vec3_muls(right, hsize);
+	up = vec3_muls(up, hsize);
 
-    add_triangle(start - right * hsize + up * hsize, start + right * hsize + up * hsize, end, boneIndex);
+	vec3_t right_sub_up = vec3_sub(right, up);
+	vec3_t right_add_up = vec3_add(right, up);
 
-    add_triangle(start - right * hsize - up * hsize, start - right * hsize + up * hsize, end, boneIndex);
+    add_triangle(
+        vec3_add(start, right_add_up),
+        vec3_add(start, right_sub_up),
+        end,
+        bone_index);
 
-    add_triangle(start + right * hsize - up * hsize, start - right * hsize - up * hsize, end, boneIndex);
+    add_triangle(
+		vec3_sub(start, right_add_up),
+        vec3_add(start, right_add_up),
+        end,
+        bone_index);
+
+    add_triangle(
+        vec3_sub(start, right_sub_up),
+        vec3_sub(start, right_add_up),
+        end,
+        bone_index);
+
+    add_triangle(
+        vec3_add(start, right_sub_up),
+        vec3_sub(start, right_sub_up),
+        end,
+        bone_index);
 }
 
-void mesh_builder::add_cube(const glm::vec3& center, const glm::vec3& size, uint32_t boneIndex)
+void mesh_builder_add_raw(
+    mesh_builder_t builder,
+    size_t vertex_count,
+    vec3_t* positions,
+    vec3_t* normals,
+    vec2_t* uv0,
+    uint8_t bone_index,
+    size_t index_count,
+    uint16_t* indices)
 {
-    glm::vec3 halfSize = size * 0.5f;
+    mesh_builder_impl_t* impl = to_impl(builder);
+	impl->is_full = impl->is_full && (impl->vertex_count + vertex_count >= impl->vertex_max || impl->index_count + index_count >= impl->index_max);
+    if (impl->is_full)
+        return;
 
-    // Define cube vertices
-    std::vector<glm::vec3> vertices = {
-        center + glm::vec3(-halfSize.x, -halfSize.y, -halfSize.z), // 0: bottom-left-back
-        center + glm::vec3(halfSize.x, -halfSize.y, -halfSize.z),  // 1: bottom-right-back
-        center + glm::vec3(halfSize.x, halfSize.y, -halfSize.z),   // 2: top-right-back
-        center + glm::vec3(-halfSize.x, halfSize.y, -halfSize.z),  // 3: top-left-back
-        center + glm::vec3(-halfSize.x, -halfSize.y, halfSize.z),  // 4: bottom-left-front
-        center + glm::vec3(halfSize.x, -halfSize.y, halfSize.z),   // 5: bottom-right-front
-        center + glm::vec3(halfSize.x, halfSize.y, halfSize.z),    // 6: top-right-front
-        center + glm::vec3(-halfSize.x, halfSize.y, halfSize.z)    // 7: top-left-front
-    };
+	size_t vertex_start = impl->vertex_count;
+	memcpy(impl->positions + impl->vertex_count, positions, sizeof(vec3_t) * vertex_count);
+	memcpy(impl->normals + impl->vertex_count, normals, sizeof(vec3_t) * vertex_count);
+	memcpy(impl->uv0 + impl->vertex_count, uv0, sizeof(vec2_t) * vertex_count);
 
-    // Add vertices
-    uint32_t baseIndex = static_cast<uint32_t>(_positions.size());
-    for (const auto& vertex : vertices)
+    for (size_t i = 0; i < vertex_count; ++i)
+		impl->bones[vertex_start + i] = bone_index;
+
+    for (size_t i = 0; i < index_count; ++i)
     {
-        add_vertex(vertex, glm::vec3(0.0f), glm::vec2(0.0f), boneIndex);
-    }
-
-    // Define faces (6 faces, each with 2 triangles)
-    std::vector<std::vector<uint32_t>> faces = {
-        {0, 1, 2, 3}, // Back face
-        {5, 4, 7, 6}, // Front face
-        {4, 0, 3, 7}, // Left face
-        {1, 5, 6, 2}, // Right face
-        {3, 2, 6, 7}, // Top face
-        {4, 5, 1, 0}  // Bottom face
-    };
-
-    // Face normals
-    std::vector<glm::vec3> faceNormals = {
-        glm::vec3(0.0f, 0.0f, -1.0f), // Back
-        glm::vec3(0.0f, 0.0f, 1.0f),  // Front
-        glm::vec3(-1.0f, 0.0f, 0.0f), // Left
-        glm::vec3(1.0f, 0.0f, 0.0f),  // Right
-        glm::vec3(0.0f, 1.0f, 0.0f),  // Top
-        glm::vec3(0.0f, -1.0f, 0.0f)  // Bottom
-    };
-
-    // Create faces
-    for (size_t i = 0; i < faces.size(); ++i)
-    {
-        const auto& face = faces[i];
-        const auto& normal = faceNormals[i];
-
-        // Update normals for this face
-        for (uint32_t vertexIndex : face)
-        {
-            _normals[baseIndex + vertexIndex] = normal;
-        }
-
-        // Add triangles (each face is a quad, so 2 triangles)
-        add_triangle(baseIndex + face[0], baseIndex + face[1], baseIndex + face[2]);
-        add_triangle(baseIndex + face[0], baseIndex + face[2], baseIndex + face[3]);
-    }
+        impl->indices[impl->index_count] = indices[i] + (uint16_t)vertex_start;
+        impl->index_count++;
+	}
 }
+
+void mesh_builder_add_cube(mesh_builder_t builder, vec3_t center, vec3_t size, uint8_t bone_index)
+{
+	mesh_builder_impl_t* impl = to_impl(builder);
+
+    vec3_t half_size = vec3_muls(size, 0.5f);
+
+    vec3_t positions[8] = {
+        vec3_add(center, (vec3_t) { -half_size.x, -half_size.y, -half_size.z }), // 0: bottom-left-back
+        vec3_add(center, (vec3_t) { half_size.x, -half_size.y, -half_size.z }), // 1: bottom-right-back
+        vec3_add(center, (vec3_t) { half_size.x,  half_size.y, -half_size.z }), // 2: top-right-back
+        vec3_add(center, (vec3_t) { -half_size.x,  half_size.y, -half_size.z }), // 3: top-left-back
+        vec3_add(center, (vec3_t) { -half_size.x, -half_size.y,  half_size.z }), // 4: bottom-left-front
+        vec3_add(center, (vec3_t) { half_size.x, -half_size.y,  half_size.z }), // 5: bottom-right-front
+        vec3_add(center, (vec3_t) { half_size.x,  half_size.y,  half_size.z }), // 6: top-right-front
+        vec3_add(center, (vec3_t) { -half_size.x,  half_size.y,  half_size.z })  // 7: top-left-front
+    };
+
+    vec3_t normals[8] = {
+        (vec3_t) { 0.0f,  0.0f, -1.0f }, // Back face
+        (vec3_t) { 0.0f,  0.0f, -1.0f },
+        (vec3_t) { 0.0f,  0.0f, -1.0f },
+        (vec3_t) { 0.0f,  0.0f, -1.0f },
+        (vec3_t) { 0.0f,  0.0f,  1.0f }, // Front face
+        (vec3_t) { 0.0f,  0.0f,  1.0f },
+        (vec3_t) { 0.0f,  0.0f,  1.0f },
+		(vec3_t) { 0.0f,  0.0f,  1.0f }
+    };
+
+    vec3_t uvs[8] = {
+        (vec3_t) { 0.0f, 0.0f, 0.0f },
+        (vec3_t) { 1.0f, 0.0f, 0.0f },
+        (vec3_t) { 1.0f, 1.0f, 0.0f },
+        (vec3_t) { 0.0f, 1.0f, 0.0f },
+        (vec3_t) { 0.0f, 0.0f, 0.0f },
+        (vec3_t) { 1.0f, 0.0f, 0.0f },
+        (vec3_t) { 1.0f, 1.0f, 0.0f },
+		(vec3_t) { 0.0f, 1.0f, 0.0f }
+	};
+
+    uint16_t indices[36] = {
+        0, 1, 2, 0, 2, 3, // Back face
+        5, 4, 7, 5, 7, 6, // Front face
+        4, 0, 3, 4, 3, 7, // Left face
+        1, 5, 6, 1, 6, 2, // Right face
+        3, 2, 6, 3, 6, 7, // Top face
+		4, 5, 1, 4, 1, 0  // Bottom face
+    };
+}
+
+#if 0
 
 void mesh_builder::add_sphere(const glm::vec3& center, float radius, int segments, int rings, uint32_t boneIndex)
 {
@@ -261,16 +406,29 @@ void mesh_builder::add_line(const glm::vec3& start, const glm::vec3& end, float 
         int next = (i + 1) % segments;
 
         // Add quad for side face
-        add_quad(glm::vec3(_positions[startIndices[i]]), glm::vec3(_positions[startIndices[next]]),
-                 glm::vec3(_positions[endIndices[next]]), glm::vec3(_positions[endIndices[i]]), glm::vec2(0, 0),
-                 glm::normalize(glm::cross(_positions[startIndices[next]] - _positions[startIndices[i]],
-                                           _positions[endIndices[i]] - _positions[startIndices[i]])),
-                 boneIndex);
+        add_quad(
+            glm::vec3(_positions[startIndices[i]]),
+            glm::vec3(_positions[startIndices[next]]),
+            glm::vec3(_positions[endIndices[next]]),
+            glm::vec3(_positions[endIndices[i]]),
+            glm::vec2(0, 0),
+            glm::normalize(glm::cross(
+                _positions[startIndices[next]] - _positions[startIndices[i]],
+                _positions[endIndices[i]] - _positions[startIndices[i]]
+            )),
+            boneIndex
+        );
     }
 }
 
-void mesh_builder::add_quad(const glm::vec3& a, const glm::vec3& b, const glm::vec3& c, const glm::vec3& d,
-                            const glm::vec2& color, const glm::vec3& normal, uint32_t boneIndex)
+void mesh_builder::add_quad(
+    const glm::vec3& a,
+    const glm::vec3& b,
+    const glm::vec3& c,
+    const glm::vec3& d,
+    const glm::vec2& color,
+    const glm::vec3& normal,
+    uint32_t boneIndex)
 {
     uint32_t baseIndex = static_cast<uint32_t>(_positions.size());
 
@@ -297,8 +455,13 @@ void mesh_builder::add_quad(const vec3& forward, const vec3& right, float width,
     add_quad(a, b, c, d, color_uv, normal, 0);
 }
 
-void mesh_builder::add_triangle(const glm::vec3& a, const glm::vec3& b, const glm::vec3& c, const glm::vec2& color,
-                                const glm::vec3& normal, uint32_t boneIndex)
+void mesh_builder::add_triangle(
+    const glm::vec3& a,
+    const glm::vec3& b,
+    const glm::vec3& c,
+    const glm::vec2& color,
+    const glm::vec3& normal,
+    uint32_t boneIndex)
 {
     uint32_t baseIndex = static_cast<uint32_t>(_positions.size());
 
@@ -311,8 +474,7 @@ void mesh_builder::add_triangle(const glm::vec3& a, const glm::vec3& b, const gl
     add_triangle(baseIndex, baseIndex + 1, baseIndex + 2);
 }
 
-void mesh_builder::add_cylinder(const glm::vec3& start, const glm::vec3& end, float radius, const glm::vec2& colorUV,
-                                int segments, uint32_t boneIndex)
+void mesh_builder::add_cylinder(const glm::vec3& start, const glm::vec3& end, float radius, const glm::vec2& colorUV, int segments, uint32_t boneIndex)
 {
     glm::vec3 direction = glm::normalize(end - start);
     float length = glm::distance(start, end);
@@ -366,7 +528,7 @@ void mesh_builder::add_cylinder(const glm::vec3& start, const glm::vec3& end, fl
     for (int i = 0; i < segments; ++i)
     {
         int next = (i + 1) % segments;
-        // add_triangle(endCenterIndex, endIndices[i], endIndices[next]);
+        //add_triangle(endCenterIndex, endIndices[i], endIndices[next]);
     }
 
     // Create side faces
@@ -380,14 +542,25 @@ void mesh_builder::add_cylinder(const glm::vec3& start, const glm::vec3& end, fl
         glm::vec3 faceNormal = -glm::normalize(glm::cross(v1, v2));
 
         // Add quad for side face
-        add_quad(glm::vec3(_positions[endIndices[i]]), glm::vec3(_positions[endIndices[next]]),
-                 glm::vec3(_positions[startIndices[next]]), glm::vec3(_positions[startIndices[i]]), colorUV, faceNormal,
-                 boneIndex);
+        add_quad(
+            glm::vec3(_positions[endIndices[i]]),
+            glm::vec3(_positions[endIndices[next]]),
+            glm::vec3(_positions[startIndices[next]]),
+            glm::vec3(_positions[startIndices[i]]),
+            colorUV,
+            faceNormal,
+            boneIndex
+        );
     }
 }
 
-void mesh_builder::add_cone(const glm::vec3& base, const glm::vec3& tip, float baseRadius, const glm::vec2& colorUV,
-                            int segments, uint32_t boneIndex)
+void mesh_builder::add_cone(
+    const glm::vec3& base,
+    const glm::vec3& tip,
+    float baseRadius,
+    const glm::vec2& colorUV,
+    int segments,
+    uint32_t boneIndex)
 {
     glm::vec3 direction = glm::normalize(tip - base);
     float length = glm::distance(base, tip);
@@ -440,55 +613,55 @@ void mesh_builder::add_cone(const glm::vec3& base, const glm::vec3& tip, float b
         auto n = -glm::normalize(glm::cross(v1, v2));
 
         // Add triangle
-        add_triangle(glm::vec3(_positions[tipIndex]), glm::vec3(_positions[baseIndices[next]]),
-                     glm::vec3(_positions[baseIndices[i]]), colorUV, n, boneIndex);
+        add_triangle(
+            glm::vec3(_positions[tipIndex]),
+            glm::vec3(_positions[baseIndices[next]]),
+            glm::vec3(_positions[baseIndices[i]]),
+            colorUV,
+            n,
+            boneIndex
+        );
     }
 }
+#endif
 
-mesh mesh_builder::to_mesh(const std::string& name, bool gpu_only)
+mesh_t mesh_builder_to_mesh(mesh_builder_t builder, const char* name)
 {
-    if (!is_valid())
-        return mesh();
-
-    // calculate bounds
-    auto min_pos = _positions[0];
-    auto max_pos = _positions[0];
-
-    for (const auto& pos : _positions)
-    {
-        min_pos = glm::min(min_pos, pos);
-        max_pos = glm::max(max_pos, pos);
-    }
-
-    auto center = (min_pos + max_pos) * 0.5f;
-    auto extents = (max_pos - min_pos) * 0.5f;
-    auto bounds = bounds3(center, extents);
-
-    return create_mesh(*this, bounds, gpu_only);
+    assert(builder);
+	mesh_builder_impl_t* impl = to_impl(builder);
+    return mesh_create_raw(
+        builder,
+        name,
+		impl->vertex_count,
+        impl->positions,
+        impl->normals,
+        impl->uv0,
+        impl->bones,
+        impl->index_count,
+        impl->indices
+	);
 }
 
+#if 0
 void mesh_builder::add_mesh(mesh mesh, const vec3& offset)
 {
     throw std::runtime_error("not implemented");
 
-#if 0
-        assert(mesh);
+    assert(mesh);
 
-		auto vertex_count = mesh->vertex_count();
+    auto vertex_count = mesh->vertex_count();
 
-        _positions.reserve(_positions.size() + mesh->positions().size());
-        for (const auto& pos : mesh->positions())
-            _positions.push_back(pos + offset);
+    _positions.reserve(_positions.size() + mesh->positions().size());
+    for (const auto& pos : mesh->positions())
+        _positions.push_back(pos + offset);
 
-        _normals.insert(_normals.end(), mesh->normals().begin(), mesh->normals().end());
-        _uv0.insert(_uv0.end(), mesh->uv0().begin(), mesh->uv0().end());
-        _bones.insert(_bones.end(), mesh->boneIndices().begin(), mesh->boneIndices().end());
+    _normals.insert(_normals.end(), mesh->normals().begin(), mesh->normals().end());
+    _uv0.insert(_uv0.end(), mesh->uv0().begin(), mesh->uv0().end());
+    _bones.insert(_bones.end(), mesh->boneIndices().begin(), mesh->boneIndices().end());
 
-        // Adjust indices to account for existing vertices
-        uint32_t baseIndex = static_cast<uint32_t>(_positions.size() - mesh->positions().size());
-        for (const auto& index : mesh->indices())
-            _indices.push_back(static_cast<uint16_t>(index + baseIndex));
-#endif
+    // Adjust indices to account for existing vertices
+    uint32_t baseIndex = static_cast<uint32_t>(_positions.size() - mesh->positions().size());
+    for (const auto& index : mesh->indices())
+        _indices.push_back(static_cast<uint16_t>(index + baseIndex));
 }
-} // namespace noz
 #endif

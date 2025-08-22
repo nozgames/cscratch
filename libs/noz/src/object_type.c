@@ -6,7 +6,7 @@
 
 struct object_type_impl
 {
-    string128 name;
+    string128_t name;
 };
 
 static struct object_type_impl g_types[MAX_TYPES] = {0};

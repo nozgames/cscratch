@@ -1,13 +1,17 @@
+//
+//  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
+//
+
 #pragma once
 
-#include <stddef.h>
+#define nullptr NULL
 
 typedef struct object_type_impl* object_type_t;
 typedef struct object_tag* object_t;
 typedef struct object_pool* object_pool_t;
 typedef struct object_registry* object_registry_t;
 
-// @object_typ
+// @object_type
 object_type_t object_type_create(const char* name);
 const char* object_type_name(object_type_t type);
 
@@ -30,12 +34,13 @@ size_t object_pool_capacity(object_pool_t pool);
 size_t object_pool_used_count(object_pool_t pool);
 size_t object_pool_free_count(object_pool_t pool);
 
-// @object_registry
-object_registry_t object_registry_create(object_type_t object_type, size_t object_size, size_t capacity);
+// @object_registry (now uses 64-bit keys)
+object_registry_t object_registry_create(object_type_t object_type, size_t capacity);
 void object_registry_destroy(object_registry_t registry);
-object_t object_registry_get(object_registry_t registry, const char* name);
-object_t object_registry_alloc(object_registry_t registry, const char* name);
-void object_registry_free(object_registry_t registry, const char* name);
+object_t object_registry_get(object_registry_t registry, uint64_t key);
+void object_registry_set(object_registry_t registry, uint64_t key, object_t object);
+void object_registry_remove(object_registry_t registry, uint64_t key);
 size_t object_registry_count(object_registry_t registry);
-
-#define nullptr NULL
+object_t object_registry_get_string(object_registry_t registry, const char* name);
+object_t object_registry_alloc_string(object_registry_t registry, const char* name);
+void object_registry_free_string(object_registry_t registry, const char* name);

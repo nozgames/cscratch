@@ -1,9 +1,15 @@
 #include "string.h"
 
-string128* string128_set(string128* dst, const char* src)
+string128_t* string128_set(string128_t* dst, const char* src)
 {
     assert(dst);
-    assert(src);
+    
+    if (src == nullptr)
+    {
+        dst->data[0] = 0;
+        dst->length = 0;
+        return dst;
+    }
 
     size_t src_length = strlen(src);
     if (src_length >= sizeof(dst->data)) 
@@ -12,7 +18,7 @@ string128* string128_set(string128* dst, const char* src)
     return dst;
 }
 
-string128* string128_copy(string128* dst, const string128* src)
+string128_t* string128_copy(string128_t* dst, const string128_t* src)
 {
     assert(dst);
     assert(src);

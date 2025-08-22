@@ -54,7 +54,7 @@ file(GLOB_RECURSE SOURCE_FILES_C "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
 target_sources(noz PRIVATE ${SOURCE_FILES_C})
 target_include_directories(noz PRIVATE ${enet_SOURCE_DIR}/include)
 target_include_directories(noz PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include )
-target_include_directories(noz PRIVATE src ${uthash_SOURCE_DIR}/src)
+target_include_directories(noz PRIVATE src ${uthash_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/external)
 
 if(MSVC)
     target_compile_options(noz PRIVATE /WX)

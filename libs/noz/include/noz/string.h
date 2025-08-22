@@ -2,11 +2,11 @@
 
 typedef unsigned int uint;
 
-typedef struct
+typedef struct string128
 {
     char data[128];
     uint length;
-} string128;
+} string128_t;
 
-string128* string128_set(string128* dst, const char* src);
-string128* string128_copy(string128* dst, const string128* src);
+string128_t* string128_set(string128_t* dst, const char* src);
+string128_t* string128_copy(string128_t* dst, const string128_t* src);

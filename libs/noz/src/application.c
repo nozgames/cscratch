@@ -3,11 +3,9 @@
 //
 
 // @forward
-void object_init();
-void object_uninit();
 void update_screen_size();
 
-    // @traits
+// @traits
 static application_traits g_default_traits = 
 {
 	.title = "noz",
@@ -16,10 +14,18 @@ static application_traits g_default_traits =
 	.renderer = 
 	{
 		.max_textures = 32,
-        .shadow_map_size = 2048
+        .max_shaders = 32,
+        .max_meshes = 256,
+        .max_fonts = 8,
+        .shadow_map_size = 2048,
+        .max_frame_commands = 2048,
+        .max_frame_objects = 128,
+        .max_frame_transforms = 1024,
+        .max_samplers = 16
 	}
 };
 
+// @impl
 typedef struct application_impl
 {
     SDL_Window* window;
@@ -78,6 +84,9 @@ void application_init(const application_traits* traits)
     }
 
 	object_init();
+    object_pool_init();
+    map_init();
+    stream_init();
 	renderer_init(&traits->renderer, g_application.window);
 }
 
@@ -85,6 +94,9 @@ void application_init(const application_traits* traits)
 void application_uninit()
 {
 	renderer_uninit();
+    stream_uninit();
+    map_uninit();
+    object_pool_uninit();
     object_uninit();
 }
 
