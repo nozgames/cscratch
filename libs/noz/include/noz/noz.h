@@ -11,6 +11,7 @@
 #include <stddef.h>
 
 #include "gmath.h"
+#include "map.h"
 #include "stream.h"
 #include "string.h"
 #include "object.h"

@@ -16,7 +16,7 @@ typedef struct mesh_impl
     bounds3_t bounds;
 } mesh_impl_t;
 
-static object_registry_t g_mesh_cache = nullptr;
+static map_t g_mesh_cache = nullptr;
 static SDL_GPUDevice* g_device = nullptr;
 static object_type_t g_mesh_type = nullptr;
 
@@ -254,7 +254,7 @@ void mesh_init(const renderer_traits* traits, SDL_GPUDevice* device)
     assert(!g_mesh_cache);
     g_device = device;
     g_mesh_type = object_type_create("mesh");
-    g_mesh_cache = object_registry_create(g_mesh_type, traits->max_meshes);
+    g_mesh_cache = map_create(traits->max_meshes);
 }
 
 void mesh_uninit()

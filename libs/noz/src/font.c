@@ -26,7 +26,6 @@ typedef struct font_glyph_entry
     UT_hash_handle hh;      // uthash handle
 } font_glyph_entry_t;
 
-// Font implementation
 typedef struct font_impl 
 {
     string128_t name;
@@ -37,9 +36,15 @@ typedef struct font_impl
     font_kerning_entry_t* kerning;  // hash table of kerning pairs
 } font_impl_t;
 
-static object_registry_t g_font_cache = NULL;
+static map_t g_font_cache = NULL;
 static SDL_GPUDevice* g_device = NULL;
 static object_type_t g_font_type = NULL;
+
+static inline font_impl_t* to_impl(font_t font)
+{
+    assert(font);
+    return (font_impl_t*)object_impl((object_t)font, g_font_type);
+}
 
 static void font_destroy_impl(font_impl_t* impl)
 {
@@ -76,7 +81,7 @@ font_t font_load(const char* name)
     uint64_t key = hash_string(name);
 
     // Check if font exists in cache
-    object_t cached_obj = object_registry_get(g_font_cache, key);
+    object_t cached_obj = (object_t)map_get(g_font_cache, key);
     if (cached_obj) 
     {
         return (font_t)cached_obj;
@@ -104,7 +109,8 @@ font_t font_load(const char* name)
     }
 
     // Create new font
-    object_t cache_obj = object_registry_alloc(g_font_cache, key);
+    object_t cache_obj = (object_t)object_create(g_font_type, sizeof(font_impl_t));
+    if (cache_obj) map_set(g_font_cache, key, cache_obj);
     if (!cache_obj) 
     {
         stream_destroy(stream);
@@ -112,16 +118,7 @@ font_t font_load(const char* name)
     }
     
     font_impl_t* impl = (font_impl_t*)object_impl(cache_obj, g_font_type);
-    
-    // Initialize implementation
-    impl->name = malloc(strlen(name) + 1);
-    if (!impl->name) 
-    {
-        stream_destroy(stream);
-        object_destroy(cache_obj);
-        return NULL;
-    }
-    strcpy(impl->name, name);
+	string128_set(&impl->name, name);
     
     impl->glyphs = NULL;    // uthash tables start as NULL
     impl->kerning = NULL;
@@ -202,7 +199,7 @@ font_t font_load(const char* name)
     stream_read_bytes(stream, atlas_data, atlas_data_size);
     stream_destroy(stream);
     
-    impl->texture = create_texture(atlas_data, atlas_width, atlas_height, texture_format_r8, name);
+    impl->texture = texture_create_raw(atlas_data, atlas_width, atlas_height, texture_format_r8, name);
     free(atlas_data);
     
     if (!impl->texture) 
@@ -212,7 +209,7 @@ font_t font_load(const char* name)
         return NULL;
     }
     
-    impl->material = create_material("shaders/text", "font");
+    impl->material = material_create(shader_load("shaders/text"), "font");
     if (!impl->material) 
     {
         font_destroy_impl(impl);
@@ -220,17 +217,16 @@ font_t font_load(const char* name)
         return NULL;
     }
     
-    set_texture(impl->material, impl->texture);
+    material_set_texture(impl->material, impl->texture, 0);
 
     return (font_t)cache_obj;
 }
 
-// Property getter functions with new naming convention
 const font_glyph_t* font_glyph(font_t font, char ch)
 {
     if (!font) return NULL;
     
-    font_impl_t* impl = (font_impl_t*)object_impl((object_t)font, g_font_type);
+    font_impl_t* impl = to_impl(font);
     
     // Find glyph in hash table
     font_glyph_entry_t* glyph_entry;
@@ -281,52 +277,22 @@ float font_kerning(font_t font, char first, char second)
 
 float font_baseline(font_t font)
 {
-    if (!font) return 0.0f;
-    font_impl_t* impl = (font_impl_t*)object_impl((object_t)font, g_font_type);
-    return impl->baseline;
+    return to_impl(font)->baseline;
 }
 
 material_t font_material(font_t font)
 {
-    if (!font) return NULL;
-    font_impl_t* impl = (font_impl_t*)object_impl((object_t)font, g_font_type);
-    return impl->material;
+    return to_impl(font)->material;
 }
 
-// Legacy function names for compatibility with existing code
-font_t load_font(const char* name)
-{
-    return font_load(name);
-}
-
-const font_glyph_t* get_glyph(font_t font, char ch)
-{
-    return font_glyph(font, ch);
-}
-
-float get_kerning(font_t font, char first, char second)
-{
-    return font_kerning(font, first, second);
-}
-
-float get_baseline(font_t font)
-{
-    return font_baseline(font);
-}
-
-material_t get_material(font_t font)
-{
-    return font_material(font);
-}
-
-static void font_init(const renderer_traits* traits, SDL_GPUDevice* device)
+void font_init(const renderer_traits* traits, SDL_GPUDevice* device)
 {
     g_font_type = object_type_create("font");
-    g_font_cache = object_registry_create(g_font_type, sizeof(font_impl_t), INITIAL_CACHE_SIZE);
+    g_font_cache = map_create(traits->max_fonts);
     g_device = device;
 }
 
-static void font_uninit()
+void font_uninit()
 {
     object_destroy((object_t)g_font_cache);
     g_font_cache = nullptr;

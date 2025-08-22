@@ -3,7 +3,6 @@
 // @types
 typedef struct texture* texture_t;
 typedef struct material* material_t;
-typedef struct render_buffer* render_buffer_t;
 typedef struct mesh* mesh_t;
 typedef struct mesh_builder* mesh_builder_t;
 typedef struct material* material_t;
@@ -52,7 +51,10 @@ typedef enum texture_format
     texture_format_r8
 } texture_format_t;
 
+texture_t texture_create_raw(const uint8_t* data, size_t width, size_t height, texture_format_t format, const char* name);
+texture_t texture_create_render_target(int width, int height, texture_format_t format, const char* name);
 int texture_bytes_per_pixel(texture_format_t format);
+ivec2_t texture_size(texture_t texture);
 
 // @shader
 shader_t shader_load(const char* name);
@@ -90,7 +92,7 @@ size_t mesh_builder_index_count(mesh_builder_t builder);
 void mesh_builder_add_index(mesh_builder_t builder, uint16_t index);
 void mesh_builder_add_triangle_indices(mesh_builder_t builder, uint16_t a, uint16_t b, uint16_t c);
 void mesh_builder_add_triangle(mesh_builder_t builder, vec3_t a, vec3_t b, vec3_t c, uint8_t bone_index);
-void mesh_builder_add_pyramid(vec3_t start, vec3_t end, float size, uint8_t bone_index);
+void mesh_builder_add_pyramid(mesh_builder_t builder, vec3_t start, vec3_t end, float size, uint8_t bone_index);
 void mesh_builder_add_cube(mesh_builder_t builder, vec3_t center, vec3_t size, uint8_t bone_index);
 void mesh_builder_add_raw(
     mesh_builder_t builder,
@@ -109,3 +111,7 @@ void render_buffer_begin_shadow_pass(mat4_t light_view, mat4_t light_projection)
 void render_buffer_bind_default_texture(int texture_index);
 void render_buffer_bind_camera(camera_t camera);
 void render_buffer_bind_camera_matrices(mat4_t view, mat4_t projection);
+void render_buffer_bind_transform(mat4_t transform);
+void render_buffer_bind_material(material_t material);
+void render_buffer_render_mesh(mesh_t mesh);
+void render_buffer_end_pass();

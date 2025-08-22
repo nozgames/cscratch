@@ -6,7 +6,7 @@
 
 typedef struct map* map_t;
 
-map_t map_create(void);
+map_t map_create(size_t capacity);
 void* map_get_string(map_t map, const char* key);
 void* map_get(map_t map, uint64_t key);
 void map_set_string(map_t map, const char* key, void* value);

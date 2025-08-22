@@ -2,19 +2,9 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "noz/stream.h"
-#include "noz/object.h"
-#include "noz/hash.h"
-#include "internal.h"
-#include <SDL3/SDL.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-#include <stdio.h>
-
 typedef struct shader_impl 
 {
-    string128 name;
+    string128_t name;
     SDL_GPUShader* vertex;
     SDL_GPUShader* fragment;
     int vertex_uniform_count;
@@ -26,11 +16,11 @@ typedef struct shader_impl
     SDL_GPUCullMode cull;
 } shader_impl_t;
 
-static object_registry_t g_shader_cache = nullptr;
+static map_t g_shader_cache = nullptr;
 static SDL_GPUDevice* g_device = nullptr;
 static object_type_t g_shader_type = nullptr;
 
-shader_impl_t* to_impl(shader_t shader)
+static inline shader_impl_t* to_impl(shader_t shader)
 {
     assert(shader);
     return (shader_impl_t*)object_impl((object_t)shader, g_shader_type);
@@ -61,7 +51,7 @@ shader_t shader_load(const char* name)
     uint64_t key = hash_string(name);
 
     // Check if shader exists in cache
-    object_t cached_obj = object_registry_get(g_shader_cache, key);
+    object_t cached_obj = (object_t)map_get(g_shader_cache, key);
     if (cached_obj) 
     {
         shader_impl_t* shader_obj = (shader_impl_t*)object_impl(cached_obj, g_shader_type);
@@ -69,7 +59,8 @@ shader_t shader_load(const char* name)
     }
 
     // Create new shader
-    object_t cache_obj = object_registry_alloc(g_shader_cache, key);
+    object_t cache_obj = (object_t)object_create(g_shader_type, sizeof(shader_impl_t));
+    if (cache_obj) map_set(g_shader_cache, key, cache_obj);
     if (!cache_obj) 
     {
         return nullptr;
@@ -207,86 +198,62 @@ shader_t shader_load(const char* name)
 // Shader property getter functions with new naming convention
 SDL_GPUShader* shader_gpu_vertex_shader(shader_t shader)
 {
-    if (!shader) return nullptr;
-    shader_impl_t* impl = (shader_impl_t*)object_impl((object_t)shader, g_shader_type);
-    return impl->vertex;
+    return to_impl(shader)->vertex;
 }
 
 SDL_GPUShader* shader_gpu_fragment_shader(shader_t shader)
 {
-    if (!shader) return nullptr;
-    shader_impl_t* impl = (shader_impl_t*)object_impl((object_t)shader, g_shader_type);
-    return impl->fragment;
+    return to_impl(shader)->fragment;
 }
 
 SDL_GPUCullMode shader_gpu_cull_mode(shader_t shader)
 {
-    if (!shader) return SDL_GPU_CULLMODE_NONE;
-    shader_impl_t* impl = (shader_impl_t*)object_impl((object_t)shader, g_shader_type);
-    return impl->cull;
+    return to_impl(shader)->cull;
 }
 
 bool shader_blend_enabled(shader_t shader)
 {
-    if (!shader) return false;
-    shader_impl_t* impl = (shader_impl_t*)object_impl((object_t)shader, g_shader_type);
-    return (impl->flags & shader_flags_blend) != 0;
+    return (to_impl(shader)->flags & shader_flags_blend) != 0;
 }
 
 SDL_GPUBlendFactor shader_gpu_src_blend(shader_t shader)
 {
-    if (!shader) return SDL_GPU_BLENDFACTOR_ONE;
-    shader_impl_t* impl = (shader_impl_t*)object_impl((object_t)shader, g_shader_type);
-    return impl->src_blend;
+    return to_impl(shader)->src_blend;
 }
 
 SDL_GPUBlendFactor shader_gpu_dst_blend(shader_t shader)
 {
-    if (!shader) return SDL_GPU_BLENDFACTOR_ZERO;
-    shader_impl_t* impl = (shader_impl_t*)object_impl((object_t)shader, g_shader_type);
-    return impl->dst_blend;
+    return to_impl(shader)->dst_blend;
 }
 
 bool shader_depth_test_enabled(shader_t shader)
 {
-    if (!shader) return false;
-    shader_impl_t* impl = (shader_impl_t*)object_impl((object_t)shader, g_shader_type);
-    return (impl->flags & shader_flags_depth_test) != 0;
+    return (to_impl(shader)->flags & shader_flags_depth_test) != 0;
 }
 
 bool shader_depth_write_enabled(shader_t shader)
 {
-    if (!shader) return false;
-    shader_impl_t* impl = (shader_impl_t*)object_impl((object_t)shader, g_shader_type);
-    return (impl->flags & shader_flags_depth_write) != 0;
+    return (to_impl(shader)->flags & shader_flags_depth_write) != 0;
 }
 
 int shader_vertex_uniform_count(shader_t shader)
 {
-    if (!shader) return 0;
-    shader_impl_t* impl = (shader_impl_t*)object_impl((object_t)shader, g_shader_type);
-    return impl->vertex_uniform_count;
+    return to_impl(shader)->vertex_uniform_count;
 }
 
 int shader_fragment_uniform_count(shader_t shader)
 {
-    if (!shader) return 0;
-    shader_impl_t* impl = (shader_impl_t*)object_impl((object_t)shader, g_shader_type);
-    return impl->fragment_uniform_count;
+    return to_impl(shader)->fragment_uniform_count;
 }
 
 int shader_sampler_count(shader_t shader)
 {
-    if (!shader) return 0;
-    shader_impl_t* impl = (shader_impl_t*)object_impl((object_t)shader, g_shader_type);
-    return impl->sampler_count;
+    return to_impl(shader)->sampler_count;
 }
 
 const char* shader_name(shader_t shader)
 {
-    if (!shader) return nullptr;
-    shader_impl_t* impl = (shader_impl_t*)object_impl((object_t)shader, g_shader_type);
-    return impl->name;
+    return to_impl(shader)->name.data;
 }
 
 // Legacy function names for compatibility with existing code
@@ -352,9 +319,9 @@ int get_sampler_count(shader_t shader)
 
 void shader_init(const renderer_traits* traits, SDL_GPUDevice* device)
 {
-    g_shader_type = object_type_create("shader", sizeof(shader_impl_t));
+    g_shader_type = object_type_create("shader");
     g_device = device;
-    g_shader_cache = object_registry_create(g_shader_type, sizeof(shader_impl_t), traits->max_shaders);
+    g_shader_cache = map_create(traits->max_shaders);
 }
 
 void shader_uninit()

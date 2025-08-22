@@ -183,13 +183,13 @@ void mesh_builder_add_triangle(
 
     // Add vertices with computed normal
     auto vertex_index = to_impl(builder)->vertex_count;
-	add_vertex(a, normal, (vec2_t) { 0.0f, 0.0f }, bone_index);
-    add_vertex(a, normal, (vec2_t) { 1.0f, 0.0f }, bone_index);
-    add_vertex(a, normal, (vec2_t) { 0.5f, 1.0f }, bone_index);
+    mesh_builder_add_vertex(builder, a, normal, (vec2_t) { 0.0f, 0.0f }, bone_index);
+    mesh_builder_add_vertex(builder, a, normal, (vec2_t) { 1.0f, 0.0f }, bone_index);
+    mesh_builder_add_vertex(builder, a, normal, (vec2_t) { 0.5f, 1.0f }, bone_index);
     mesh_builder_add_triangle_indices(builder, vertex_index, vertex_index + 1, vertex_index + 2);
 }
 
-void mesh_builder_add_pyramid(vec3_t start, vec3_t end, float size, uint8_t bone_index)
+void mesh_builder_add_pyramid(mesh_builder_t builder, vec3_t start, vec3_t end, float size, uint8_t bone_index)
 {
     // Calculate direction and create base
     vec3_t direction = vec3_normalize(vec3_sub(end, start));
@@ -210,25 +210,29 @@ void mesh_builder_add_pyramid(vec3_t start, vec3_t end, float size, uint8_t bone
 	vec3_t right_sub_up = vec3_sub(right, up);
 	vec3_t right_add_up = vec3_add(right, up);
 
-    add_triangle(
+    mesh_builder_add_triangle(
+        builder,
         vec3_add(start, right_add_up),
         vec3_add(start, right_sub_up),
         end,
         bone_index);
 
-    add_triangle(
-		vec3_sub(start, right_add_up),
+    mesh_builder_add_triangle(
+        builder,
+        vec3_sub(start, right_add_up),
         vec3_add(start, right_add_up),
         end,
         bone_index);
 
-    add_triangle(
+    mesh_builder_add_triangle(
+        builder,
         vec3_sub(start, right_sub_up),
         vec3_sub(start, right_add_up),
         end,
         bone_index);
 
-    add_triangle(
+    mesh_builder_add_triangle(
+        builder,
         vec3_add(start, right_sub_up),
         vec3_sub(start, right_sub_up),
         end,

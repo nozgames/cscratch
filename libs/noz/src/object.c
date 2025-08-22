@@ -13,7 +13,6 @@ typedef struct object
 void object_init()
 {
     object_pool_init();
-    object_registry_init();
 }
 
 void object_uninit()

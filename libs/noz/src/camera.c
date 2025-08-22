@@ -5,9 +5,16 @@
 typedef struct camera_impl
 {
     ivec2_t view_size;
-} camera_impl;
+	mat4_t projection;
+} camera_impl_t;
 
 static object_type_t g_camera_type = {0};
+
+static inline camera_impl_t* to_impl(camera_t camera)
+{
+    assert(camera);
+    return (camera_impl_t*)object_impl((object_t)camera, g_camera_type);
+}
 
 object_type_t camera_type()
 {
@@ -16,9 +23,14 @@ object_type_t camera_type()
 
 camera_t camera_create()
 {
-    entity_t e = entity_create(g_camera_type, sizeof(camera_impl));
-    camera_impl* impl = (camera_impl*)object_impl((object_t)e, g_camera_type);
-    return (camera_t)e;
+    camera_t camera = (camera_t)entity_create(g_camera_type, sizeof(camera_impl_t));
+    camera_impl_t* impl = to_impl(camera);
+    return (camera_t)camera;
+}
+
+mat4_t camera_projection(camera_t camera)
+{
+    return to_impl(camera)->projection;
 }
 
 void camera_init()

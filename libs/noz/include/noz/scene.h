@@ -1,6 +1,8 @@
-#pragma once
+//
+//  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
+//
 
-#include "object.h"
+#pragma once
 
 typedef struct entity* entity_t;
 typedef struct camera* camera_t;
@@ -12,6 +14,9 @@ void scene_uninit();
 // @entity
 entity_t entity_create(object_type_t entity_type, size_t entity_size);
 vec3_t entity_position(entity_t entity);
+mat4_t entity_world_to_local(entity_t entity);
+mat4_t entity_local_to_world(entity_t entity);
 
 // @camera
 camera_t camera_create();
+mat4_t camera_projection(camera_t camera);

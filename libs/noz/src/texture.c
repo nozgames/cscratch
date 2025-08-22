@@ -1,23 +1,7 @@
-/*
+//
+//  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
+//
 
-    NoZ Game Engine
-
-    Copyright(c) 2025 NoZ Games, LLC
-
-*/
-
-#include "noz/stream.h"
-#include "noz/object.h"
-#include "noz/hash.h"
-#include "internal.h"
-#include <SDL3/SDL.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-#include <stdio.h>
-#include <math.h>
-
-// Texture implementation
 typedef struct texture_impl 
 {
     char* name;
@@ -26,8 +10,7 @@ typedef struct texture_impl
     ivec2_t size;
 } texture_impl_t;
 
-// Cache for texture objects using object_registry with 64-bit keys
-static object_registry_t g_texture_cache = NULL;
+static map_t g_texture_cache = NULL;
 
 SDL_GPUTextureFormat texture_format_to_sdl(texture_format_t format)
 {
@@ -55,20 +38,6 @@ static void texture_create_from_memory_impl(texture_impl_t* impl, const void* da
 static void texture_load_impl(texture_impl_t* impl);
 static void texture_destroy_impl(texture_impl_t* impl);
 
-void texture_init(const renderer_traits* traits, SDL_GPUDevice* dev)
-{
-    g_device = dev;
-    g_texture_type = object_type_create("texture");
-    g_texture_cache = object_registry_create(g_texture_type, sizeof(texture_impl_t), traits->max_textures);
-}
-
-void texture_uninit()
-{
-    object_destroy((object_t)g_texture_cache);
-    g_texture_cache = NULL;
-    g_device = NULL;
-}
-
 texture_t texture_load(const char* name)
 {
     assert(g_device);
@@ -78,14 +47,15 @@ texture_t texture_load(const char* name)
     uint64_t key = hash_string(name);
 
     // Check if texture exists in cache
-    object_t cached_obj = object_registry_get(g_texture_cache, key);
+    object_t cached_obj = (object_t)map_get(g_texture_cache, key);
     if (cached_obj) 
     {
         return (texture_t)cached_obj;
     }
 
     // Create new texture
-    object_t cache_obj = object_registry_alloc(g_texture_cache, key);
+    object_t cache_obj = (object_t)object_create(g_texture_type, sizeof(texture_impl_t));
+    if (cache_obj) map_set(g_texture_cache, key, cache_obj);
     if (!cache_obj) 
     {
         return NULL;
@@ -126,7 +96,7 @@ texture_t texture_load(const char* name)
     return (texture_t)cache_obj;
 }
 
-texture_t texture_create_render(int width, int height, texture_format_t format, const char* name)
+texture_t texture_create_render_target(int width, int height, texture_format_t format, const char* name)
 {
     assert(width > 0);
     assert(height > 0);
@@ -139,7 +109,8 @@ texture_t texture_create_render(int width, int height, texture_format_t format, 
     
     uint64_t key = hash_string(render_texture_name);
     
-    object_t cache_obj = object_registry_alloc(g_texture_cache, key);
+    object_t cache_obj = (object_t)object_create(g_texture_type, sizeof(texture_impl_t));
+    if (cache_obj) map_set(g_texture_cache, key, cache_obj);
     if (!cache_obj) 
     {
         return NULL;
@@ -176,7 +147,7 @@ texture_t texture_create_render(int width, int height, texture_format_t format, 
     return (texture_t)cache_obj;
 }
 
-texture_t texture_create_from_data(const uint8_t* data, int width, int height, texture_format_t format, const char* name)
+texture_t texture_create_raw(const uint8_t* data, size_t width, size_t height, texture_format_t format, const char* name)
 {
     if (!data || !name) return NULL;
     
@@ -186,7 +157,8 @@ texture_t texture_create_from_data(const uint8_t* data, int width, int height, t
     
     uint64_t key = hash_string(data_texture_name);
     
-    object_t cache_obj = object_registry_alloc(g_texture_cache, key);
+    object_t cache_obj = (object_t)object_create(g_texture_type, sizeof(texture_impl_t));
+    if (cache_obj) map_set(g_texture_cache, key, cache_obj);
     if (!cache_obj) 
     {
         return NULL;
@@ -507,37 +479,6 @@ int texture_format_bytes_per_pixel(texture_format_t format)
     }
 }
 
-// Legacy function names for compatibility with existing code
-texture_t load_texture(const char* name)
-{
-    return texture_load(name);
-}
-
-texture_t create_render_texture(int width, int height, texture_format_t format, const char* name)
-{
-    return texture_create_render(width, height, format, name);
-}
-
-texture_t create_texture(const uint8_t* data, int width, int height, texture_format_t format, const char* name)
-{
-    return texture_create_from_data(data, width, height, format, name);
-}
-
-ivec2_t get_size(texture_t texture)
-{
-    return texture_size(texture);
-}
-
-int get_width(texture_t texture)
-{
-    return texture_width(texture);
-}
-
-int get_height(texture_t texture)
-{
-    return texture_height(texture);
-}
-
 SDL_GPUTexture* texture_gpu_texture(texture_t texture)
 {
     return texture_gpu_handle(texture);
@@ -546,4 +487,18 @@ SDL_GPUTexture* texture_gpu_texture(texture_t texture)
 int texture_bytes_per_pixel(texture_format_t format)
 {
     return texture_format_bytes_per_pixel(format);
+}
+
+void texture_init(const renderer_traits* traits, SDL_GPUDevice* dev)
+{
+    g_device = dev;
+    g_texture_type = object_type_create("texture");
+    g_texture_cache = map_create(traits->max_textures);
+}
+
+void texture_uninit()
+{
+    object_destroy((object_t)g_texture_cache);
+    g_texture_cache = NULL;
+    g_device = NULL;
 }

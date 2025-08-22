@@ -1,22 +1,11 @@
-/*
+//
+//  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
+//
 
-    NoZ Game Engine
-
-    Copyright(c) 2025 NoZ Games, LLC
-
-*/
-
-#include "noz/stream.h"
-#include "noz/object.h"
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
 #include <stdio.h>
 
-// Initial capacity for binary stream buffer
 #define INITIAL_CAPACITY 1024
 
-// Stream implementation
 typedef struct stream_impl 
 {
     uint8_t* data;
@@ -25,23 +14,27 @@ typedef struct stream_impl
     size_t position;
 } stream_impl_t;
 
-static object_type_t stream_type = NULL;
+static object_type_t g_stream_type = nullptr;
 
-// Internal helper functions
-static void ensure_capacity(stream_impl_t* impl, size_t required_size);
+static void stream_ensure_capacity(stream_impl_t* impl, size_t required_size);
+
+static inline stream_impl_t* to_impl(stream_t stream)
+{
+	assert(stream);
+	return (stream_impl_t*)object_impl((object_t)stream, g_stream_type);
+}
 
 stream_t stream_create(void) 
 {
-    init_stream_type();
-    
-    object_t obj = object_create(stream_type, sizeof(stream_impl_t));
-    if (!obj) return NULL;
-    
-    stream_impl_t* impl = (stream_impl_t*)object_impl(obj, stream_type);
+    stream_t stream = (stream_t)object_create(g_stream_type, sizeof(stream_impl_t));
+    if (!stream)
+        return nullptr;
+
+    stream_impl_t* impl = to_impl(stream);
     impl->data = malloc(INITIAL_CAPACITY);
     if (!impl->data) 
     {
-        object_destroy(obj);
+        object_destroy((object_t)stream);
         return NULL;
     }
     
@@ -49,7 +42,7 @@ stream_t stream_create(void)
     impl->capacity = INITIAL_CAPACITY;
     impl->position = 0;
     
-    return (stream_t)obj;
+    return stream;
 }
 
 stream_t stream_create_from_data(const uint8_t* data, size_t size) 
@@ -57,9 +50,9 @@ stream_t stream_create_from_data(const uint8_t* data, size_t size)
     stream_t stream = stream_create();
     if (!stream) return NULL;
     
-    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, stream_type);
+    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, g_stream_type);
     
-    ensure_capacity(impl, size);
+    stream_ensure_capacity(impl, size);
     memcpy(impl->data, data, size);
     impl->size = size;
     impl->position = 0;
@@ -93,9 +86,9 @@ stream_t stream_create_from_file(const char* path)
         return NULL;
     }
     
-    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, stream_type);
+    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, g_stream_type);
     
-    ensure_capacity(impl, (size_t)file_size);
+    stream_ensure_capacity(impl, (size_t)file_size);
     size_t bytes_read = fread(impl->data, 1, (size_t)file_size, file);
     fclose(file);
     
@@ -109,7 +102,7 @@ void stream_destroy(stream_t stream)
 {
     if (!stream) return;
     
-    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, stream_type);
+    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, g_stream_type);
     free(impl->data);
     object_destroy((object_t)stream);
 }
@@ -118,7 +111,7 @@ bool stream_save(stream_t stream, const char* path)
 {
     if (!stream || !path) return false;
     
-    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, stream_type);
+    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, g_stream_type);
     
     FILE* file = fopen(path, "wb");
     if (!file) return false;
@@ -133,7 +126,7 @@ const uint8_t* stream_data(stream_t stream)
 {
     if (!stream) return NULL;
     
-    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, stream_type);
+    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, g_stream_type);
     return impl->data;
 }
 
@@ -141,7 +134,7 @@ size_t stream_size(stream_t stream)
 {
     if (!stream) return 0;
     
-    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, stream_type);
+    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, g_stream_type);
     return impl->size;
 }
 
@@ -149,7 +142,7 @@ void stream_clear(stream_t stream)
 {
     if (!stream) return;
     
-    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, stream_type);
+    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, g_stream_type);
     impl->size = 0;
     impl->position = 0;
 }
@@ -158,7 +151,7 @@ size_t stream_position(stream_t stream)
 {
     if (!stream) return 0;
     
-    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, stream_type);
+    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, g_stream_type);
     return impl->position;
 }
 
@@ -166,7 +159,7 @@ void stream_set_position(stream_t stream, size_t position)
 {
     if (!stream) return;
     
-    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, stream_type);
+    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, g_stream_type);
     impl->position = position;
 }
 
@@ -182,7 +175,7 @@ bool stream_is_eos(stream_t stream)
 {
     if (!stream) return true;
     
-    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, stream_type);
+    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, g_stream_type);
     return impl->position >= impl->size;
 }
 
@@ -191,7 +184,7 @@ bool stream_read_signature(stream_t stream, const char* expected_signature, size
 {
     if (!stream || !expected_signature) return false;
     
-    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, stream_type);
+    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, g_stream_type);
     
     if (impl->position + signature_length > impl->size) return false;
     
@@ -207,7 +200,7 @@ uint8_t stream_read_uint8(stream_t stream)
 {
     if (!stream) return 0;
     
-    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, stream_type);
+    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, g_stream_type);
     
     if (impl->position + sizeof(uint8_t) > impl->size) return 0;
     
@@ -306,7 +299,7 @@ void stream_read(stream_t stream, void* dest, size_t size)
 {
     if (!stream || !dest || size == 0) return;
     
-    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, stream_type);
+    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, g_stream_type);
     
     if (impl->position + size > impl->size) 
     {
@@ -414,9 +407,9 @@ void stream_write(stream_t stream, const void* src, size_t size)
 {
     if (!stream || !src || size == 0) return;
     
-    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, stream_type);
+    stream_impl_t* impl = (stream_impl_t*)object_impl((object_t)stream, g_stream_type);
     
-    ensure_capacity(impl, impl->position + size);
+    stream_ensure_capacity(impl, impl->position + size);
     
     memcpy(impl->data + impl->position, src, size);
     impl->position += size;
@@ -442,7 +435,7 @@ void stream_write_color(stream_t stream, color_t value)
 }
 
 // Internal helper functions
-static void ensure_capacity(stream_impl_t* impl, size_t required_size) 
+static void stream_ensure_capacity(stream_impl_t* impl, size_t required_size) 
 {
     if (required_size <= impl->capacity) return;
     
@@ -460,11 +453,14 @@ static void ensure_capacity(stream_impl_t* impl, size_t required_size)
     }
 }
 
-static void stream_init(void) 
+void stream_init() 
 {
-    stream_type = object_type_create("stream", sizeof(stream_impl_t));
+    assert(!g_stream_type);
+    g_stream_type = object_type_create("stream");
 }
 
-static void stream_uninit(void)
+void stream_uninit()
 {
+    assert(g_stream_type);
+    g_stream_type = nullptr;
 }

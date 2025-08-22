@@ -2,31 +2,18 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 // 
 
-#include "noz/hash.h"
-#include "noz/object.h"
-#include <SDL3/SDL.h>
-#include <assert.h>
-#include <stdlib.h>
-#include <stdbool.h>
-
-// Forward declarations - these types need to be defined elsewhere
 typedef struct texture* texture_t;
 
-// Sampler wrapper object
 typedef struct sampler 
 {
     SDL_GPUSampler* sampler;
 } sampler_t;
 
-// Cache for sampler objects using object_registry with 64-bit keys
-static object_registry_t g_sampler_cache = NULL;
+static map_t g_sampler_cache = NULL;
 static SDL_GPUDevice* g_device = NULL;
 static object_type_t g_sampler_type = NULL;
 
 #define INITIAL_CACHE_SIZE 32
-
-// Forward declarations - these functions need to be implemented elsewhere
-extern sampler_options_t get_sampler_options(texture_t texture);
 
 static uint64_t sampler_options_hash(const sampler_options_t* options) 
 {
@@ -42,11 +29,11 @@ SDL_GPUSampler* sampler_factory_sampler(texture_t texture)
     assert(g_sampler_cache);
     assert(texture);
 
-    sampler_options_t options = get_sampler_options(texture);
+    sampler_options_t options = texture_sampler_options(texture);
     uint64_t key = sampler_options_hash(&options);
 
     // Check if sampler exists in cache
-    object_t cached_obj = object_registry_get(g_sampler_cache, key);
+    object_t cached_obj = (object_t)map_get(g_sampler_cache, key);
     if (cached_obj) 
     {
         sampler_t* sampler_obj = (sampler_t*)object_impl(cached_obj, g_sampler_type);
@@ -74,7 +61,8 @@ SDL_GPUSampler* sampler_factory_sampler(texture_t texture)
     }
 
     // Store in cache
-    object_t cache_obj = object_registry_alloc(g_sampler_cache, key);
+    object_t cache_obj = (object_t)object_create(g_sampler_type, sizeof(sampler_t));
+    if (cache_obj) map_set(g_sampler_cache, key, cache_obj);
     if (cache_obj) 
     {
         sampler_t* sampler_obj = (sampler_t*)object_impl(cache_obj, g_sampler_type);
@@ -115,8 +103,8 @@ SDL_GPUSamplerAddressMode to_sdl_clamp(texture_clamp_t mode)
 void sampler_factory_init(const renderer_traits* traits, SDL_GPUDevice* dev)
 {
     g_device = dev;
-    g_sampler_type = object_type_create("sampler", sizeof(sampler_t));
-    g_sampler_cache = object_registry_create(g_sampler_type, sizeof(sampler_t), traits->max_samplers);
+    g_sampler_type = object_type_create("sampler");
+    g_sampler_cache = map_create(traits->max_samplers);
 }
 
 void sampler_factory_uninit()

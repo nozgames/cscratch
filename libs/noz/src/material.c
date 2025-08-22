@@ -87,8 +87,6 @@ void material_set_texture(material_t material, texture_t texture, size_t index)
     impl->textures[index] = texture;
 }
 
-
-
 void material_bind_gpu(material_t material, SDL_GPUCommandBuffer* cb)
 {
 #if 0
@@ -130,6 +128,5 @@ void material_init()
 
 void material_uninit()
 {
-    object_type_destroy(g_material_type);
     g_material_type = nullptr;
 }

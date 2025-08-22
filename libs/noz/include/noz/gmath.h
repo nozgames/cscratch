@@ -42,19 +42,6 @@ typedef union vec2_t
     float v[2];
 } vec2_t;
 
-typedef union ivec2_t
-{
-    struct
-    {
-        float x, y;
-    };
-    struct
-    {
-        float w, h;
-    };
-    float v[2];
-} ivec2_t;
-
 typedef union vec3_t
 {
     struct
@@ -142,20 +129,6 @@ GMATH_INLINE vec2_t vec2_zero()
 GMATH_INLINE vec2_t vec2_one()
 {
     return (vec2_t){1.0f, 1.0f};
-}
-
-/*
- * ivec2 functions
- */
-
-GMATH_INLINE ivec2_t ivec2_zero()
-{
-    return (ivec2_t){0, 0};
-}
-
-GMATH_INLINE ivec2_t ivec2_one()
-{
-    return (ivec2_t){1, 1};
 }
 
 /*
@@ -972,7 +945,42 @@ GMATH_INLINE float to_degrees(float radians)
     return radians / (GMATH_PI / 180.0f);
 }
 
-#endif
+/*
+ * extensions
+ */
+
+typedef union ivec2_t
+{
+    struct
+    {
+        float x, y;
+    };
+    struct
+    {
+        float w, h;
+    };
+    float v[2];
+} ivec2_t;
+
+
+GMATH_INLINE ivec2_t ivec2_zero()
+{
+    return (ivec2_t) { 0, 0 };
+}
+
+GMATH_INLINE ivec2_t ivec2_one()
+{
+    return (ivec2_t) { 1, 1 };
+}
+
+GMATH_INLINE bool ivec2_cmp(ivec2_t left, ivec2_t right)
+{
+    return (left.x == right.x) && (left.y == right.y);
+}
 
 
 #include "bounds3.h"
+
+#endif
+
+

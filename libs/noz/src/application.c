@@ -134,3 +134,13 @@ void update_screen_size()
     g_application.screen_size = (ivec2_t){w, h};
     g_application.screen_aspect_ratio = (float)w / (float)h;
 }
+
+ivec2_t screen_size()
+{
+    return g_application.screen_size;
+}
+
+float screen_aspect_ratio()
+{
+    return g_application.screen_aspect_ratio;
+}

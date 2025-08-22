@@ -2,55 +2,19 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "noz/hash.h"
-#include "noz/object.h"
-#include <SDL3/SDL.h>
-#include <assert.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
-
-// Forward declarations - these types need to be defined elsewhere
 typedef struct shader* shader_t;
 
-// Cache for pipeline objects using object_registry with 64-bit keys
-static object_registry_t pipeline_cache = NULL;
-static SDL_GPUDevice* device = NULL;
-static SDL_Window* window = NULL;
-static object_type_t pipeline_object_type = NULL;
+static map_t g_pipeline_cache = NULL;
+static SDL_GPUDevice* g_device = NULL;
+static SDL_Window* g_window = NULL;
+static object_type_t g_pipeline_factory_type = NULL;
 
 #define INITIAL_CACHE_SIZE 64
 
-// Pipeline wrapper object
-typedef struct pipeline_object {
+typedef struct pipeline_object 
+{
     SDL_GPUGraphicsPipeline* pipeline;
 } pipeline_object_t;
-
-void pipeline_factory_init(SDL_Window* win, SDL_GPUDevice* dev) 
-{
-    window = win;
-    device = dev;
-    
-    if (!pipeline_object_type) 
-    {
-        pipeline_object_type = object_type_create("pipeline");
-    }
-    
-    pipeline_cache = object_registry_create(pipeline_object_type, sizeof(pipeline_object_t), INITIAL_CACHE_SIZE);
-}
-
-void unload_pipeline_factory(void) 
-{
-    if (pipeline_cache) 
-    {
-        // TODO: Iterate through cache and destroy pipelines
-        object_destroy((object_t)pipeline_cache);
-        pipeline_cache = NULL;
-    }
-    
-    window = NULL;
-    device = NULL;
-}
 
 static uint64_t pipeline_key(shader_t shader, bool msaa, bool shadow) 
 {
@@ -117,8 +81,8 @@ extern SDL_GPUBlendFactor get_gpu_dst_blend(shader_t shader);
 static SDL_GPUGraphicsPipeline* create_pipeline(shader_t shader, const SDL_GPUVertexAttribute* attributes,
                                                 size_t attribute_count, bool msaa, bool shadow) 
 {
-    assert(window);
-    assert(device);
+    assert(g_window);
+    assert(g_device);
     assert(shader);
 
     // Create pipeline directly using the shader's compiled shaders
@@ -136,7 +100,7 @@ static SDL_GPUGraphicsPipeline* create_pipeline(shader_t shader, const SDL_GPUVe
 
     SDL_GPUColorTargetDescription color_target = {0};
     if (!shadow) {
-        color_target.format = SDL_GetGPUSwapchainTextureFormat(device, window);
+        color_target.format = SDL_GetGPUSwapchainTextureFormat(g_device, g_window);
     }
 
     SDL_GPUGraphicsPipelineCreateInfo pipeline_create_info = {0};
@@ -219,7 +183,7 @@ static SDL_GPUGraphicsPipeline* create_pipeline(shader_t shader, const SDL_GPUVe
     pipeline_create_info.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
     pipeline_create_info.target_info.has_depth_stencil_target = true;
 
-    SDL_GPUGraphicsPipeline* pipeline = SDL_CreateGPUGraphicsPipeline(device, &pipeline_create_info);
+    SDL_GPUGraphicsPipeline* pipeline = SDL_CreateGPUGraphicsPipeline(g_device, &pipeline_create_info);
     SDL_DestroyProperties(pipeline_create_info.props);
     
     if (!pipeline) {
@@ -230,18 +194,19 @@ static SDL_GPUGraphicsPipeline* create_pipeline(shader_t shader, const SDL_GPUVe
     return pipeline;
 }
 
-SDL_GPUGraphicsPipeline* get_pipeline(shader_t shader, bool msaa, bool shadow) {
-    assert(window);
-    assert(device);
+SDL_GPUGraphicsPipeline* pipeline_factory_pipeline(shader_t shader, bool msaa, bool shadow)
+{
+    assert(g_window);
+    assert(g_device);
     assert(shader);
-    assert(pipeline_cache);
+    assert(g_pipeline_cache);
 
     uint64_t key = pipeline_key(shader, msaa, shadow);
 
     // Check if pipeline exists in cache
-    object_t cached_obj = object_registry_get(pipeline_cache, key);
+    object_t cached_obj = (object_t)map_get(g_pipeline_cache, key);
     if (cached_obj) {
-        pipeline_object_t* pipeline_obj = (pipeline_object_t*)object_impl(cached_obj, pipeline_object_type);
+        pipeline_object_t* pipeline_obj = (pipeline_object_t*)object_impl(cached_obj, g_pipeline_factory_type);
         return pipeline_obj->pipeline;
     }
 
@@ -259,11 +224,31 @@ SDL_GPUGraphicsPipeline* get_pipeline(shader_t shader, bool msaa, bool shadow) {
     }
 
     // Store in cache
-    object_t cache_obj = object_registry_alloc(pipeline_cache, key);
+    object_t cache_obj = (object_t)object_create(g_pipeline_factory_type, sizeof(pipeline_object_t));
+    if (cache_obj) map_set(g_pipeline_cache, key, cache_obj);
     if (cache_obj) {
-        pipeline_object_t* pipeline_obj = (pipeline_object_t*)object_impl(cache_obj, pipeline_object_type);
+        pipeline_object_t* pipeline_obj = (pipeline_object_t*)object_impl(cache_obj, g_pipeline_factory_type);
         pipeline_obj->pipeline = pipeline;
     }
 
     return pipeline;
+}
+
+void pipeline_factory_init(SDL_Window* win, SDL_GPUDevice* dev)
+{
+    assert(!g_pipeline_factory_type);
+
+    g_window = win;
+    g_device = dev;
+    g_pipeline_factory_type = object_type_create("pipeline");
+    g_pipeline_cache = map_create(INITIAL_CACHE_SIZE);
+}
+
+void pipeline_factory_uninit()
+{
+    assert(g_pipeline_factory_type);
+    object_destroy((object_t)g_pipeline_cache);
+    g_pipeline_cache = nullptr;
+    g_window = nullptr;
+    g_device = nullptr;
 }

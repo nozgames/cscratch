@@ -63,7 +63,7 @@ typedef struct set_viewport
 
 typedef struct set_scissor
 {
-    int x, y, width, height;
+    SDL_Rect rect;
 } set_scissor_t;
 
 typedef struct bind_color
@@ -200,7 +200,7 @@ void render_buffer_bind_default_texture(int texture_index)
 void render_buffer_bind_camera(camera_t camera)
 {
     assert(camera);
-    bind_camera(camera_world_to_local(camera), camera_projection(camera));
+    render_buffer_bind_camera_matrices(entity_world_to_local((entity_t)camera), camera_projection(camera));
 }
 
 void render_buffer_bind_camera_matrices(mat4_t view, mat4_t projection)
@@ -309,17 +309,12 @@ void render_buffer_execute(SDL_GPUCommandBuffer* cb)
             break;
 
         case command_type_bind_transform:
-        {
-            const auto& data = std::get<command::bind_transform>(command.data);
-            SDL_PushGPUVertexUniformData(cb, static_cast<uint32_t>(vertex_register::object), &data, sizeof(data));
+            SDL_PushGPUVertexUniformData(cb, vertex_register_object, &command->data, sizeof(bind_transform_t));
             break;
-        }
 
         case command_type_bind_camera:
         {
-            const auto& data = std::get<command::bind_camera>(command.data);
-
-            SDL_PushGPUVertexUniformData(cb, static_cast<uint32_t>(vertex_register::camera), &data, sizeof(data));
+            SDL_PushGPUVertexUniformData(cb, vertex_register_camera, &command->data, sizeof(bind_camera_t));
 
             // Store for legacy compatibility (still needed by bindTransform for ObjectBuffer)
             //_view = data.view;
@@ -332,93 +327,59 @@ void render_buffer_execute(SDL_GPUCommandBuffer* cb)
         }
 
         case command_type_bind_bones:
-        {
-            const auto& data = std::get<command::bind_bones>(command.data);
-            SDL_PushGPUVertexUniformData(cb, static_cast<uint32_t>(vertex_register::bone),
-                                         impl->bones.data() + data.offset,
-                                         static_cast<Uint32>(data.count * sizeof(mat4)));
+            SDL_PushGPUVertexUniformData(
+                cb,
+                vertex_register_bone,
+                g_render_buffer->transforms + command->data.bind_bones.offset,
+                command->data.bind_bones.count);
             break;
-        }
 
         case command_type_bind_light:
-        {
-            const auto& data = std::get<command::bind_light>(command.data);
-            SDL_PushGPUFragmentUniformData(cb, static_cast<uint32_t>(fragment_register::light), &data, sizeof(data));
+            SDL_PushGPUFragmentUniformData(cb, fragment_register_light, &command->data, sizeof(bind_light_t));
             break;
-        }
 
         case command_type_bind_color:
-        {
-            const auto& data = std::get<command::bind_color>(command.data);
-            SDL_PushGPUFragmentUniformData(cb, static_cast<uint32_t>(fragment_register::color), &data, sizeof(data));
+            SDL_PushGPUFragmentUniformData(cb, fragment_register_color, &command->data, sizeof(bind_color_t));
             break;
-        }
-
-        case command_type_set_text_options:
-        {
-            const auto& data = std::get<command::set_text_options>(command.data);
-            SDL_PushGPUFragmentUniformData(cb, static_cast<int>(fragment_register::user0), &data, sizeof(data));
-            break;
-        }
 
         case command_type_draw_mesh:
-        {
-            const auto& data = std::get<command::draw_mesh>(command.data);
-            auto mesh = impl->meshes[data.mesh];
-            render_mesh(mesh, pass);
+            mesh_render(command->data.draw_mesh.mesh, pass);
             break;
-        }
 
         case command_type_begin_pass:
-        {
-            const auto& data = std::get<command::begin_pass>(command.data);
-            if (data.target != INVALID_RESOURCE_HANDLE)
-                pass = begin_renderer_pass(impl->textures[data.target], data.clear, data.color, data.msaa);
-            else
-                pass = begin_renderer_pass(texture(), data.clear, data.color, data.msaa);
+            pass = renderer_begin_pass(
+                command->data.begin_pass.clear,
+                command->data.begin_pass.color,
+                command->data.begin_pass.msaa,
+                command->data.begin_pass.target);
             break;
-        }
 
         case command_type_bind_default_texture:
-            bind_default_texture();
+            renderer_bind_default_texture(command->data.bind_default_texture.index);
             break;
 
         case command_type_begin_gamma_pass:
-            pass = begin_renderer_gamma_pass();
+            pass = renderer_begin_gamma_pass();
             break;
 
         case command_type_end_pass:
-        {
-            const auto& data = std::get<command::end_pass>(command.data);
             end_renderer_pass();
             pass = nullptr;
             break;
-        }
 
-        case command_type_begin_is_shadow_pass:
-            pass = begin_renderer_is_shadow_pass();
+        case command_type_begin_shadow_pass:
+            pass = renderer_begin_shadow_pass();
             break;
-
-        case command_type_end_is_shadow_pass:
-        {
-            end_renderer_pass();
-            pass = nullptr;
-            break;
-        }
 
         case command_type_set_viewport:
         {
-            SDL_SetGPUViewport(pass, &cmd.data.set_viewport.gpu_viewport);
+            SDL_SetGPUViewport(pass, &command->data.set_viewport.gpu_viewport);
             break;
         }
 
         case command_type_set_scissor:
-        {
-            const auto& data = std::get<command::set_scissor>(command.data);
-            SDL_Rect scissor = {data.x, data.y, data.width, data.height};
-            SDL_SetGPUScissor(pass, &scissor);
+            SDL_SetGPUScissor(pass, &command->data.set_scissor.rect);
             break;
-        }
         }
     }
 }
@@ -468,13 +429,19 @@ void render_buffer_execute(SDL_GPUCommandBuffer* cb)
 
 void render_buffer_init(const renderer_traits* traits)
 {
-    g_render_buffer_type = object_type_create("render_buffer", g_render_buffer_type);
+    g_render_buffer_type = object_type_create("render_buffer");
 
     size_t commands_size = traits->max_frame_commands * sizeof(command_t);
 	size_t transforms_size = traits->max_frame_transforms * sizeof(mat4_t);
     size_t buffer_size = sizeof(render_buffer_impl_t) + commands_size + transforms_size;
     
-    g_render_buffer = (render_buffer_t*)malloc(buffer_size);
+    g_render_buffer = (render_buffer_impl_t*)malloc(buffer_size);
+    if (!g_render_buffer)
+    {
+        application_error_out_of_memory();
+        return;
+    }        
+
 	memset(g_render_buffer, 0, buffer_size);
 	g_render_buffer->commands = (command_t*)((char*)g_render_buffer + sizeof(render_buffer_impl_t));
     g_render_buffer->transforms = (mat4_t*)((char*)g_render_buffer->commands + commands_size);

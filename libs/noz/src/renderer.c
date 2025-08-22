@@ -5,7 +5,7 @@
 void reset_state();
 void update_back_buffer();
 void init_gamma_pass();
-void init_shadow_pass();
+void init_shadow_pass(const renderer_traits* traits);
 void render_gamma_pass();
 
 typedef struct renderer_impl
@@ -40,7 +40,7 @@ typedef struct renderer_impl
     SDL_GPUTexture* swap_chain_texture;
     SDL_GPUTexture* shadow_map;
     SDL_GPUSampler* shadow_sampler;
-    //shader shadow_shader;
+    shader_t shadow_shader;
     bool shadow_pass;
     bool msaa;
     SDL_GPUGraphicsPipeline* pipeline;
@@ -241,7 +241,7 @@ SDL_GPURenderPass* renderer_begin_pass_gpu(SDL_GPUTexture* target, bool clear, c
     return g_renderer.render_pass;
 }
 
-SDL_GPURenderPass* renderer_begin_pass(texture_t target, bool clear, color_t clear_color, bool msaa)
+SDL_GPURenderPass* renderer_begin_pass(bool clear, color_t clear_color, bool msaa, texture_t target)
 {
     assert(!g_renderer.render_pass);
 
@@ -310,13 +310,13 @@ void end_renderer_pass()
     g_renderer.msaa = false;
 }
 
-void bind_default_texture()
+void renderer_bind_default_texture(int index)
 {
     assert(g_renderer.device);
-    bind_texture(g_renderer.command_buffer, g_renderer.default_texture, (int)(sampler_register_user0));
+    renderer_bind_texture(g_renderer.command_buffer, g_renderer.default_texture, sampler_register_user0 + index);
 }
 
-void bind_texture(SDL_GPUCommandBuffer* cb, texture_t texture, int index)
+void renderer_bind_texture(SDL_GPUCommandBuffer* cb, texture_t texture, int index)
 {
     if (g_renderer.shadow_pass)
         return;
@@ -326,17 +326,21 @@ void bind_texture(SDL_GPUCommandBuffer* cb, texture_t texture, int index)
 
     // Main pass: bind diffuse texture and shadow map
     SDL_GPUTextureSamplerBinding binding = {0};
-    binding.sampler = get_sampler(actual_texture);
-    binding.texture = get_gpu_texture(actual_texture);
+    binding.sampler = sampler_factory_sampler(actual_texture);
+    binding.texture = texture_gpu_texture(actual_texture);
     SDL_BindGPUFragmentSamplers(g_renderer.render_pass, index, &binding, 1);
 }
 
-void bind_shader(shader_t shader)
+void renderer_bind_shader(shader_t shader)
 {
     assert(shader);
 
-    SDL_GPUGraphicsPipeline* pipeline = get_pipeline(g_renderer.shadow_pass ? g_renderer.shadow_shader : shader, g_renderer.msaa,
-                                  g_renderer.shadow_pass);
+    SDL_GPUGraphicsPipeline* pipeline = pipeline_factory_pipeline(
+        g_renderer.shadow_pass
+            ? g_renderer.shadow_shader
+            : shader,
+        g_renderer.msaa,
+        g_renderer.shadow_pass);
     if (!pipeline)
         return;
 
@@ -348,15 +352,15 @@ void bind_shader(shader_t shader)
     g_renderer.pipeline = pipeline;
 }
 
-void bind_renderer_material(material_t material)
+void renderer_bind_material(material_t material)
 {
     assert(material);
 
-    shader_t shader = get_shader(material);
+    shader_t shader = material_shader(material);
     assert(shader);
 
-    bind_shader(shader);
-    bind(g_renderer.command_buffer, material);
+    renderer_bind_shader(shader);
+    material_bind_gpu(material, g_renderer.command_buffer);
 }
 
 void bind_transform(const mat4_t* transform)
@@ -374,7 +378,7 @@ void bind_bones(const mat4_t* bones, int count)
                                  (Uint32)(count * sizeof(mat4_t)));
 }
 
-SDL_GPURenderPass* begin_renderer_shadow_pass()
+SDL_GPURenderPass* renderer_begin_shadow_pass()
 {
     assert(!g_renderer.render_pass);
     assert(g_renderer.command_buffer);
@@ -400,19 +404,19 @@ void reset_state()
     g_renderer.pipeline = NULL;
 
     for (int i = 0; i < (int)(sampler_register_count); i++)
-        bind_texture(g_renderer.command_buffer, g_renderer.default_texture, i);
+        renderer_bind_texture(g_renderer.command_buffer, g_renderer.default_texture, i);
 }
 
 void update_back_buffer()
 {
     // is the back buffer the correct size?
     assert(g_renderer.device);
-    ivec2_t screen_size = get_screen_size();
-    if (g_renderer.linear_back_buffer && get_size(g_renderer.linear_back_buffer) == screen_size)
+    ivec2_t size = screen_size();
+    if (g_renderer.linear_back_buffer && ivec2_cmp(texture_size(g_renderer.linear_back_buffer), size))
         return;
 
     g_renderer.linear_back_buffer =
-        create_render_texture(screen_size.x, screen_size.y, texture_format_rgba16f, "linear");
+        texture_create_render_target(size.x, size.y, texture_format_rgba16f, "linear");
 }
 
 void init_gamma_pass()
@@ -421,26 +425,23 @@ void init_gamma_pass()
     // TODO: Implement gamma pass when needed
 }
 
-SDL_GPURenderPass* begin_renderer_gamma_pass()
+SDL_GPURenderPass* renderer_begin_gamma_pass()
 {
-    return begin_renderer_pass(g_renderer.swap_chain_texture, false, color_transparent);
+    return renderer_begin_pass_gpu(g_renderer.swap_chain_texture, false, color_transparent);
 }
 
 void render_gamma_pass()
 {
-    set_texture(g_renderer.gamma_material, g_renderer.linear_back_buffer, 0);
+    material_set_texture(g_renderer.gamma_material, g_renderer.linear_back_buffer, 0);
 
     static mat4_t identity = {{1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1}}; // identity matrix
-    render_buffer_t rb = g_renderer.render_buffer;
-    begin_gamma_pass(rb);
-    bind_camera(rb, &identity, &identity);
-    bind_transform(rb, &identity);
-    bind_material(rb, g_renderer.gamma_material);
-    render_mesh(rb, g_renderer.gamma_mesh);
-    end_render_pass(rb);
+    render_buffer_begin_gamma_pass();
+    render_buffer_bind_camera_matrices(identity, identity);
+    render_buffer_bind_transform(identity);
+    render_buffer_bind_material(g_renderer.gamma_material);
+    render_buffer_render_mesh(g_renderer.gamma_mesh);
+    render_buffer_end_pass();
 }
-
-
 
 void renderer_init(const renderer_traits* traits, SDL_Window* window)
 {
@@ -450,7 +451,7 @@ void renderer_init(const renderer_traits* traits, SDL_Window* window)
     //g_renderer.render_buffer = create_render_buffer();
 
     // Create GPU device
-    g_renderer.device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, SDL_TRUE, NULL);
+    g_renderer.device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, NULL);
     if (!g_renderer.device)
         application_error(SDL_GetError());
 
@@ -464,8 +465,8 @@ void renderer_init(const renderer_traits* traits, SDL_Window* window)
 
     texture_init(traits, g_renderer.device);
     shader_init(traits, g_renderer.device);
-    font_init();
-    mesh_init(g_renderer.device);
+    font_init(traits, g_renderer.device);
+    mesh_init(traits, g_renderer.device);
     render_buffer_init(traits);
     sampler_factory_init(traits, g_renderer.device);
     pipeline_factory_init(window, g_renderer.device);
@@ -481,7 +482,7 @@ void renderer_init(const renderer_traits* traits, SDL_Window* window)
 void renderer_uninit()
 {
     pipeline_factory_uninit();
-    sampler_factory_uinit();
+    sampler_factory_uninit();
     render_buffer_uninit();
     mesh_uninit();
     font_uninit();
@@ -529,8 +530,8 @@ void renderer_uninit()
     // Release default texture
     // g_renderer.default_texture = NULL; // TODO: implement proper cleanup
 
-    unload_sampler_factory();
-    unload_pipeline_factory();
+    sampler_factory_uninit();
+    pipeline_factory_uninit();
 
     // Destroy GPU device last
     if (g_renderer.device)

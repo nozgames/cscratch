@@ -118,9 +118,6 @@ void object_uninit();
 void object_pool_init();
 void object_pool_uninit();
 
-// @object_registry
-void object_registry_init();
-void object_registry_uninit();
 
 // @asset
 const char* asset_path(const char* name, const char* ext);
@@ -136,7 +133,7 @@ void renderer_begin_frame();
 void renderer_end_frame();
 SDL_GPUDevice* get_gpu_device();
 SDL_GPURenderPass* renderer_begin_pass(bool clear, color_t clear_color, bool msaa, texture_t target);
-SDL_GPURenderPass* renderer_being_gamma_pass();
+SDL_GPURenderPass* renderer_begin_gamma_pass();
 SDL_GPURenderPass* renderer_begin_shadow_pass();
 void renderer_end_pass();
 void renderer_bind_texture(SDL_GPUCommandBuffer* cb, texture_t texture, int index);
@@ -152,13 +149,13 @@ void render_buffer_execute(SDL_GPUCommandBuffer* cb);
 
 // @sampler_factory
 void sampler_factory_init(const renderer_traits* traits, SDL_GPUDevice* device);
-void sampler_factory_uinit();
+void sampler_factory_uninit();
 SDL_GPUSampler* sampler_factory_sampler(texture_t texture);
 
 // @pipeline_factory
-void load_pipeline_factory(SDL_Window* window, SDL_GPUDevice* device);
-void unload_pipeline_factory();
-SDL_GPUGraphicsPipeline* get_pipeline(shader_t shader, bool msaa, bool shadow);
+void pipeline_factory_init(SDL_Window* window, SDL_GPUDevice* device);
+void pipeline_factory_uninit();
+SDL_GPUGraphicsPipeline* pipeline_factory_pipeline(shader_t shader, bool msaa, bool shadow);
 
 // @material
 void material_init();
@@ -210,9 +207,9 @@ bool is_depth_write_enabled(shader_t shader);
 const char* get_name(shader_t shader);
 
 // @font
-void font_init();
+void font_init(const renderer_traits* traits, SDL_GPUDevice* device);
 void font_uninit();
-material_t get_material(font_t font);
+material_t font_material(font_t font);
 
 // @camera
 void camera_init();
