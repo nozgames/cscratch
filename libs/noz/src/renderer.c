@@ -94,7 +94,7 @@ void renderer_begin_frame()
     update_back_buffer();
 
     SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(g_renderer.device);
-    SDL_GPUTexture* backbuffer = NULL;
+    //SDL_GPUTexture* backbuffer = NULL;
     Uint32 width, height;
     SDL_WaitAndAcquireGPUSwapchainTexture(cmd, g_renderer.window, &g_renderer.swap_chain_texture, &width, &height);
     if (!g_renderer.swap_chain_texture)
@@ -300,7 +300,7 @@ SDL_GPURenderPass* renderer_begin_pass(bool clear, color_t clear_color, bool msa
 #endif
 }
 
-void end_renderer_pass()
+void renderer_end_pass()
 {
     assert(g_renderer.render_pass);
 

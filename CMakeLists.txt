@@ -15,12 +15,6 @@ target_link_libraries(cscratch)
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT cscratch)
 target_precompile_headers(cscratch PUBLIC src/pch.h)
 
-# Treat warnings as errors
-if(MSVC)
-    target_compile_options(cscratch PRIVATE /WX)
-else()
-    target_compile_options(cscratch PRIVATE -Werror)
-endif()
 
 target_link_libraries(cscratch noz)
 set_target_properties(cscratch PROPERTIES WIN32_EXECUTABLE TRUE)

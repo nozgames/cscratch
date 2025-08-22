@@ -17,7 +17,9 @@
       "Bash(mkdir:*)",
       "Bash(mv:*)",
       "Bash(cat:*)",
-      "Bash(cmake:*)"
+      "Bash(cmake:*)",
+      "Bash(sed:*)",
+      "Bash(make:*)"
     ],
     "deny": [],
     "ask": []

@@ -4,7 +4,7 @@
 
 typedef struct shader_impl 
 {
-    string128_t name;
+    name_t name;
     SDL_GPUShader* vertex;
     SDL_GPUShader* fragment;
     int vertex_uniform_count;
@@ -67,7 +67,7 @@ shader_t shader_load(const char* name)
     }
     
     shader_impl_t* impl = (shader_impl_t*)object_impl(cache_obj, g_shader_type);
-	string128_set(&impl->name, name);
+	name_set(&impl->name, name);
     impl->vertex = nullptr;
     impl->fragment = nullptr;
     impl->vertex_uniform_count = 0;

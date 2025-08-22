@@ -2,13 +2,12 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "noz/hash.h"
+NOZ_WARNINGS_DISABLE();
 #include <string.h>
-
-// Configure xxHash for static implementation
 #define XXH_STATIC_LINKING_ONLY
 #define XXH_IMPLEMENTATION
 #include "xxhash.h"
+NOZ_WARNINGS_ENABLE();
 
 uint64_t hash_64(const void* data, size_t size) 
 {

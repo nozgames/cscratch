@@ -2,6 +2,8 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
+#include <stdio.h>
+
 // @forward
 void application_update_screen_size();
 
@@ -112,15 +114,9 @@ bool application_update()
             return false;
 
         if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED)
-        {
-            bool previousFocus = g_application.has_focus;
             g_application.has_focus = true;
-        }
         else if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST)
-        {
-            bool previousFocus = g_application.has_focus;
             g_application.has_focus = false;
-        }
         else if (event.type == SDL_EVENT_WINDOW_RESIZED)
             application_update_screen_size();
     }

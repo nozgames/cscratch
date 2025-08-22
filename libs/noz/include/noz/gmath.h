@@ -121,12 +121,12 @@ typedef union quat_t
  * vec2 functions
  */
 
-GMATH_INLINE vec2_t vec2_zero()
+GMATH_INLINE vec2_t vec2_zero(void)
 {
     return (vec2_t){0.0f, 0.0f};
 }
 
-GMATH_INLINE vec2_t vec2_one()
+GMATH_INLINE vec2_t vec2_one(void)
 {
     return (vec2_t){1.0f, 1.0f};
 }
@@ -135,12 +135,12 @@ GMATH_INLINE vec2_t vec2_one()
  * vec3 functions
  */
 
-GMATH_INLINE vec3_t vec3_zero()
+GMATH_INLINE vec3_t vec3_zero(void)
 {
     return (vec3_t){0.0f, 0.0f, 0.0f};
 }
 
-GMATH_INLINE vec3_t vec3_one()
+GMATH_INLINE vec3_t vec3_one(void)
 {
     return (vec3_t){1.0f, 1.0f, 1.0f};
 }
@@ -287,12 +287,12 @@ GMATH_INLINE vec3_t vec3_normalize(vec3_t vec)
  * vec4 functions
  */
 
-GMATH_INLINE vec4_t vec4_zero()
+GMATH_INLINE vec4_t vec4_zero(void)
 {
     return (vec4_t){0.0f, 0.0f, 0.0f, 0.0f};
 }
 
-GMATH_INLINE vec4_t vec4_one()
+GMATH_INLINE vec4_t vec4_one(void)
 {
     return (vec4_t){1.0f, 1.0f, 1.0f, 1.0f};
 }
@@ -354,7 +354,7 @@ GMATH_INLINE float vec4_dot(vec4_t left, vec4_t right)
  */
 
 // TESTED
-GMATH_INLINE mat4_t mat4_zero()
+GMATH_INLINE mat4_t mat4_zero(void)
 {
     return (mat4_t){{
         {0, 0, 0, 0},
@@ -376,7 +376,7 @@ GMATH_INLINE mat4_t mat4_diagonal(float f)
 }
 
 // TESTED
-GMATH_INLINE mat4_t mat4_identity()
+GMATH_INLINE mat4_t mat4_identity(void)
 {
     return mat4_diagonal(1.0f);
 }
@@ -953,13 +953,13 @@ typedef union ivec2_t
 {
     struct
     {
-        float x, y;
+        int x, y;
     };
     struct
     {
-        float w, h;
+        int w, h;
     };
-    float v[2];
+    int v[2];
 } ivec2_t;
 
 

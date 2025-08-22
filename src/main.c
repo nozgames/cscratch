@@ -1,3 +1,7 @@
+//
+//  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
+//
+
 int main(int argc, char* argv[])
 {
     application_init(nullptr);

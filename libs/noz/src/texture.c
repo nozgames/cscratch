@@ -4,7 +4,7 @@
 
 typedef struct texture_impl 
 {
-    char* name;
+    name_t name;
     SDL_GPUTexture* handle;
     sampler_options_t sampler_options;
     ivec2_t size;
@@ -30,13 +30,16 @@ static object_type_t g_texture_type = NULL;
 
 #define INITIAL_CACHE_SIZE 64
 
-// External dependencies that need to be implemented elsewhere
-extern const char* asset_path(const char* name, const char* extension);
-
 // Forward declarations
-static void texture_create_from_memory_impl(texture_impl_t* impl, const void* data, int width, int height, int channels, bool generate_mipmaps);
+static void texture_create_from_memory_impl(texture_impl_t* impl, const void* data, size_t width, size_t height, int channels, bool generate_mipmaps);
 static void texture_load_impl(texture_impl_t* impl);
 static void texture_destroy_impl(texture_impl_t* impl);
+
+static inline texture_impl_t* to_impl(texture_t texture)
+{
+    assert(texture);
+    return (texture_impl_t*)object_impl((object_t)texture, g_texture_type);
+}
 
 texture_t texture_load(const char* name)
 {
@@ -62,21 +65,10 @@ texture_t texture_load(const char* name)
     }
     
     texture_impl_t* impl = (texture_impl_t*)object_impl(cache_obj, g_texture_type);
-    
-    // Initialize implementation
-    impl->name = malloc(strlen(name) + 1);
-    if (!impl->name) 
-    {
-        object_destroy(cache_obj);
-        return NULL;
-    }
-    strcpy(impl->name, name);
-    
+    name_set(&impl->name, name);    
     impl->handle = NULL;
     impl->size.x = 0;
     impl->size.y = 0;
-    
-    // Initialize sampler options with defaults
     impl->sampler_options.min_filter = texture_filter_linear;
     impl->sampler_options.mag_filter = texture_filter_linear;
     impl->sampler_options.clamp_u = texture_clamp_clamp;
@@ -101,33 +93,19 @@ texture_t texture_create_render_target(int width, int height, texture_format_t f
     assert(width > 0);
     assert(height > 0);
     assert(g_device);
-    assert(name);
-
-    // Use existing creation flow but with a unique key
-    char render_texture_name[256];
-    snprintf(render_texture_name, sizeof(render_texture_name), "render_%s_%dx%d", name, width, height);
+       
+    texture_t texture = (texture_t)object_create(g_texture_type, sizeof(texture_impl_t));
+    if (!texture)
+        return nullptr;
     
-    uint64_t key = hash_string(render_texture_name);
-    
-    object_t cache_obj = (object_t)object_create(g_texture_type, sizeof(texture_impl_t));
-    if (cache_obj) map_set(g_texture_cache, key, cache_obj);
-    if (!cache_obj) 
-    {
-        return NULL;
-    }
-    
-    texture_impl_t* impl = (texture_impl_t*)object_impl(cache_obj, g_texture_type);
-    
-    impl->name = malloc(strlen(render_texture_name) + 1);
-    if (!impl->name) 
-    {
-        object_destroy(cache_obj);
-        return NULL;
-    }
-    strcpy(impl->name, render_texture_name);
-    
+    texture_impl_t* impl = (texture_impl_t*)to_impl(texture);
     impl->size.x = width;
     impl->size.y = height;
+
+    if (name)
+        name_set(&impl->name, name);
+    else
+        name_format(&impl->name, "render_%s_%dx%d", name, width, height);
 
     SDL_GPUTextureCreateInfo texture_info = {0};
     texture_info.type = SDL_GPU_TEXTURETYPE_2D;
@@ -144,86 +122,54 @@ texture_t texture_create_render_target(int width, int height, texture_format_t f
     impl->handle = SDL_CreateGPUTexture(g_device, &texture_info);
     SDL_DestroyProperties(texture_info.props);
 
-    return (texture_t)cache_obj;
+    return (texture_t)texture;
 }
 
 texture_t texture_create_raw(const uint8_t* data, size_t width, size_t height, texture_format_t format, const char* name)
 {
-    if (!data || !name) return NULL;
+    assert(data);
     
     // Create texture with unique name
-    char data_texture_name[256];
-    snprintf(data_texture_name, sizeof(data_texture_name), "data_%s_%dx%d", name, width, height);
+    texture_t texture = (texture_t)object_create(g_texture_type, sizeof(texture_impl_t));
+    if (!texture)
+        return nullptr;
     
-    uint64_t key = hash_string(data_texture_name);
-    
-    object_t cache_obj = (object_t)object_create(g_texture_type, sizeof(texture_impl_t));
-    if (cache_obj) map_set(g_texture_cache, key, cache_obj);
-    if (!cache_obj) 
-    {
-        return NULL;
-    }
-    
-    texture_impl_t* impl = (texture_impl_t*)object_impl(cache_obj, g_texture_type);
-    
-    impl->name = malloc(strlen(data_texture_name) + 1);
-    if (!impl->name) 
-    {
-        object_destroy(cache_obj);
-        return NULL;
-    }
-    strcpy(impl->name, data_texture_name);
-    
+	texture_impl_t* impl = (texture_impl_t*)to_impl(texture);
+    if (name)
+        name_set(&impl->name, name);
+    else
+        name_format(&impl->name, "data_%s_%zux%zu", name, width, height);
+        
     texture_create_from_memory_impl(impl, data, width, height, texture_format_bytes_per_pixel(format), false);
-    return (texture_t)cache_obj;
+    return (texture_t)texture;
 }
 
 static void texture_destroy_impl(texture_impl_t* impl)
 {
     assert(impl);
     
-    if (!impl->handle)
-        return;
-
-    if (!g_device)
-        return;
-
-    SDL_ReleaseGPUTexture(g_device, impl->handle);
-    impl->handle = NULL;
-    
-    free(impl->name);
-    impl->name = NULL;
+    if (impl->handle)
+		SDL_ReleaseGPUTexture(g_device, impl->handle);
 }
 
-// Property getter functions with new naming convention
 ivec2_t texture_size(texture_t texture)
 {
-    ivec2_t zero = {0, 0};
-    if (!texture) return zero;
-    
-    texture_impl_t* impl = (texture_impl_t*)object_impl((object_t)texture, g_texture_type);
-    return impl->size;
+    return to_impl(texture)->size;
 }
 
 int texture_width(texture_t texture)
 {
-    if (!texture) return 0;
-    texture_impl_t* impl = (texture_impl_t*)object_impl((object_t)texture, g_texture_type);
-    return impl->size.x;
+    return to_impl(texture)->size.x;
 }
 
 int texture_height(texture_t texture)
 {
-    if (!texture) return 0;
-    texture_impl_t* impl = (texture_impl_t*)object_impl((object_t)texture, g_texture_type);
-    return impl->size.y;
+    return to_impl(texture)->size.y;
 }
 
 SDL_GPUTexture* texture_gpu_handle(texture_t texture)
 {
-    if (!texture) return NULL;
-    texture_impl_t* impl = (texture_impl_t*)object_impl((object_t)texture, g_texture_type);
-    return impl->handle;
+    return to_impl(texture)->handle;
 }
 
 sampler_options_t texture_sampler_options(texture_t texture)
@@ -243,7 +189,7 @@ sampler_options_t texture_sampler_options(texture_t texture)
     return impl->sampler_options;
 }
 
-static void texture_create_from_memory_impl(texture_impl_t* impl, const void* data, int width, int height, int channels, bool generate_mipmaps)
+static void texture_create_from_memory_impl(texture_impl_t* impl, const void* data, size_t width, size_t height, int channels, bool generate_mipmaps)
 {
     assert(impl);
     assert(data);
@@ -269,7 +215,7 @@ static void texture_create_from_memory_impl(texture_impl_t* impl, const void* da
         if (!rgba_data) return;
         allocated_rgba = true;
 
-        for (int i = 0; i < width * height; ++i)
+        for (size_t i = 0; i < width * height; ++i)
         {
             rgba_data[i * 4 + 0] = rgb_data[i * 3 + 0]; // R
             rgba_data[i * 4 + 1] = rgb_data[i * 3 + 1]; // G
@@ -330,7 +276,7 @@ static void texture_create_from_memory_impl(texture_impl_t* impl, const void* da
     texture_info.num_levels = num_levels;
     texture_info.sample_count = SDL_GPU_SAMPLECOUNT_1;
     texture_info.props = SDL_CreateProperties();
-    SDL_SetStringProperty(texture_info.props, SDL_PROP_GPU_TEXTURE_CREATE_NAME_STRING, impl->name);
+    SDL_SetStringProperty(texture_info.props, SDL_PROP_GPU_TEXTURE_CREATE_NAME_STRING, impl->name.data);
 
     impl->handle = SDL_CreateGPUTexture(g_device, &texture_info);
     SDL_DestroyProperties(texture_info.props);
@@ -371,12 +317,10 @@ static void texture_create_from_memory_impl(texture_impl_t* impl, const void* da
 
 static void texture_load_impl(texture_impl_t* impl)
 {
-    const char* texture_path = asset_path(impl->name, "texture");
+    const char* texture_path = asset_path(impl->name.data, "texture");
     stream_t reader = stream_create_from_file(texture_path);
     if (!reader) 
-    {
         return;
-    }
 
     // Validate file signature
     if (!stream_read_signature(reader, "NZXT", 4))

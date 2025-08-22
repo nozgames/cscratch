@@ -211,6 +211,34 @@ void map_remove_string(map_t map, const char* key)
 	map_remove(map, hash_string(key));
 }
 
+void map_clear(map_t map)
+{
+	assert(map);
+	map_impl_t* impl = to_impl(map);
+	
+	// Clear all entries
+	memset(impl->entries, 0, sizeof(map_entry_t) * impl->capacity);
+	impl->count = 0;
+	impl->deleted_count = 0;
+}
+
+void map_iterate(map_t map, map_iterate_fn callback, void* user_data)
+{
+	assert(map);
+	assert(callback);
+	
+	map_impl_t* impl = to_impl(map);
+	
+	for (size_t i = 0; i < impl->capacity; i++)
+	{
+		map_entry_t* entry = &impl->entries[i];
+		if (entry->is_occupied && !entry->is_deleted)
+		{
+			callback(entry->key, entry->value, user_data);
+		}
+	}
+}
+
 void map_init()
 {
 	assert(!g_map_type);

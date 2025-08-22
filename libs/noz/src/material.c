@@ -10,7 +10,7 @@ typedef struct uniform_buffer_info
 
 typedef struct material_impl
 {
-    string128_t name;
+    name_t name;
     int vertex_uniform_count;
     int fragment_uniform_count;
     shader_t shader;
@@ -31,28 +31,28 @@ inline material_impl_t* to_impl(material_t material)
     return (material_impl_t*)object_impl((object_t)material, g_material_type);
 }
 
-inline uint8_t* mesh_vertex_uniform_data(material_impl_t* impl)
+inline uint8_t* material_vertex_uniform_data(material_impl_t* impl)
 {
     assert(impl->vertex_uniform_count > 0);
     uniform_buffer_info_t* buffer = impl->uniforms + 0;
     return impl->uniforms_data + buffer->offset;
 }
 
-inline size_t mesh_vertex_uniform_data_size(material_impl_t* impl)
+inline size_t material_vertex_uniform_data_size(material_impl_t* impl)
 {
     assert(impl->vertex_uniform_count > 0);
     uniform_buffer_info_t* buffer = impl->uniforms + impl->vertex_uniform_count - 1;
     return buffer->offset + buffer->size;
 }
 
-inline uint8_t* mesh_fragment_uniform_data(material_impl_t* impl)
+inline uint8_t* material_fragment_uniform_data(material_impl_t* impl)
 {
     assert(impl->fragment_uniform_count > 0);
     uniform_buffer_info_t* buffer = impl->uniforms + impl->vertex_uniform_count;
     return impl->uniforms_data + buffer->offset;
 }
 
-inline size_t mesh_fragment_uniform_data_size(material_impl_t* impl)
+inline size_t material_fragment_uniform_data_size(material_impl_t* impl)
 {
     assert(impl->fragment_uniform_count > 0);
     uniform_buffer_info_t* buffer = impl->uniforms + impl->vertex_uniform_count + impl->fragment_uniform_count - 1;
@@ -66,7 +66,8 @@ material_t material_create(shader_t shader, const char* name)
     impl->shader = shader;
 	impl->vertex_uniform_count = shader_vertex_uniform_count(shader);
     impl->fragment_uniform_count = shader_fragment_uniform_count(shader);
-    //impl->textures.resize(get_sampler_count(shader));
+	impl->texture_count = shader_sampler_count(shader);
+	name_set(&impl->name, name);
     return material;
 }
 
@@ -83,7 +84,7 @@ shader_t material_shader(material_t material)
 void material_set_texture(material_t material, texture_t texture, size_t index)
 {
 	material_impl_t* impl = to_impl(material);
-    assert(index >= 0 && index < impl->texture_count);
+    assert(index < impl->texture_count);
     impl->textures[index] = texture;
 }
 

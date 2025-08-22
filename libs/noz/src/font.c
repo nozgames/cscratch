@@ -28,10 +28,16 @@ typedef struct font_glyph_entry
 
 typedef struct font_impl 
 {
-    string128_t name;
+    name_t name;
     material_t material;
     texture_t texture;
     float baseline;
+	uint32_t original_font_size;
+    float descent;
+    float ascent;
+    float line_height;
+	int atlas_width;
+	int atlas_height;
     font_glyph_entry_t* glyphs;     // hash table of glyphs
     font_kerning_entry_t* kerning;  // hash table of kerning pairs
 } font_impl_t;
@@ -118,17 +124,17 @@ font_t font_load(const char* name)
     }
     
     font_impl_t* impl = (font_impl_t*)object_impl(cache_obj, g_font_type);
-	string128_set(&impl->name, name);
+	name_set(&impl->name, name);
     
     impl->glyphs = NULL;    // uthash tables start as NULL
     impl->kerning = NULL;
 
-    uint32_t original_font_size = stream_read_uint32(stream);
-    uint32_t atlas_width = stream_read_uint32(stream);
-    uint32_t atlas_height = stream_read_uint32(stream);
-    float ascent = stream_read_float(stream);
-    float descent = stream_read_float(stream);
-    float line_height = stream_read_float(stream);
+    impl->original_font_size = stream_read_uint32(stream);
+    impl->atlas_width = stream_read_uint32(stream);
+    impl->atlas_height = stream_read_uint32(stream);
+    impl->ascent = stream_read_float(stream);
+    impl->descent = stream_read_float(stream);
+    impl->line_height = stream_read_float(stream);
     impl->baseline = stream_read_float(stream);
 
     // Read glyph count and glyph data
@@ -186,7 +192,7 @@ font_t font_load(const char* name)
     }
 
     // Read atlas data
-    uint32_t atlas_data_size = atlas_width * atlas_height; // R8 format
+    uint32_t atlas_data_size = impl->atlas_width * impl->atlas_height; // R8 format
     uint8_t* atlas_data = malloc(atlas_data_size);
     if (!atlas_data) 
     {
@@ -199,7 +205,7 @@ font_t font_load(const char* name)
     stream_read_bytes(stream, atlas_data, atlas_data_size);
     stream_destroy(stream);
     
-    impl->texture = texture_create_raw(atlas_data, atlas_width, atlas_height, texture_format_r8, name);
+    impl->texture = texture_create_raw(atlas_data, impl->atlas_width, impl->atlas_height, texture_format_r8, name);
     free(atlas_data);
     
     if (!impl->texture) 

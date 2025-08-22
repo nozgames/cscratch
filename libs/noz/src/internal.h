@@ -3,13 +3,16 @@
 //
 #pragma once
 
+NOZ_WARNINGS_DISABLE()
 #include <SDL3/SDL.h>
 #include "uthash.h"
-#include <noz/noz.h>
-#include <noz/color.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+NOZ_WARNINGS_ENABLE()
+
+#include <noz/noz.h>
+#include <noz/color.h>
 
 // @mesh
 typedef struct mesh_vertex
@@ -111,31 +114,30 @@ typedef struct animation_track
 } animation_track_t;
 
 // @object
-void object_init();
-void object_uninit();
+void object_init(void);
+void object_uninit(void);
 
 // @object_pool
-void object_pool_init();
-void object_pool_uninit();
+void object_pool_init(void);
+void object_pool_uninit(void);
 
 
 // @asset
 const char* asset_path(const char* name, const char* ext);
 
 // @stream
-void stream_init();
-void stream_uninit();
+void stream_init(void);
+void stream_uninit(void);
 
 // @renderer
 void renderer_init(const renderer_traits* traits, SDL_Window* window);
-void renderer_uninit();
-void renderer_begin_frame();
-void renderer_end_frame();
-SDL_GPUDevice* get_gpu_device();
+void renderer_uninit(void);
+void renderer_begin_frame(void);
+void renderer_end_frame(void);
 SDL_GPURenderPass* renderer_begin_pass(bool clear, color_t clear_color, bool msaa, texture_t target);
-SDL_GPURenderPass* renderer_begin_gamma_pass();
-SDL_GPURenderPass* renderer_begin_shadow_pass();
-void renderer_end_pass();
+SDL_GPURenderPass* renderer_begin_gamma_pass(void);
+SDL_GPURenderPass* renderer_begin_shadow_pass(void);
+void renderer_end_pass(void);
 void renderer_bind_texture(SDL_GPUCommandBuffer* cb, texture_t texture, int index);
 void renderer_bind_material(material_t material);
 void renderer_bind_default_texture(int texture_index);

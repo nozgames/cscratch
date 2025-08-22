@@ -4,7 +4,7 @@
 
 typedef struct mesh_impl 
 {
-	string128_t name;
+	name_t name;
     size_t vertex_count;
     size_t index_count;
     SDL_GPUBuffer* vertex_buffer;
@@ -48,7 +48,7 @@ static mesh_t mesh_create_internal(const char* name, size_t vertex_count, size_t
     impl->index_count = index_count;
     impl->vertices = (mesh_vertex*)(impl + sizeof(mesh_impl_t));
     impl->indices = (uint16_t*)(impl->vertices + sizeof(mesh_vertex) * vertex_count);
-	string128_set(&impl->name, name);
+	name_set(&impl->name, name);
     return mesh;
 }
 

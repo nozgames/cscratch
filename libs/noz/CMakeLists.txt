@@ -31,11 +31,11 @@ FetchContent_Declare(
     GIT_TAG v2.4.1
 )
 
-set(BOX2D_SHARED OFF)
-set(BOX2D_STATIC ON)
-set(BOX2D_BUILD_TESTBED OFF)
-set(BOX2D_BUILD_UNIT_TESTS OFF)
-set(BOX2D_BUILD_SAMPLES OFF)
+set(BOX2D_SHARED OFF CACHE BOOL "Don't build Box2D as shared library" FORCE)
+set(BOX2D_STATIC ON CACHE BOOL "Build Box2D as static library" FORCE)
+set(BOX2D_BUILD_TESTBED OFF CACHE BOOL "Don't build Box2D testbed" FORCE)
+set(BOX2D_BUILD_UNIT_TESTS OFF CACHE BOOL "Don't build Box2D unit tests" FORCE)
+set(BOX2D_BUILD_SAMPLES OFF CACHE BOOL "Don't build Box2D samples" FORCE)
 
 # UTHASH
 FetchContent_Declare(
@@ -51,15 +51,49 @@ add_library(noz STATIC)
 target_precompile_headers(noz PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/pch.h)
 
 file(GLOB_RECURSE SOURCE_FILES_C "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
+
+# Remove platform-specific files that don't match the current platform
+if(WIN32)
+    list(REMOVE_ITEM SOURCE_FILES_C "${CMAKE_CURRENT_SOURCE_DIR}/src/platform_posix.c")
+else()
+    list(REMOVE_ITEM SOURCE_FILES_C "${CMAKE_CURRENT_SOURCE_DIR}/src/platform_win.c")
+endif()
+
 target_sources(noz PRIVATE ${SOURCE_FILES_C})
 target_include_directories(noz PRIVATE ${enet_SOURCE_DIR}/include)
 target_include_directories(noz PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include )
 target_include_directories(noz PRIVATE src ${uthash_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/external)
 
+# Set warning flags only for noz library
 if(MSVC)
-    target_compile_options(noz PRIVATE /WX)
+    target_compile_options(noz PRIVATE /Wall /WX /wd4201 /wd4255 /wd4820 /wd4668 /wd5045 /wd4061 /wd4100)
 else()
-    target_compile_options(noz PRIVATE -Werror)
+    target_compile_options(noz PRIVATE 
+        -Wall 
+        -Wextra 
+        -Wpedantic
+        -Wcast-align
+        -Wcast-qual
+        -Wconversion
+        -Wdouble-promotion
+        -Wfloat-equal
+        -Wformat=2
+        -Winit-self
+        -Winline
+        -Wmissing-declarations
+        -Wmissing-include-dirs
+        -Wmissing-prototypes
+        -Wnested-externs
+        -Wold-style-definition
+        -Wpointer-arith
+        -Wredundant-decls
+        -Wshadow
+        -Wstrict-prototypes
+        -Wundef
+        -Wunreachable-code
+        -Wwrite-strings
+        -Werror
+    )
 endif()
 
 target_compile_definitions(noz PRIVATE _CRT_SECURE_NO_WARNINGS)
@@ -72,3 +106,5 @@ target_link_libraries(noz
         winmm
         SDL3::SDL3
 )
+
+add_subdirectory(tools/importer)

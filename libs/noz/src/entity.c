@@ -28,9 +28,8 @@ static inline void entity_mark_dirty(entity_t entity)
 
 entity_t entity_create(object_type_t entity_type, size_t entity_size)
 {
-    object_t o = object_create_with_base(entity_type, entity_size, g_entity_type, sizeof(entity_impl_t));
-    entity_impl_t* impl = (entity_impl_t*)object_base_impl(o, g_entity_type);
-    return (entity_t)o;
+    entity_t e = (entity_t)object_create_with_base(entity_type, entity_size, g_entity_type, sizeof(entity_impl_t));
+    return (entity_t)e;
 }
 
 vec3_t entity_position(entity_t e)

@@ -4,6 +4,8 @@
 
 #ifdef _WIN32
 
+NOZ_WARNINGS_DISABLE()
+
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <shellapi.h>
@@ -23,3 +25,5 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 }
 
 #endif
+
+NOZ_WARNINGS_ENABLE()

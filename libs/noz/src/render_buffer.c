@@ -143,7 +143,7 @@ static inline void render_buffer_add_command(const command_t* cmd)
     g_render_buffer->is_full = g_render_buffer->command_count == g_render_buffer->command_count_max;
 }
 
-void render_buffer_clear()
+void render_buffer_clear(void)
 {
     g_render_buffer->command_count = 0;
     g_render_buffer->transform_count = 0;
@@ -152,7 +152,6 @@ void render_buffer_clear()
     
     // add identity transform by default for all meshes with no bones
     static mat4_t identity = {{1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1}};
-	mat4_identity(&identity);
     g_render_buffer->transforms[0] = identity;
     g_render_buffer->transform_count = 1;
 }
@@ -175,13 +174,13 @@ void render_buffer_begin_shadow_pass(mat4_t light_view, mat4_t light_projection)
     render_buffer_add_command(&cmd);
 }
 
-void render_buffer_end_pass()
+void render_buffer_end_pass(void)
 {
     command_t cmd = { .type = command_type_end_pass };
     render_buffer_add_command(&cmd);
 }
 
-void render_buffer_begin_gamma_pass()
+void render_buffer_begin_gamma_pass(void)
 {
     command_t cmd = { .type = command_type_begin_gamma_pass };
     render_buffer_add_command(&cmd);
@@ -331,7 +330,7 @@ void render_buffer_execute(SDL_GPUCommandBuffer* cb)
                 cb,
                 vertex_register_bone,
                 g_render_buffer->transforms + command->data.bind_bones.offset,
-                command->data.bind_bones.count);
+                (Uint32)command->data.bind_bones.count);
             break;
 
         case command_type_bind_light:
@@ -363,7 +362,7 @@ void render_buffer_execute(SDL_GPUCommandBuffer* cb)
             break;
 
         case command_type_end_pass:
-            end_renderer_pass();
+            renderer_end_pass();
             pass = nullptr;
             break;
 

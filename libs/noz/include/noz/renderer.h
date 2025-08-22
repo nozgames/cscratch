@@ -19,10 +19,10 @@ typedef struct renderer_traits
     size_t max_samplers;
     size_t max_meshes;
     size_t max_fonts;
-    uint32_t shadow_map_size;
     size_t max_frame_commands;
     size_t max_frame_objects;
     size_t max_frame_transforms;
+    uint32_t shadow_map_size;
 
 } renderer_traits;
 
@@ -121,7 +121,7 @@ void mesh_builder_add_quad_points(
     uint8_t bone_index);
 
 // @render_buffer
-void render_buffer_clear();
+void render_buffer_clear(void);
 void render_buffer_begin_pass(bool clear, color_t clear_color, bool msaa, texture_t target);
 void render_buffer_begin_shadow_pass(mat4_t light_view, mat4_t light_projection);
 void render_buffer_bind_default_texture(int texture_index);
@@ -130,4 +130,4 @@ void render_buffer_bind_camera_matrices(mat4_t view, mat4_t projection);
 void render_buffer_bind_transform(mat4_t transform);
 void render_buffer_bind_material(material_t material);
 void render_buffer_render_mesh(mesh_t mesh);
-void render_buffer_end_pass();
+void render_buffer_end_pass(void);
