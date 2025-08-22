@@ -3,7 +3,7 @@
 //
 
 // @forward
-void update_screen_size();
+void application_update_screen_size();
 
 // @traits
 static application_traits g_default_traits = 
@@ -83,6 +83,8 @@ void application_init(const application_traits* traits)
         return;
     }
 
+    application_update_screen_size();
+
 	object_init();
     object_pool_init();
     map_init();
@@ -120,19 +122,29 @@ bool application_update()
             g_application.has_focus = false;
         }
         else if (event.type == SDL_EVENT_WINDOW_RESIZED)
-            update_screen_size();
+            application_update_screen_size();
     }
 
     return true;
 }
 
-void update_screen_size()
+void application_update_screen_size()
 {
     int w;
     int h;
     SDL_GetWindowSize(g_application.window, &w, &h);
     g_application.screen_size = (ivec2_t){w, h};
     g_application.screen_aspect_ratio = (float)w / (float)h;
+}
+
+void application_begin_render_frame()
+{
+    renderer_begin_frame();
+}
+
+void application_end_render_frame()
+{
+    renderer_end_frame();
 }
 
 ivec2_t screen_size()

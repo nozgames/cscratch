@@ -1,3 +1,7 @@
+//
+//  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
+//
+
 #define MAP_DELETED_KEY UINT64_MAX
 #define MAP_LOAD_FACTOR 0.75
 

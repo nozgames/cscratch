@@ -1,3 +1,7 @@
+//
+//  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
+//
+
 #include "noz/hash.h"
 #include <string.h>
 

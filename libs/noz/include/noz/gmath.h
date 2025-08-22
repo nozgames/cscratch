@@ -978,6 +978,9 @@ GMATH_INLINE bool ivec2_cmp(ivec2_t left, ivec2_t right)
     return (left.x == right.x) && (left.y == right.y);
 }
 
+GMATH_INLINE vec3_t vec3_forward() { return (vec3_t) { 0, 0, 1 }; }
+GMATH_INLINE vec3_t vec3_right() { return (vec3_t) { 1, 0, 0 }; }
+GMATH_INLINE vec3_t vec3_up() { return (vec3_t) { 0, 1, 0 }; }
 
 #include "bounds3.h"
 

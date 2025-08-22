@@ -1,3 +1,7 @@
+//
+//  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
+//
+
 #include "string.h"
 
 string128_t* string128_set(string128_t* dst, const char* src)

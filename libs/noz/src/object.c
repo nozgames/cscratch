@@ -25,6 +25,7 @@ object_t object_create(object_type_t type, size_t object_size)
     if (!o)
         return nullptr;
 
+	memset(o, 0, sizeof(object) + object_size);
     o->type = type;
     o->base_impl = nullptr;
     o->base_type = nullptr;

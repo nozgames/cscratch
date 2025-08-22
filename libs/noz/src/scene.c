@@ -1,3 +1,7 @@
+//
+//  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
+//
+
 void entity_init();
 
 void scene_init()

@@ -103,6 +103,22 @@ void mesh_builder_add_raw(
     uint8_t bone_index,
     size_t index_count,
     uint16_t* indices);
+void mesh_builder_add_quad(
+    mesh_builder_t builder,
+    vec3_t forward,
+    vec3_t right,
+    float width,
+    float height,
+    vec2_t color_uv);
+void mesh_builder_add_quad_points(
+    mesh_builder_t builder,
+    vec3_t a,
+    vec3_t b,
+    vec3_t c,
+    vec3_t d,
+    vec2_t uv_color,
+    vec3_t normal,
+    uint8_t bone_index);
 
 // @render_buffer
 void render_buffer_clear();

@@ -40,6 +40,9 @@ inline size_t mesh_impl_size(size_t vertex_count, size_t index_count)
 static mesh_t mesh_create_internal(const char* name, size_t vertex_count, size_t index_count)
 {
     mesh_t mesh = (mesh_t)object_create(g_mesh_type, mesh_impl_size(vertex_count, index_count));
+    if (!mesh)
+	    return nullptr; 
+
     mesh_impl_t* impl = to_impl(mesh);
     impl->vertex_count = vertex_count;
     impl->index_count = index_count;

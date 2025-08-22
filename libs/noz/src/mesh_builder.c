@@ -1,10 +1,6 @@
-/*
-
-    NoZ Game Engine
-
-    Copyright(c) 2025 NoZ Games, LLC
-
-*/
+//
+//  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
+//
 
 typedef struct mesh_builder_impl
 {
@@ -188,6 +184,50 @@ void mesh_builder_add_triangle(
     mesh_builder_add_vertex(builder, a, normal, (vec2_t) { 0.5f, 1.0f }, bone_index);
     mesh_builder_add_triangle_indices(builder, vertex_index, vertex_index + 1, vertex_index + 2);
 }
+
+void mesh_builder_add_quad(
+    mesh_builder_t builder,
+    vec3_t forward,
+    vec3_t right,
+    float width,
+    float height,
+    vec2_t color_uv)
+{
+    float hw = width * 0.5f;
+    float hh = height * 0.5f;
+    vec3_t normal = vec3_cross(forward, right);
+    forward = vec3_muls(forward, hh);
+    right = vec3_muls(right, hw);
+    vec3_t a = vec3_sub(forward, right);
+    vec3_t b = vec3_add(forward, right);
+    vec3_t c = vec3_sub(right, forward);
+    vec3_t d = vec3_sub(vec3_muls(right, -1), forward);
+    mesh_builder_add_quad_points(builder, a, b, c, d, color_uv, normal, 0);
+}
+
+void mesh_builder_add_quad_points(
+    mesh_builder_t builder,
+    vec3_t a,
+    vec3_t b,
+    vec3_t c,
+    vec3_t d,
+    vec2_t uv_color,
+    vec3_t normal,
+    uint8_t bone_index)
+{
+    size_t base_index = to_impl(builder)->vertex_count;
+
+    // Add vertices
+    mesh_builder_add_vertex(builder, a, normal, uv_color, bone_index);
+    mesh_builder_add_vertex(builder, b, normal, uv_color, bone_index);
+    mesh_builder_add_vertex(builder, c, normal, uv_color, bone_index);
+    mesh_builder_add_vertex(builder, d, normal, uv_color, bone_index);
+
+    // Add triangles
+    mesh_builder_add_triangle_indices(builder, base_index, base_index + 1, base_index + 2);
+    mesh_builder_add_triangle_indices(builder, base_index, base_index + 2, base_index + 3);
+}
+
 
 void mesh_builder_add_pyramid(mesh_builder_t builder, vec3_t start, vec3_t end, float size, uint8_t bone_index)
 {

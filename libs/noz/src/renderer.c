@@ -421,6 +421,13 @@ void update_back_buffer()
 
 void init_gamma_pass()
 {
+    mesh_builder_t builder = mesh_builder_create(4, 6);
+    mesh_builder_add_quad(builder, vec3_forward(), vec3_right(), 1, 1, vec2_zero());
+	mesh_t mesh = mesh_builder_to_mesh(builder, "gamma");
+	mesh_builder_destroy(builder);
+    g_renderer.gamma_mesh = mesh;
+    g_renderer.gamma_material = material_create(shader_load("shaders/gamma"), "gamma");
+
     // For now, just stub this out since gamma_mesh and gamma_material are commented out
     // TODO: Implement gamma pass when needed
 }
