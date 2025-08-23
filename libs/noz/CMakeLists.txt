@@ -37,14 +37,7 @@ set(BOX2D_BUILD_TESTBED OFF CACHE BOOL "Don't build Box2D testbed" FORCE)
 set(BOX2D_BUILD_UNIT_TESTS OFF CACHE BOOL "Don't build Box2D unit tests" FORCE)
 set(BOX2D_BUILD_SAMPLES OFF CACHE BOOL "Don't build Box2D samples" FORCE)
 
-# UTHASH
-FetchContent_Declare(
-  uthash
-  GIT_REPOSITORY https://github.com/troydhanson/uthash.git
-  GIT_TAG        v2.3.0
-)
-
-FetchContent_MakeAvailable(uthash SDL3 box2d)
+FetchContent_MakeAvailable(SDL3 box2d)
 
 add_library(noz STATIC)
 
@@ -60,9 +53,8 @@ else()
 endif()
 
 target_sources(noz PRIVATE ${SOURCE_FILES_C})
-target_include_directories(noz PRIVATE ${enet_SOURCE_DIR}/include)
+target_include_directories(noz PRIVATE ${enet_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/external)
 target_include_directories(noz PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include )
-target_include_directories(noz PRIVATE src ${uthash_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/external)
 
 # Set warning flags only for noz library
 if(MSVC)

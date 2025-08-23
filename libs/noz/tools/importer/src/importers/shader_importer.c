@@ -2,19 +2,6 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "../importer_pch.h"
-#include <SDL3/SDL.h>
-#include <SDL3_shadercross/SDL_shadercross.h>
-#include <ctype.h>
-
-// Shader flags
-typedef enum shader_flags {
-    shader_flags_none = 0,
-    shader_flags_depth_test = 1 << 0,
-    shader_flags_depth_write = 1 << 1,
-    shader_flags_blend = 1 << 2
-} shader_flags_t;
-
 // Process stage directives (//@ VERTEX and //@ FRAGMENT blocks)
 static char* preprocess_stage_directives(const char* source, const char* stage)
 {

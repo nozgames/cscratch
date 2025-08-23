@@ -80,8 +80,8 @@ add_executable(asset_manifest
 )
 
 # Include directories
-target_include_directories(importer PRIVATE include ${CMAKE_SOURCE_DIR}/libs/noz/include)
-target_include_directories(asset_manifest PRIVATE ${CMAKE_SOURCE_DIR}/libs/noz/include)
+target_include_directories(importer PRIVATE ${CMAKE_SOURCE_DIR}/libs/noz/external ${CMAKE_SOURCE_DIR}/libs/noz/include)
+target_include_directories(asset_manifest PRIVATE ${CMAKE_SOURCE_DIR}/libs/noz/external ${CMAKE_SOURCE_DIR}/libs/noz/include)
 
 # Link libraries
 target_link_libraries(importer PRIVATE
@@ -104,6 +104,37 @@ endif()
 
 set_target_properties(importer PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set_target_properties(asset_manifest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
+if(MSVC)
+    target_compile_options(noz PRIVATE /Wall /WX /wd4201 /wd4255 /wd4820 /wd4668 /wd5045 /wd4061 /wd4100)
+else()
+    target_compile_options(noz PRIVATE 
+        -Wall 
+        -Wextra 
+        -Wpedantic
+        -Wcast-align
+        -Wcast-qual
+        -Wconversion
+        -Wdouble-promotion
+        -Wfloat-equal
+        -Wformat=2
+        -Winit-self
+        -Winline
+        -Wmissing-declarations
+        -Wmissing-include-dirs
+        -Wmissing-prototypes
+        -Wnested-externs
+        -Wold-style-definition
+        -Wpointer-arith
+        -Wredundant-decls
+        -Wshadow
+        -Wstrict-prototypes
+        -Wundef
+        -Wunreachable-code
+        -Wwrite-strings
+        -Werror
+    )
+endif()
 
 target_compile_definitions(importer PRIVATE _CRT_SECURE_NO_WARNINGS )
 target_compile_definitions(asset_manifest PRIVATE _CRT_SECURE_NO_WARNINGS )

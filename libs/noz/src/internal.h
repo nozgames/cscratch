@@ -5,7 +5,6 @@
 
 NOZ_WARNINGS_DISABLE()
 #include <SDL3/SDL.h>
-#include "uthash.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
