@@ -13,7 +13,7 @@ typedef struct array
 } array_t;
 
 array_t* array_create(size_t element_size, size_t initial_capacity);
-void array_destroy(array_t* array);
+void array_free(array_t* array);
 array_t* array_alloc(array_t* array, size_t new_capacity);
 void* array_data(const array_t* array);
 size_t array_length(const array_t* array);

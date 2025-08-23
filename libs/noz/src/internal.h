@@ -117,29 +117,17 @@ typedef struct animation_track
 void object_init(void);
 void object_uninit(void);
 
-// @object_pool
-void object_pool_init(void);
-void object_pool_uninit(void);
-
-
-// @asset
-const char* asset_path(const char* name, const char* ext);
-
-// @stream
-void stream_init(void);
-void stream_uninit(void);
-
 // @renderer
 void renderer_init(const renderer_traits* traits, SDL_Window* window);
 void renderer_uninit(void);
 void renderer_begin_frame(void);
 void renderer_end_frame(void);
-SDL_GPURenderPass* renderer_begin_pass(bool clear, color_t clear_color, bool msaa, texture_t target);
+SDL_GPURenderPass* renderer_begin_pass(bool clear, color_t clear_color, bool msaa, texture_t* target);
 SDL_GPURenderPass* renderer_begin_gamma_pass(void);
 SDL_GPURenderPass* renderer_begin_shadow_pass(void);
 void renderer_end_pass(void);
-void renderer_bind_texture(SDL_GPUCommandBuffer* cb, texture_t texture, int index);
-void renderer_bind_material(material_t material);
+void renderer_bind_texture(SDL_GPUCommandBuffer* cb, texture_t* texture, int index);
+void renderer_bind_material(material_t* material);
 void renderer_bind_default_texture(int texture_index);
 
 // @render_buffer
@@ -152,78 +140,62 @@ void render_buffer_execute(SDL_GPUCommandBuffer* cb);
 // @sampler_factory
 void sampler_factory_init(const renderer_traits* traits, SDL_GPUDevice* device);
 void sampler_factory_uninit();
-SDL_GPUSampler* sampler_factory_sampler(texture_t texture);
+SDL_GPUSampler* sampler_factory_sampler(texture_t* texture);
 
 // @pipeline_factory
 void pipeline_factory_init(SDL_Window* window, SDL_GPUDevice* device);
 void pipeline_factory_uninit();
-SDL_GPUGraphicsPipeline* pipeline_factory_pipeline(shader_t shader, bool msaa, bool shadow);
+SDL_GPUGraphicsPipeline* pipeline_factory_pipeline(shader_t* shader, bool msaa, bool shadow);
 
 // @material
-void material_init();
-void material_uninit();
-void material_bind_gpu(material_t material, SDL_GPUCommandBuffer* cb);
+void material_bind_gpu(material_t* material, SDL_GPUCommandBuffer* cb);
 
 // @mesh
 void mesh_init(const renderer_traits* traits, SDL_GPUDevice* device);
 void mesh_uninit();
-void mesh_render(mesh_t mesh, SDL_GPURenderPass* pass);
+void mesh_render(mesh_t* mesh, SDL_GPURenderPass* pass);
 
 // @texture
 void texture_init(const renderer_traits* traits, SDL_GPUDevice* dev);
 void texture_uninit();
-SDL_GPUTexture* texture_gpu_texture(texture_t texture);
-sampler_options_t texture_sampler_options(texture_t texture);
+SDL_GPUTexture* texture_gpu_texture(texture_t* texture);
+sampler_options_t texture_sampler_options(texture_t* texture);
 
 // @shader
 void shader_init(const renderer_traits* traits, SDL_GPUDevice* device);
 void shader_uninit();
 
 // New naming convention
-SDL_GPUShader* shader_gpu_vertex_shader(shader_t shader);
-SDL_GPUShader* shader_gpu_fragment_shader(shader_t shader);
-SDL_GPUCullMode shader_gpu_cull_mode(shader_t shader);
-bool shader_blend_enabled(shader_t shader);
-SDL_GPUBlendFactor shader_gpu_src_blend(shader_t shader);
-SDL_GPUBlendFactor shader_gpu_dst_blend(shader_t shader);
-bool shader_depth_test_enabled(shader_t shader);
-bool shader_depth_write_enabled(shader_t shader);
-int shader_vertex_uniform_count(shader_t shader);
-int shader_fragment_uniform_count(shader_t shader);
-int shader_sampler_count(shader_t shader);
-const char* shader_name(shader_t shader);
-
-// Legacy compatibility (can be removed later)
-shader_t load_shader(const char* name);
-int get_vertex_uniform_count(shader_t shader);
-int get_fragment_uniform_count(shader_t shader);
-int get_sampler_count(shader_t shader);
-SDL_GPUShader* get_gpu_vertex_shader(shader_t shader);
-SDL_GPUShader* get_gpu_fragment_shader(shader_t shader);
-SDL_GPUCullMode get_gpu_cull_mode(shader_t shader);
-SDL_GPUBlendFactor get_gpu_src_blend(shader_t shader);
-SDL_GPUBlendFactor get_gpu_dst_blend(shader_t shader);
-bool is_blend_enabled(shader_t shader);
-bool is_depth_test_enabled(shader_t shader);
-bool is_depth_write_enabled(shader_t shader);
-const char* get_name(shader_t shader);
+SDL_GPUShader* shader_gpu_vertex_shader(shader_t* shader);
+SDL_GPUShader* shader_gpu_fragment_shader(shader_t* shader);
+SDL_GPUCullMode shader_gpu_cull_mode(shader_t* shader);
+bool shader_blend_enabled(shader_t* shader);
+SDL_GPUBlendFactor shader_gpu_src_blend(shader_t* shader);
+SDL_GPUBlendFactor shader_gpu_dst_blend(shader_t* shader);
+bool shader_depth_test_enabled(shader_t* shader);
+bool shader_depth_write_enabled(shader_t* shader);
+int shader_vertex_uniform_count(shader_t* shader);
+int shader_fragment_uniform_count(shader_t* shader);
+int shader_sampler_count(shader_t* shader);
+const name_t* shader_name(shader_t* shader);
 
 // @font
 void font_init(const renderer_traits* traits, SDL_GPUDevice* device);
 void font_uninit();
-material_t font_material(font_t font);
+material_t* font_material(font_t* font);
 
 // @camera
 void camera_init();
 void camera_uninit();
 
 // @animation
-void evaluate_frame(animation_t animation, float time, const bone_t* bones, size_t bone_count,
-                    bone_transform_t* transforms, size_t transform_count);
-
-// @map
-void map_init();
-void map_uninit();
+void animation_evaluate_frame(
+    animation_t* animation,
+    float time,
+    const bone_t* bones,
+    size_t bone_count,
+    bone_transform_t* transforms,
+    size_t transform_count);
 
 // @helpers
 inline SDL_FColor color_to_sdl(color_t color) { return (SDL_FColor) { color.r, color.g, color.b, color.a }; }

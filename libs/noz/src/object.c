@@ -2,82 +2,64 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-typedef struct object
+typedef struct object_impl
 {
-    object_type_t type;
-    object_type_t base_type;
-    void* base_impl;
-    void* impl;
-} object;
+	// todo: add a debug magic number here to validate object integrity
+	type_t type;
+	type_t base_type;
+} object_impl_t;
+
+static inline object_impl_t* to_impl(const void* o) 
+{
+	return (object_impl_t*)o;
+}
+
+static void* default_alloc(allocator_t* a, size_t size)
+{
+	return malloc(size);
+}
+
+static void default_free(allocator_t* a, void* ptr)
+{
+	free(ptr);
+}
+
+static allocator_t default_allocator = {
+	.alloc = default_alloc,
+	.free = default_free
+};
+
+extern allocator_t* g_default_allocator = &default_allocator;
+
+object_t* object_alloc_with_base(allocator_t* allocator, size_t object_size, type_t object_type, type_t base_type)
+{
+    object_impl_t* impl = to_impl(allocator_alloc(allocator, object_size));
+    if (!impl)
+		return NULL;
+
+	impl->type = object_type;
+	impl->base_type = base_type;
+    return impl;
+}
+
+void object_free(object_t* o)
+{
+	// todo: we would need to know the allocator to free this...  we could store it in the impl struct
+}
 
 void object_init()
 {
-    object_pool_init();
+	size_t object_type_size = sizeof(object_impl_t);
+	if (object_type_size != OBJECT_BASE_SIZE)
+	{
+		text_t msg;
+		text_init(&msg);
+		text_format(&msg, "OBJECT_BASE_SIZE != %zu", object_type_size);
+		application_error(msg.value);
+		return;
+	}
 }
 
 void object_uninit()
 {
-}
-
-object_t object_create(object_type_t type, size_t object_size)
-{ 
-    object* o = (object*)malloc(sizeof(object) + object_size);
-    if (!o)
-        return nullptr;
-
-	memset(o, 0, sizeof(object) + object_size);
-    o->type = type;
-    o->base_impl = nullptr;
-    o->base_type = nullptr;
-    o->impl = (void*)(o + 1);
-    return (object_t)o;
-}
-
-object_t object_create_with_base(object_type_t object_type, size_t object_size, object_type_t base_type, size_t base_size)
-{
-    object* o = (object*)malloc(sizeof(object) + base_size + object_size);
-    if (!o)
-        return nullptr;
-    memset(o, 0, sizeof(object) + base_size + object_size);
-    o->base_impl = (void*)(o + 1);
-    o->base_type = base_type;
-    o->impl = (void*)((char*)o->base_impl + base_size);
-    o->type = object_type;
-    return (object_t)o;
-}
-
-object_type_t object_type(object_t o)
-{
-    if (o == nullptr)
-        return nullptr;
-    object* impl = (object*)o;
-    return impl->type;
-}
-
-object_type_t object_base_type(object_t o)
-{
-    if (o == nullptr)
-        return nullptr;
-    object* impl = (object*)o;
-    return impl->base_type;
-}
-
-void* object_base_impl(object_t o, object_type_t expected_type)
-{
-    assert(o);
-    object* impl = (object*)o;
-    return impl->base_impl;
-}
-
-void object_destroy(object_t o)
-{
-    if (!o) return;
-    free(o);
-}
-
-void* object_impl(object_t o, object_type_t expected_type)
-{
-    assert(o);
-    object* impl = (object*)o;
-    return impl->impl;
 }

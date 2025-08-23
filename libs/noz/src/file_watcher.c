@@ -50,7 +50,7 @@ static struct
     size_t watched_dir_count;
     
     // File tracking
-    map_t file_map;  // Maps file path hash -> file_info_t*
+    map_t* file_map;  // Maps file path hash -> file_info_t*
     file_info_t* file_pool;
     size_t file_pool_size;
     size_t file_pool_used;
@@ -72,7 +72,7 @@ static struct
 static int file_watcher_thread(void* data);
 static void scan_directory_recursive(const char* dir_path);
 static void process_file(const char* file_path, const file_stat_t* st);
-static void queue_event(const char* path, file_change_type_t type);
+static void queue_event(const path_t* path, file_change_type_t type);
 static file_info_t* alloc_file_info(void);
 static void free_file_info(file_info_t* info);
 
@@ -88,7 +88,7 @@ void file_watcher_init(int poll_interval_ms)
     g_watcher.watched_dir_count = 0;
     
     // Initialize file tracking
-    g_watcher.file_map = map_create(MAX_TRACKED_FILES);
+    g_watcher.file_map = map_alloc(NULL, MAX_TRACKED_FILES);
     g_watcher.file_pool = (file_info_t*)calloc(MAX_TRACKED_FILES, sizeof(file_info_t));
     g_watcher.file_pool_size = MAX_TRACKED_FILES;
     g_watcher.file_pool_used = 0;
@@ -121,7 +121,7 @@ void file_watcher_shutdown(void)
     // Clean up file tracking
     if (g_watcher.file_map)
     {
-        object_destroy((object_t)g_watcher.file_map);
+        object_free(g_watcher.file_map);
         g_watcher.file_map = nullptr;
     }
     
@@ -241,7 +241,14 @@ bool file_watcher_start(void)
     
     // Start the watching thread
     SDL_SetAtomicInt(&g_watcher.should_stop, 0);
-    g_watcher.thread = SDL_CreateThread(file_watcher_thread, "FileWatcher", nullptr);
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4191) // SDL_CreateThread causes this on Windows
+#endif
+    g_watcher.thread = SDL_CreateThread(file_watcher_thread, "FileWatcher", NULL);
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
     
     if (!g_watcher.thread)
     {
@@ -345,7 +352,7 @@ static int file_watcher_thread(void* data)
         // (We'll use size = 0 to indicate not seen in this pass)
         for (size_t i = 0; i < g_watcher.file_pool_used; i++)
         {
-            if (g_watcher.file_pool[i].path.data[0] != '\0')
+            if (!path_is_empty(&g_watcher.file_pool[i].path))
             {
                 g_watcher.file_pool[i].size = 0;  // Mark as not seen
             }
@@ -363,18 +370,17 @@ static int file_watcher_thread(void* data)
         for (size_t i = 0; i < g_watcher.file_pool_used; i++)
         {
             file_info_t* info = &g_watcher.file_pool[i];
-            if (info->path.data[0] != '\0' && info->size == 0)
+            if (!path_is_empty(&info->path) && info->size == 0)
             {
                 // File was not seen in this pass, it was deleted
-                queue_event(info->path.data, file_change_type_deleted);
+                queue_event(&info->path, file_change_type_deleted);
                 
                 // Remove from map
-                uint64_t key = hash_string(info->path.data);
+                uint64_t key = hash_string(info->path.value);
                 map_remove(g_watcher.file_map, key);
                 
                 // Clear the file info
-                info->path.data[0] = '\0';
-                info->path.length = 0;
+                path_clear(&info->path);
             }
         }
         
@@ -406,6 +412,9 @@ static void scan_directory_recursive(const char* dir_path)
 // Process a single file (cross-platform)
 static void process_file(const char* file_path, const file_stat_t* st)
 {
+    path_t path;
+    path_set(&path, file_path);
+    
     uint64_t key = hash_string(file_path);
     file_info_t* existing = (file_info_t*)map_get(g_watcher.file_map, key);
     
@@ -415,7 +424,7 @@ static void process_file(const char* file_path, const file_stat_t* st)
         if (existing->mtime != st->mtime)
         {
             // File was modified
-            queue_event(file_path, file_change_type_modified);
+            queue_event(&existing->path, file_change_type_modified);
             existing->mtime = st->mtime;
         }
         // Mark as seen by restoring the size
@@ -427,18 +436,18 @@ static void process_file(const char* file_path, const file_stat_t* st)
         file_info_t* info = alloc_file_info();
         if (info)
         {
-            path_set(&info->path, file_path);
+            path_copy(&info->path, &path);
             info->mtime = st->mtime;
             info->size = st->size;
             
             map_set(g_watcher.file_map, key, info);
-            queue_event(file_path, file_change_type_added);
+            queue_event(&info->path, file_change_type_added);
         }
     }
 }
 
 // Queue an event
-static void queue_event(const char* path, file_change_type_t type)
+static void queue_event(const path_t* path, file_change_type_t type)
 {
     SDL_LockMutex(g_watcher.queue.mutex);
     
@@ -451,7 +460,7 @@ static void queue_event(const char* path, file_change_type_t type)
     
     // Add new event
     file_change_event_t* event = &g_watcher.queue.events[g_watcher.queue.tail];
-    path_set(&event->path, path);
+    path_copy(&event->path, path);
     event->type = type;
     event->timestamp = SDL_GetTicks();
     
@@ -467,7 +476,7 @@ static file_info_t* alloc_file_info(void)
     // First try to find a free slot
     for (size_t i = 0; i < g_watcher.file_pool_used; i++)
     {
-        if (g_watcher.file_pool[i].path.data[0] == '\0')
+        if (path_is_empty(&g_watcher.file_pool[i].path))
         {
             return &g_watcher.file_pool[i];
         }
@@ -482,12 +491,13 @@ static file_info_t* alloc_file_info(void)
     return nullptr;  // Pool is full
 }
 
-// Free a file info (just clear it)
+// Free a file info (just clear it) - currently unused but may be needed later
+#if 0
 static void free_file_info(file_info_t* info)
 {
     if (info)
     {
-        info->path.data[0] = '\0';
-        info->path.length = 0;
+        path_clear(&info->path);
     }
 }
+#endif

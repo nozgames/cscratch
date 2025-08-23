@@ -32,18 +32,19 @@
     #define NOZ_WARNINGS_DISABLE()
 #endif
 
+#include "types.h"
 #include "allocator.h"
 #include "gmath.h"
 #include "map.h"
 #include "array.h"
-#include "stream.h"
 #include "string.h"
-#include "array.h"
-#include "object.h"
 #include "hash.h"
 #include "color.h"
+#include "stream.h"
+#include "object.h"
 #include "tokenizer.h"
 #include "props.h"
+#include "asset.h"
 #include "application.h"
 #include "renderer.h"
 #include "scene.h"

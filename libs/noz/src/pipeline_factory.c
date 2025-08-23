@@ -2,21 +2,20 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-typedef struct shader* shader_t;
+#define INITIAL_CACHE_SIZE 64
+#define to_impl(t) ((pipeline_impl_t*)to_object(t, type_pipeline))
 
-static map_t g_pipeline_cache = NULL;
+static map_t* g_pipeline_cache = NULL;
 static SDL_GPUDevice* g_device = NULL;
 static SDL_Window* g_window = NULL;
-static object_type_t g_pipeline_factory_type = NULL;
 
-#define INITIAL_CACHE_SIZE 64
-
-typedef struct pipeline_object 
+typedef struct pipeline_impl
 {
+    OBJECT_BASE;
     SDL_GPUGraphicsPipeline* pipeline;
-} pipeline_object_t;
+} pipeline_impl_t;
 
-static uint64_t pipeline_key(shader_t shader, bool msaa, bool shadow) 
+static uint64_t pipeline_key(shader_t* shader, bool msaa, bool shadow) 
 {
     struct {
         void* shader_ptr;
@@ -67,18 +66,7 @@ static uint32_t vertex_stride(const SDL_GPUVertexAttribute* attributes, size_t a
     return stride;
 }
 
-// TODO: These shader functions need to be implemented
-extern SDL_GPUShader* get_gpu_vertex_shader(shader_t shader);
-extern SDL_GPUShader* get_gpu_fragment_shader(shader_t shader);
-extern const char* get_name(shader_t shader);
-extern SDL_GPUCullMode get_gpu_cull_mode(shader_t shader);
-extern bool is_depth_test_enabled(shader_t shader);
-extern bool is_depth_write_enabled(shader_t shader);
-extern bool is_blend_enabled(shader_t shader);
-extern SDL_GPUBlendFactor get_gpu_src_blend(shader_t shader);
-extern SDL_GPUBlendFactor get_gpu_dst_blend(shader_t shader);
-
-static SDL_GPUGraphicsPipeline* create_pipeline(shader_t shader, const SDL_GPUVertexAttribute* attributes,
+static SDL_GPUGraphicsPipeline* create_pipeline(shader_t* shader, const SDL_GPUVertexAttribute* attributes,
                                                 size_t attribute_count, bool msaa, bool shadow) 
 {
     assert(g_window);
@@ -104,28 +92,17 @@ static SDL_GPUGraphicsPipeline* create_pipeline(shader_t shader, const SDL_GPUVe
     }
 
     SDL_GPUGraphicsPipelineCreateInfo pipeline_create_info = {0};
-    pipeline_create_info.vertex_shader = get_gpu_vertex_shader(shader);
-    pipeline_create_info.fragment_shader = get_gpu_fragment_shader(shader);
+    pipeline_create_info.vertex_shader = shader_gpu_vertex_shader(shader);
+    pipeline_create_info.fragment_shader = shader_gpu_fragment_shader(shader);
     pipeline_create_info.vertex_input_state = vertex_input_state;
     pipeline_create_info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
     pipeline_create_info.props = SDL_CreateProperties();
 
-    // Create name string
-    const char* base_name = get_name(shader);
-    char name[256];
-    strcpy(name, base_name);
-    if (msaa) {
-        strcat(name, "_msaa");
-    }
-    if (shadow) {
-        strcat(name, "_shadow");
-    }
-
-    SDL_SetStringProperty(pipeline_create_info.props, SDL_PROP_GPU_GRAPHICSPIPELINE_CREATE_NAME_STRING, name);
+    SDL_SetStringProperty(pipeline_create_info.props, SDL_PROP_GPU_GRAPHICSPIPELINE_CREATE_NAME_STRING, shader_name(shader)->value);
 
     // Set rasterizer state based on shader properties
     pipeline_create_info.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-    pipeline_create_info.rasterizer_state.cull_mode = get_gpu_cull_mode(shader);
+    pipeline_create_info.rasterizer_state.cull_mode = shader_gpu_cull_mode(shader);
     pipeline_create_info.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
 
     // Set multisample state based on current render target
@@ -134,8 +111,8 @@ static SDL_GPUGraphicsPipeline* create_pipeline(shader_t shader, const SDL_GPUVe
     pipeline_create_info.multisample_state.enable_mask = false;
 
     // Get pipeline properties from shader
-    bool depth_test = is_depth_test_enabled(shader);
-    bool depth_write = is_depth_write_enabled(shader);
+    bool depth_test = shader_depth_test_enabled(shader);
+    bool depth_write = shader_depth_write_enabled(shader);
 
     pipeline_create_info.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_LESS_OR_EQUAL;
     pipeline_create_info.depth_stencil_state.back_stencil_state.fail_op = SDL_GPU_STENCILOP_KEEP;
@@ -155,10 +132,10 @@ static SDL_GPUGraphicsPipeline* create_pipeline(shader_t shader, const SDL_GPUVe
     // Configure color targets and blend state (only for non-shadow shaders)
     if (!shadow) {
         SDL_GPUColorTargetBlendState blend_state = {0};
-        blend_state.enable_blend = is_blend_enabled(shader);
+        blend_state.enable_blend = shader_blend_enabled(shader);
         if (blend_state.enable_blend) {
-            SDL_GPUBlendFactor src_blend = get_gpu_src_blend(shader);
-            SDL_GPUBlendFactor dst_blend = get_gpu_dst_blend(shader);
+            SDL_GPUBlendFactor src_blend = shader_gpu_src_blend(shader);
+            SDL_GPUBlendFactor dst_blend = shader_gpu_dst_blend(shader);
             blend_state.enable_blend = true;
             blend_state.src_color_blendfactor = src_blend;
             blend_state.dst_color_blendfactor = dst_blend;
@@ -194,7 +171,7 @@ static SDL_GPUGraphicsPipeline* create_pipeline(shader_t shader, const SDL_GPUVe
     return pipeline;
 }
 
-SDL_GPUGraphicsPipeline* pipeline_factory_pipeline(shader_t shader, bool msaa, bool shadow)
+SDL_GPUGraphicsPipeline* pipeline_factory_pipeline(shader_t* shader, bool msaa, bool shadow)
 {
     assert(g_window);
     assert(g_device);
@@ -204,11 +181,9 @@ SDL_GPUGraphicsPipeline* pipeline_factory_pipeline(shader_t shader, bool msaa, b
     uint64_t key = pipeline_key(shader, msaa, shadow);
 
     // Check if pipeline exists in cache
-    object_t cached_obj = (object_t)map_get(g_pipeline_cache, key);
-    if (cached_obj) {
-        pipeline_object_t* pipeline_obj = (pipeline_object_t*)object_impl(cached_obj, g_pipeline_factory_type);
-        return pipeline_obj->pipeline;
-    }
+	pipeline_impl_t* impl = (pipeline_impl_t*)map_get(g_pipeline_cache, key);
+    if (impl != NULL)
+		return impl->pipeline;
 
     // Create new pipeline
     SDL_GPUVertexAttribute attributes[] = {
@@ -224,31 +199,29 @@ SDL_GPUGraphicsPipeline* pipeline_factory_pipeline(shader_t shader, bool msaa, b
     }
 
     // Store in cache
-    object_t cache_obj = (object_t)object_create(g_pipeline_factory_type, sizeof(pipeline_object_t));
-    if (cache_obj) map_set(g_pipeline_cache, key, cache_obj);
-    if (cache_obj) {
-        pipeline_object_t* pipeline_obj = (pipeline_object_t*)object_impl(cache_obj, g_pipeline_factory_type);
-        pipeline_obj->pipeline = pipeline;
-    }
+    impl = to_impl(object_alloc(NULL, sizeof(pipeline_impl_t), type_pipeline));
+    if (!impl)
+        return NULL;
 
+	impl->pipeline = pipeline;
+    map_set(g_pipeline_cache, key, impl);
     return pipeline;
 }
 
 void pipeline_factory_init(SDL_Window* win, SDL_GPUDevice* dev)
 {
-    assert(!g_pipeline_factory_type);
+    assert(!g_pipeline_cache);
 
     g_window = win;
     g_device = dev;
-    g_pipeline_factory_type = object_type_create("pipeline");
-    g_pipeline_cache = map_create(INITIAL_CACHE_SIZE);
+    g_pipeline_cache = map_alloc(NULL, INITIAL_CACHE_SIZE);
 }
 
 void pipeline_factory_uninit()
 {
-    assert(g_pipeline_factory_type);
-    object_destroy((object_t)g_pipeline_cache);
-    g_pipeline_cache = nullptr;
-    g_window = nullptr;
-    g_device = nullptr;
+    assert(g_pipeline_cache);
+	object_free(g_pipeline_cache);
+    g_pipeline_cache = NULL;
+    g_window = NULL;
+    g_device = NULL;
 }

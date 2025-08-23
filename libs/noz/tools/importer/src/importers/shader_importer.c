@@ -2,19 +2,191 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
+#include "../importer_pch.h"
+#include <SDL3/SDL.h>
 #include <SDL3_shadercross/SDL_shadercross.h>
+#include <ctype.h>
 
+// Shader flags
+typedef enum shader_flags {
+    shader_flags_none = 0,
+    shader_flags_depth_test = 1 << 0,
+    shader_flags_depth_write = 1 << 1,
+    shader_flags_blend = 1 << 2
+} shader_flags_t;
 
-void shader_importer_import(const path_t* source_path, const path_t* output_path)
+// Process stage directives (//@ VERTEX and //@ FRAGMENT blocks)
+static char* preprocess_stage_directives(const char* source, const char* stage)
 {
+    size_t len = strlen(source);
+    char* result = (char*)malloc(len + 1);
+    if (!result) return NULL;
+    
+    strcpy(result, source);
+    
+    // Simple approach: look for //@ VERTEX or //@ FRAGMENT markers
+    // and keep only the relevant sections
+    // This is a simplified version - could be improved with proper parsing
+    
+    return result;
+}
+
+static bool compile_and_write_shader(
+    const char* vertex_source,
+    const char* fragment_source,
+    stream_t* output_stream,
+    const path_t* include_dir)
+{
+    // Setup HLSL info for vertex shader
+    SDL_ShaderCross_HLSL_Info vertex_info = {
+        .source = vertex_source,
+        .entrypoint = "vs",  // Vertex shader entry point
+        .include_dir = include_dir->value,  // Set include directory for shader includes
+        .shader_stage = SDL_SHADERCROSS_SHADERSTAGE_VERTEX,
+        .enable_debug = false
+    };
+    
+    // Compile vertex shader to SPIRV
+    size_t vertex_spirv_size = 0;
+    void* vertex_spirv = SDL_ShaderCross_CompileSPIRVFromHLSL(&vertex_info, &vertex_spirv_size);
+    if (!vertex_spirv) {
+        printf("Failed to compile vertex shader: %s\n", SDL_GetError());
+        return false;
+    }
+    
+    // Setup HLSL info for fragment shader
+    SDL_ShaderCross_HLSL_Info fragment_info = {
+        .source = fragment_source,
+        .entrypoint = "ps",  // Pixel/fragment shader entry point
+        .include_dir = include_dir->value,  // Set include directory for shader includes
+        .shader_stage = SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT,
+        .enable_debug = false
+    };
+    
+    // Compile fragment shader to SPIRV
+    size_t fragment_spirv_size = 0;
+    void* fragment_spirv = SDL_ShaderCross_CompileSPIRVFromHLSL(&fragment_info, &fragment_spirv_size);
+    if (!fragment_spirv) {
+        printf("Failed to compile fragment shader: %s\n", SDL_GetError());
+        SDL_free(vertex_spirv);
+        return false;
+    }
+    
+    // For now, we'll just use the SPIRV bytecode directly
+    // In a real implementation, we'd compile to the target platform (DXBC, DXIL, MSL, etc.)
+    size_t vertex_size = vertex_spirv_size;
+    size_t fragment_size = fragment_spirv_size;
+    void* vertex_bytecode = vertex_spirv;
+    void* fragment_bytecode = fragment_spirv;
+    
+    // Calculate runtime size
+    uint32_t runtime_size = (uint32_t)(vertex_size + fragment_size + 64); // Add overhead
+    
+    // Write asset header
+    asset_header_t header = {
+        .signature = NOZ_SHADER_SIG,
+        .runtime_size = runtime_size,
+        .version = 1,
+        .flags = 0
+    };
+    asset_header_write(output_stream, &header);
+    
+    // Write SHDR signature for shader-specific data
+    stream_write_signature(output_stream, "SHDR", 4);
+    stream_write_uint32(output_stream, 1); // version
+    
+    // Write bytecode sizes and data
+    stream_write_uint32(output_stream, (uint32_t)vertex_size);
+    stream_write_bytes(output_stream, (uint8_t*)vertex_bytecode, vertex_size);
+    stream_write_uint32(output_stream, (uint32_t)fragment_size);
+    stream_write_bytes(output_stream, (uint8_t*)fragment_bytecode, fragment_size);
+    
+    // Write resource counts (simplified - would need parsing to get actual counts)
+    stream_write_int32(output_stream, 1); // vertex_uniform_count
+    stream_write_int32(output_stream, 1); // fragment_uniform_count
+    stream_write_int32(output_stream, 0); // sampler_count
+    
+    // Write shader metadata
+    stream_write_uint8(output_stream, shader_flags_depth_test | shader_flags_depth_write);
+    stream_write_uint32(output_stream, SDL_GPU_BLENDFACTOR_SRC_ALPHA);
+    stream_write_uint32(output_stream, SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA);
+    stream_write_uint32(output_stream, SDL_GPU_CULLMODE_BACK);
+    
+    // Clean up
+    SDL_free(vertex_spirv);
+    SDL_free(fragment_spirv);
+    
+    return true;
+}
+
+void shader_importer_import(const path_t* source_path, const path_t* output_path, props_t* config)
+{
+    // Read source file
+    stream_t* source_stream = stream_load_from_file(NULL, source_path);
+    if (!source_stream) {
+        printf("Failed to open shader source: %s\n", source_path->value);
+        return;
+    }
+    
+    size_t size = stream_size(source_stream);
+    char* source = (char*)malloc(size + 1);
+    if (!source) {
+        object_free(source_stream);
+        return;
+    }
+    
+    stream_read_bytes(source_stream, (uint8_t*)source, size);
+    source[size] = '\0';
+    object_free(source_stream);
+    
+    // For now, compile the same source for both vertex and fragment
+    // Later we can add stage-specific preprocessing
+    
+    // Create output stream
+    stream_t* output_stream = stream_alloc(NULL, 4096);
+    if (!output_stream) {
+        free(source);
+        return;
+    }
+    
+    // Get the directory of the source file for includes
+    path_t include_path;
+    path_dir(source_path, &include_path);
+    
+    // Compile and write shader
+    if (compile_and_write_shader(source, source, output_stream, &include_path)) {
+        // Build output file path
+        path_t final_path;
+        path_copy(&final_path, output_path);
+        
+        // Get just the filename from source
+        const char* filename = path_basename(source_path);
+        
+        // Append filename to output directory
+        path_append(&final_path, filename);
+        
+        // Replace extension with .nzsh
+        path_set_extension(&final_path, "nzsh");
+        
+        if (!stream_save(output_stream, &final_path)) {
+            printf("Failed to save shader: %s\n", final_path.value);
+        } else {
+            // Extract just the filename for cleaner output
+            const char* src_name = path_basename(source_path);
+            printf("Imported: %s\n", src_name);
+        }
+    }
+    
+    object_free(output_stream);
+    free(source);
 }
 
 bool shader_importer_can_import(const path_t* path)
 {
-    if (path_has_extension(path, ".hlsl"))
-        return true;
-
-    return false;
+    // path_has_extension expects extension without the dot
+    bool can_import = path_has_extension(path, "hlsl");
+    printf("  Checking %s: %s\n", path->value, can_import ? "YES" : "NO");
+    return can_import;
 }
 
 bool shader_importer_does_depend_on(const path_t* source_path, const path_t* dependency_path)

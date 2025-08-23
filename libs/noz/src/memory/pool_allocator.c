@@ -4,7 +4,7 @@
 
 typedef struct pool_entry
 {
-	pool_entry_t* next;
+	struct pool_entry* next;
 } pool_entry_t;
 
 typedef struct pool_allocator
@@ -20,7 +20,7 @@ void* pool_allocator_alloc(pool_allocator_t* a)
 {
 	assert(a);
 	if (!a->free)
-		return nullptr;
+		return NULL;
 
 	pool_entry_t* entry = a->free;
 	a->free = entry->next;
@@ -48,7 +48,7 @@ size_t pool_allocator_count(pool_allocator_t* a)
 pool_allocator_t* pool_allocator_create(size_t entry_size, size_t entry_count)
 {
 	size_t stride = entry_size + sizeof(pool_entry_t);
-	pool_allocator_t* a = (pool_allocator_t*)cmalloc(1, sizeof(pool_allocator_t) + stride * entry_count);
+	pool_allocator_t* a = (pool_allocator_t*)calloc(1, sizeof(pool_allocator_t) + stride * entry_count);
 	a->base = (allocator_t){
 		.alloc = (void* (*)(allocator_t*, size_t))pool_allocator_alloc,
 		.free = (void (*)(allocator_t*, void*))pool_allocator_free

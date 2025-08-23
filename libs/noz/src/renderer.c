@@ -18,8 +18,8 @@ typedef struct renderer_impl
     mat4_t view;
 
     // gamma
-    mesh_t gamma_mesh;
-    material_t gamma_material;
+    mesh_t* gamma_mesh;
+    material_t* gamma_material;
 
     // Depth buffer support
     SDL_GPUTexture* depth_texture;
@@ -31,16 +31,16 @@ typedef struct renderer_impl
     SDL_GPUTexture* msaa_depth_texture;
 
     // Default texture for rendering
-    texture_t default_texture;
+    texture_t* default_texture;
 
     // Light view projection matrix for shadow mapping
     mat4_t light_view;
 
-    texture_t linear_back_buffer;
+    texture_t* linear_back_buffer;
     SDL_GPUTexture* swap_chain_texture;
     SDL_GPUTexture* shadow_map;
     SDL_GPUSampler* shadow_sampler;
-    shader_t shadow_shader;
+    shader_t* shadow_shader;
     bool shadow_pass;
     bool msaa;
     SDL_GPUGraphicsPipeline* pipeline;
@@ -241,12 +241,9 @@ SDL_GPURenderPass* renderer_begin_pass_gpu(SDL_GPUTexture* target, bool clear, c
     return g_renderer.render_pass;
 }
 
-SDL_GPURenderPass* renderer_begin_pass(bool clear, color_t clear_color, bool msaa, texture_t target)
+SDL_GPURenderPass* renderer_begin_pass(bool clear, color_t clear_color, bool msaa, texture_t* target)
 {
     assert(!g_renderer.render_pass);
-
-    SDL_GPUColorTargetInfo color_target = {0};
-    SDL_GPUDepthStencilTargetInfo depth_target = {0};
 
     // TODO: handle msaa to a target texture
     SDL_GPUTexture* gpu_texture = target
@@ -257,7 +254,10 @@ SDL_GPURenderPass* renderer_begin_pass(bool clear, color_t clear_color, bool msa
     return g_renderer.render_pass;
 
 #if 0
-        // Use MSAA textures for scene rendering with resolve to backbuffer
+    SDL_GPUColorTargetInfo color_target = { 0 };
+    SDL_GPUDepthStencilTargetInfo depth_target = { 0 };
+
+    // Use MSAA textures for scene rendering with resolve to backbuffer
         if (false) // msaa && g_renderer.msaa_color_texture && g_renderer.msaa_depth_texture)
         {
             _msaa = true;
@@ -316,13 +316,13 @@ void renderer_bind_default_texture(int index)
     renderer_bind_texture(g_renderer.command_buffer, g_renderer.default_texture, sampler_register_user0 + index);
 }
 
-void renderer_bind_texture(SDL_GPUCommandBuffer* cb, texture_t texture, int index)
+void renderer_bind_texture(SDL_GPUCommandBuffer* cb, texture_t* texture, int index)
 {
     if (g_renderer.shadow_pass)
         return;
 
     // Get the actual texture to bind (use default if none provided)
-    texture_t actual_texture = texture ? texture : g_renderer.default_texture;
+    texture_t* actual_texture = texture ? texture : g_renderer.default_texture;
 
     // Main pass: bind diffuse texture and shadow map
     SDL_GPUTextureSamplerBinding binding = {0};
@@ -331,7 +331,7 @@ void renderer_bind_texture(SDL_GPUCommandBuffer* cb, texture_t texture, int inde
     SDL_BindGPUFragmentSamplers(g_renderer.render_pass, index, &binding, 1);
 }
 
-void renderer_bind_shader(shader_t shader)
+void renderer_bind_shader(shader_t* shader)
 {
     assert(shader);
 
@@ -352,11 +352,11 @@ void renderer_bind_shader(shader_t shader)
     g_renderer.pipeline = pipeline;
 }
 
-void renderer_bind_material(material_t material)
+void renderer_bind_material(material_t* material)
 {
     assert(material);
 
-    shader_t shader = material_shader(material);
+    shader_t* shader = material_shader(material);
     assert(shader);
 
     renderer_bind_shader(shader);
@@ -415,18 +415,26 @@ void update_back_buffer()
     if (g_renderer.linear_back_buffer && ivec2_cmp(texture_size(g_renderer.linear_back_buffer), size))
         return;
 
+    name_t name;
+	name_set(&name, "linear");
     g_renderer.linear_back_buffer =
-        texture_create_render_target(size.x, size.y, texture_format_rgba16f, "linear");
+        texture_alloc_render_target(NULL, size.x, size.y, texture_format_rgba16f, &name);
 }
 
 void init_gamma_pass()
 {
-    mesh_builder_t builder = mesh_builder_create(4, 6);
+    name_t gamma_name;
+    name_t shader_name;
+    name_set(&gamma_name, "gamma");
+    name_set(&shader_name, "shaders/gamma");
+
+    mesh_builder_t* builder = mesh_builder_alloc(NULL, 4, 6);
     mesh_builder_add_quad(builder, vec3_forward(), vec3_right(), 1, 1, vec2_zero());
-	mesh_t mesh = mesh_builder_to_mesh(builder, "gamma");
-	mesh_builder_destroy(builder);
+	mesh_t* mesh =  mesh_alloc_from_mesh_builder(NULL, builder, &gamma_name);
+	object_free(builder);
     g_renderer.gamma_mesh = mesh;
-    g_renderer.gamma_material = material_create(shader_load("shaders/gamma"), "gamma");
+
+    g_renderer.gamma_material = material_alloc(NULL, shader_load(NULL, &shader_name), &gamma_name);
 
     // For now, just stub this out since gamma_mesh and gamma_material are commented out
     // TODO: Implement gamma pass when needed
@@ -452,7 +460,6 @@ void render_gamma_pass()
 
 void renderer_init(const renderer_traits* traits, SDL_Window* window)
 {
-    mesh_builder_init();
 
     g_renderer.window = window;
     //g_renderer.render_buffer = create_render_buffer();

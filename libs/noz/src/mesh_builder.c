@@ -2,8 +2,11 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
+#define to_impl(m) ((mesh_builder_impl_t*)to_object(m, type_mesh_builder))
+
 typedef struct mesh_builder_impl
 {
+    OBJECT_BASE;
     vec3_t* positions;
     vec3_t* normals;
     vec2_t* uv0;
@@ -16,22 +19,11 @@ typedef struct mesh_builder_impl
     bool is_full;
 } mesh_builder_impl_t;
 
-static object_type_t g_mesh_builder_type = NULL;
-
-static inline mesh_builder_impl_t* to_impl(mesh_builder_t builder)
+mesh_builder_t* mesh_builder_alloc(allocator_t* allocator, int max_vertices, int max_indices)
 {
-    assert(builder);
-    return (mesh_builder_impl_t*)object_impl((object_t)builder, g_mesh_builder_type);
-}
-
-mesh_builder_t mesh_builder_create(int max_vertices, int max_indices)
-{
-    object_t object = object_create(g_mesh_builder_type, sizeof(mesh_builder_impl_t));
-    if (!object)
+	mesh_builder_impl_t* impl = to_impl(object_alloc(allocator, sizeof(mesh_builder_impl_t), type_mesh_builder));
+    if (!impl)
         return NULL;
-    
-	mesh_builder_t builder = (mesh_builder_t)object;
-    mesh_builder_impl_t* impl = to_impl(builder);
     
     impl->vertex_max = max_vertices;
     impl->index_max = max_indices;
@@ -51,14 +43,16 @@ mesh_builder_t mesh_builder_create(int max_vertices, int max_indices)
         free(impl->uv0);
         free(impl->bones);
         free(impl->indices);
-        object_destroy(object);
+        object_free((mesh_builder_t*)impl);
         return NULL;
     }
     
-    return builder;
+    return (mesh_builder_t*)impl;
 }
 
-void mesh_builder_destroy(mesh_builder_t builder)
+// todo: destructor
+#if 0
+void mesh_builder_destroy(mesh_builder_t* builder)
 {
     if (!builder) return;
     
@@ -71,8 +65,9 @@ void mesh_builder_destroy(mesh_builder_t builder)
     
     object_destroy((object_t)builder);
 }
+#endif
 
-void mesh_builder_clear(mesh_builder_t builder)
+void mesh_builder_clear(mesh_builder_t* builder)
 {
     if (!builder) return;
     
@@ -81,48 +76,43 @@ void mesh_builder_clear(mesh_builder_t builder)
     impl->index_count = 0;
 }
 
-const vec3_t* mesh_builder_positions(mesh_builder_t builder)
+const vec3_t* mesh_builder_positions(mesh_builder_t* builder)
 {
     return to_impl(builder)->positions;
 }
 
-const vec3_t* mesh_builder_normals(mesh_builder_t builder)
+const vec3_t* mesh_builder_normals(mesh_builder_t* builder)
 {
     return to_impl(builder)->normals;
 }
 
-const vec2_t* mesh_builder_uv0(mesh_builder_t builder)
+const vec2_t* mesh_builder_uv0(mesh_builder_t* builder)
 {
     return to_impl(builder)->uv0;
 }
 
-const uint8_t* mesh_builder_bones(mesh_builder_t builder)
+const uint8_t* mesh_builder_bones(mesh_builder_t* builder)
 {
     return to_impl(builder)->bones;
 }
 
-const uint16_t* mesh_builder_indices(mesh_builder_t builder)
+const uint16_t* mesh_builder_indices(mesh_builder_t* builder)
 {
     return to_impl(builder)->indices;
 }
 
-size_t mesh_builder_vertex_count(mesh_builder_t builder)
+size_t mesh_builder_vertex_count(mesh_builder_t* builder)
 {
     return to_impl(builder)->vertex_count;
 }
 
-size_t mesh_builder_index_count(mesh_builder_t builder)
+size_t mesh_builder_index_count(mesh_builder_t* builder)
 {
     return to_impl(builder)->index_count;
 }
 
-void mesh_builder_init()
-{
-    g_mesh_builder_type = object_type_create("mesh_builder");
-}
-
 void mesh_builder_add_vertex(
-	mesh_builder_t builder,
+	mesh_builder_t* builder,
     vec3_t position,
     vec3_t normal,
     vec2_t uv,
@@ -141,7 +131,7 @@ void mesh_builder_add_vertex(
 	impl->bones[index] = bone_index;
 }
 
-void mesh_builder_add_index(mesh_builder_t builder, uint16_t index)
+void mesh_builder_add_index(mesh_builder_t* builder, uint16_t index)
 {
     mesh_builder_impl_t* impl = to_impl(builder);
     impl->is_full = impl->is_full && impl->index_count + 1 >= impl->index_max;
@@ -152,7 +142,7 @@ void mesh_builder_add_index(mesh_builder_t builder, uint16_t index)
     impl->index_count++;    
 }
 
-void mesh_builder_add_triangle_indices(mesh_builder_t builder, uint16_t a, uint16_t b, uint16_t c)
+void mesh_builder_add_triangle_indices(mesh_builder_t* builder, uint16_t a, uint16_t b, uint16_t c)
 {
     mesh_builder_impl_t* impl = to_impl(builder);
     impl->is_full = impl->is_full && impl->index_count + 3 >= impl->index_max;
@@ -166,7 +156,7 @@ void mesh_builder_add_triangle_indices(mesh_builder_t builder, uint16_t a, uint1
 }
 
 void mesh_builder_add_triangle(
-    mesh_builder_t builder,
+    mesh_builder_t* builder,
     vec3_t a,
     vec3_t b,
     vec3_t c,
@@ -178,7 +168,7 @@ void mesh_builder_add_triangle(
     vec3_t normal = vec3_normalize(vec3_cross(v2, v1));
 
     // Add vertices with computed normal
-    auto vertex_index = to_impl(builder)->vertex_count;
+    uint16_t vertex_index = (uint16_t)to_impl(builder)->vertex_count;
     mesh_builder_add_vertex(builder, a, normal, (vec2_t) { 0.0f, 0.0f }, bone_index);
     mesh_builder_add_vertex(builder, a, normal, (vec2_t) { 1.0f, 0.0f }, bone_index);
     mesh_builder_add_vertex(builder, a, normal, (vec2_t) { 0.5f, 1.0f }, bone_index);
@@ -186,7 +176,7 @@ void mesh_builder_add_triangle(
 }
 
 void mesh_builder_add_quad(
-    mesh_builder_t builder,
+    mesh_builder_t* builder,
     vec3_t forward,
     vec3_t right,
     float width,
@@ -206,7 +196,7 @@ void mesh_builder_add_quad(
 }
 
 void mesh_builder_add_quad_points(
-    mesh_builder_t builder,
+    mesh_builder_t* builder,
     vec3_t a,
     vec3_t b,
     vec3_t c,
@@ -215,7 +205,7 @@ void mesh_builder_add_quad_points(
     vec3_t normal,
     uint8_t bone_index)
 {
-    size_t base_index = to_impl(builder)->vertex_count;
+    uint16_t base_index = (uint16_t)to_impl(builder)->vertex_count;
 
     // Add vertices
     mesh_builder_add_vertex(builder, a, normal, uv_color, bone_index);
@@ -229,8 +219,9 @@ void mesh_builder_add_quad_points(
 }
 
 
-void mesh_builder_add_pyramid(mesh_builder_t builder, vec3_t start, vec3_t end, float size, uint8_t bone_index)
+void mesh_builder_add_pyramid(mesh_builder_t* builder, vec3_t start, vec3_t end, float size, uint8_t bone_index)
 {
+#if 0
     // Calculate direction and create base
     vec3_t direction = vec3_normalize(vec3_sub(end, start));
     float length = vec3_distance(start, end);
@@ -277,10 +268,11 @@ void mesh_builder_add_pyramid(mesh_builder_t builder, vec3_t start, vec3_t end, 
         vec3_sub(start, right_sub_up),
         end,
         bone_index);
+#endif
 }
 
 void mesh_builder_add_raw(
-    mesh_builder_t builder,
+    mesh_builder_t* builder,
     size_t vertex_count,
     vec3_t* positions,
     vec3_t* normals,
@@ -309,8 +301,9 @@ void mesh_builder_add_raw(
 	}
 }
 
-void mesh_builder_add_cube(mesh_builder_t builder, vec3_t center, vec3_t size, uint8_t bone_index)
+void mesh_builder_add_cube(mesh_builder_t* builder, vec3_t center, vec3_t size, uint8_t bone_index)
 {
+#if 0
 	mesh_builder_impl_t* impl = to_impl(builder);
 
     vec3_t half_size = vec3_muls(size, 0.5f);
@@ -356,6 +349,7 @@ void mesh_builder_add_cube(mesh_builder_t builder, vec3_t center, vec3_t size, u
         3, 2, 6, 3, 6, 7, // Top face
 		4, 5, 1, 4, 1, 0  // Bottom face
     };
+#endif
 }
 
 #if 0
@@ -669,20 +663,20 @@ void mesh_builder::add_cone(
 }
 #endif
 
-mesh_t mesh_builder_to_mesh(mesh_builder_t builder, const char* name)
+mesh_t* mesh_alloc_from_mesh_builder(allocator_t* allocator, mesh_builder_t* builder, const name_t* name)
 {
     assert(builder);
 	mesh_builder_impl_t* impl = to_impl(builder);
-    return mesh_create_raw(
-        builder,
-        name,
+    return mesh_alloc_raw(
+        allocator,
 		impl->vertex_count,
         impl->positions,
         impl->normals,
         impl->uv0,
         impl->bones,
         impl->index_count,
-        impl->indices
+        impl->indices,
+        name
 	);
 }
 

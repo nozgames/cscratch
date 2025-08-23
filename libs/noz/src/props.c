@@ -3,25 +3,11 @@
 //
 
 #include <noz/props.h>
-#include <noz/object.h>
-#include <noz/map.h>
-#include <noz/hash.h>
-#include <noz/stream.h>
-#include <noz/tokenizer.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <assert.h>
-
-#ifndef nullptr
-#define nullptr NULL
-#endif
 
 #define MAX_PROPERTY_VALUES 32
+#define HASH_SIZE 256
 
-
-// Property value (can be single or list)
 typedef struct prop_value
 {
     prop_type_t type;
@@ -37,10 +23,10 @@ typedef struct prop_value
     };
 } prop_value_t;
 
-// Props implementation
 typedef struct props_impl
 {
-    map_t property_map;        // Maps name_t key hash -> prop_value_t*
+    OBJECT_BASE;
+    map_t* property_map;        // Maps name_t key hash -> prop_value_t*
     prop_value_t* pool;    // Pool of prop values
     size_t pool_size;
     size_t pool_used;
@@ -52,42 +38,25 @@ typedef struct props_impl
     bool key_cache_dirty;
 } props_impl_t;
 
-static object_type_t g_props_type = nullptr;
-
-// Forward declarations
-static props_impl_t* to_impl(props_t props);
 static prop_value_t* alloc_prop_value(props_impl_t* impl);
 static void rebuild_key_cache(props_impl_t* impl);
-
 
 // Parsing functions
 static bool parse_ini_line_with_section(props_impl_t* impl, const char* line, const char* section);
 static bool parse_vector(const char* str, vec3_t* result);
-static void trim_whitespace(text_t* text);
 
 // Implementation
-static props_impl_t* to_impl(props_t props)
-{
-    assert(props);
-    return (props_impl_t*)object_impl((object_t)props, g_props_type);
-}
+static inline props_impl_t* to_impl(void* p) { return (props_impl_t*)to_object(p, type_props); }
 
-props_t props_create(void)
+props_t* props_alloc(allocator_t* allocator)
 {
-    if (!g_props_type)
-    {
-        g_props_type = object_type_create("props");
-    }
-    
-    props_t props = (props_t)object_create(g_props_type, sizeof(props_impl_t));
+    props_t* props = (props_t*)object_alloc(allocator, sizeof(props_impl_t), type_props);
     if (!props)
-    {
-        return nullptr;
-    }
+        return NULL;
     
     props_impl_t* impl = to_impl(props);
-    impl->property_map = map_create(256);
-    impl->pool_size = 256;
+    impl->property_map = map_alloc(allocator, HASH_SIZE);
+    impl->pool_size = HASH_SIZE;
     impl->pool = (prop_value_t*)calloc(impl->pool_size, sizeof(prop_value_t));
     impl->pool_used = 0;
     
@@ -99,19 +68,13 @@ props_t props_create(void)
     return props;
 }
 
-void props_destroy(props_t props)
+#if 0
+void props_destroy(props_t* props)
 {
-    if (!props)
-    {
-        return;
-    }
-    
     props_impl_t* impl = to_impl(props);
     
     if (impl->property_map)
-    {
-        object_destroy((object_t)impl->property_map);
-    }
+        object_free(impl->property_map);
     
     if (impl->pool)
     {
@@ -125,47 +88,38 @@ void props_destroy(props_t props)
     
     object_destroy((object_t)props);
 }
+#endif
 
-bool props_load_from_file(props_t props, const char* file_path)
+props_t* props_load_from_file(allocator_t* allocator, const path_t* file_path)
 {
-    if (!props || !file_path)
-    {
-        return false;
-    }
+    assert(file_path);
     
-    stream_t stream = stream_create_from_file(file_path);
+    stream_t* stream = stream_load_from_file(allocator, file_path);
     if (!stream)
-    {
         return false;
-    }
     
-    // Read entire file into a text buffer
-    size_t file_size = stream_size(stream);
-    uint8_t* content = (uint8_t*)malloc(file_size + 1);
-    if (!content)
-    {
-        stream_destroy(stream);
-        return false;
-    }
+    stream_seek_end(stream, 0);
+    stream_write_uint8(stream, 0);
     
-    stream_read_bytes(stream, content, file_size);
-    content[file_size] = '\0';
-    stream_destroy(stream);
-    
-    bool result = props_load_from_string(props, (const char*)content);
-    free(content);
+    props_t* result = props_load_from_memory(allocator, (const char*)stream_data(stream), stream_size(stream) - 1);
+
+    object_free(stream);
     
     return result;
 }
 
-bool props_load_from_string(props_t props, const char* content)
+props_t* props_load_from_memory(allocator_t* allocator, const char* content, size_t content_length)
 {
-    if (!props || !content)
-    {
-        return false;
-    }
+    assert(content);
+    assert(content_length > 0);
+    assert(content[content_length] == 0);
     
+    props_t* props = (props_t*)props_alloc(allocator);
+    if (!props)
+        return NULL;
+
     props_impl_t* impl = to_impl(props);
+
     tokenizer_t tokenizer;
     tokenizer_init(&tokenizer, content);
     
@@ -175,25 +129,25 @@ bool props_load_from_string(props_t props, const char* content)
     
     while (tokenizer_read_line(&tokenizer, &line))
     {
-        trim_whitespace(&line);
+        text_trim(&line);
         
         // Skip empty lines and comments
-        if (line.length == 0 || line.data[0] == ';' || line.data[0] == '#')
+        if (line.length == 0 || line.value[0] == ';' || line.value[0] == '#')
         {
             continue;
         }
         
         // Handle sections [section_name]
-        if (line.data[0] == '[')
+        if (line.value[0] == '[')
         {
             // Extract section name
-            if (line.length >= 3 && line.data[line.length - 1] == ']')
+            if (line.length >= 3 && line.value[line.length - 1] == ']')
             {
                 // Copy section name without brackets
                 text_clear(&current_section);
                 for (size_t i = 1; i < line.length - 1; i++)
                 {
-                    char ch_str[2] = {line.data[i], '\0'};
+                    char ch_str[2] = {line.value[i], '\0'};
                     text_append(&current_section, ch_str);
                 }
             }
@@ -201,10 +155,10 @@ bool props_load_from_string(props_t props, const char* content)
         }
         
         // Parse line content
-        if (strchr(line.data, '=') != nullptr)
+        if (strchr(line.value, '=') != NULL)
         {
             // Key=value format - use current section as prefix
-            if (!parse_ini_line_with_section(impl, line.data, current_section.data))
+            if (!parse_ini_line_with_section(impl, line.value, current_section.value))
             {
                 // Continue parsing even if a line fails
             }
@@ -214,16 +168,16 @@ bool props_load_from_string(props_t props, const char* content)
             // List item format - add to current section as list
             if (current_section.length > 0)
             {
-                props_add_to_list(props, current_section.data, line.data);
+                props_add_to_list(props, current_section.value, line.value);
             }
         }
     }
     
     impl->key_cache_dirty = true;
-    return true;
+    return props;
 }
 
-void props_clear(props_t props)
+void props_clear(props_t* props)
 {
     if (!props)
     {
@@ -243,7 +197,7 @@ void props_clear(props_t props)
     impl->key_cache_dirty = true;
 }
 
-void props_set_string(props_t props, const char* key, const char* value)
+void props_set_string(props_t* props, const char* key, const char* value)
 {
     if (!props || !key || !value)
     {
@@ -273,28 +227,28 @@ void props_set_string(props_t props, const char* key, const char* value)
     text_set(&prop->single, value);
 }
 
-void props_set_int(props_t props, const char* key, int value)
+void props_set_int(props_t* props, const char* key, int value)
 {
     text_t str_value;
     text_format(&str_value, "%d", value);
-    props_set_string(props, key, str_value.data);
+    props_set_string(props, key, str_value.value);
 }
 
-void props_set_float(props_t props, const char* key, float value)
+void props_set_float(props_t* props, const char* key, float value)
 {
     text_t str_value;
     text_format(&str_value, "%.6f", value);
-    props_set_string(props, key, str_value.data);
+    props_set_string(props, key, str_value.value);
 }
 
-void props_set_vec3(props_t props, const char* key, vec3_t value)
+void props_set_vec3(props_t* props, const char* key, vec3_t value)
 {
     text_t str_value;
     text_format(&str_value, "(%.6f,%.6f,%.6f)", value.x, value.y, value.z);
-    props_set_string(props, key, str_value.data);
+    props_set_string(props, key, str_value.value);
 }
 
-void props_add_to_list(props_t props, const char* key, const char* value)
+void props_add_to_list(props_t* props, const char* key, const char* value)
 {
     if (!props || !key || !value)
     {
@@ -336,7 +290,7 @@ void props_add_to_list(props_t props, const char* key, const char* value)
     }
 }
 
-bool props_has_key(props_t props, const char* key)
+bool props_has_key(props_t* props, const char* key)
 {
     if (!props || !key)
     {
@@ -345,10 +299,10 @@ bool props_has_key(props_t props, const char* key)
     
     props_impl_t* impl = to_impl(props);
     uint64_t hash_key = hash_string(key);
-    return map_get(impl->property_map, hash_key) != nullptr;
+    return map_get(impl->property_map, hash_key) != NULL;
 }
 
-bool props_is_list(props_t props, const char* key)
+bool props_is_list(props_t* props, const char* key)
 {
     if (!props || !key)
     {
@@ -362,7 +316,7 @@ bool props_is_list(props_t props, const char* key)
     return prop && prop->type == prop_type_list;
 }
 
-prop_type_t props_get_type(props_t props, const char* key)
+prop_type_t props_get_type(props_t* props, const char* key)
 {
     if (!props || !key)
     {
@@ -376,7 +330,7 @@ prop_type_t props_get_type(props_t props, const char* key)
     return prop ? prop->type : prop_type_value;
 }
 
-const char* props_get_string(props_t props, const char* key, const char* default_value)
+const char* props_get_string(props_t* props, const char* key, const char* default_value)
 {
     if (!props || !key)
     {
@@ -392,12 +346,12 @@ const char* props_get_string(props_t props, const char* key, const char* default
         return default_value;
     }
     
-    return prop->single.data;
+    return prop->single.value;
 }
 
-int props_get_int(props_t props, const char* key, int default_value)
+int props_get_int(props_t* props, const char* key, int default_value)
 {
-    const char* str_value = props_get_string(props, key, nullptr);
+    const char* str_value = props_get_string(props, key, NULL);
     if (!str_value)
     {
         // For lists, return count
@@ -411,9 +365,9 @@ int props_get_int(props_t props, const char* key, int default_value)
     return atoi(str_value);
 }
 
-float props_get_float(props_t props, const char* key, float default_value)
+float props_get_float(props_t* props, const char* key, float default_value)
 {
-    const char* str_value = props_get_string(props, key, nullptr);
+    const char* str_value = props_get_string(props, key, NULL);
     if (!str_value)
     {
         return default_value;
@@ -422,9 +376,9 @@ float props_get_float(props_t props, const char* key, float default_value)
     return (float)atof(str_value);
 }
 
-vec3_t props_get_vec3(props_t props, const char* key, vec3_t default_value)
+vec3_t props_get_vec3(props_t* props, const char* key, vec3_t default_value)
 {
-    const char* str_value = props_get_string(props, key, nullptr);
+    const char* str_value = props_get_string(props, key, NULL);
     if (!str_value)
     {
         return default_value;
@@ -439,7 +393,7 @@ vec3_t props_get_vec3(props_t props, const char* key, vec3_t default_value)
     return default_value;
 }
 
-size_t props_get_list_count(props_t props, const char* key)
+size_t props_get_list_count(props_t* props, const char* key)
 {
     if (!props || !key)
     {
@@ -458,7 +412,7 @@ size_t props_get_list_count(props_t props, const char* key)
     return prop->type == prop_type_list ? prop->list.count : 1;
 }
 
-const char* props_get_list_item(props_t props, const char* key, size_t index, const char* default_value)
+const char* props_get_list_item(props_t* props, const char* key, size_t index, const char* default_value)
 {
     if (!props || !key)
     {
@@ -476,7 +430,7 @@ const char* props_get_list_item(props_t props, const char* key, size_t index, co
     
     if (prop->type == prop_type_value)
     {
-        return index == 0 ? prop->single.data : default_value;
+        return index == 0 ? prop->single.value : default_value;
     }
     
     if (index >= prop->list.count)
@@ -484,10 +438,10 @@ const char* props_get_list_item(props_t props, const char* key, size_t index, co
         return default_value;
     }
     
-    return prop->list.values[index].data;
+    return prop->list.values[index].value;
 }
 
-size_t props_get_key_count(props_t props)
+size_t props_get_key_count(props_t* props)
 {
     if (!props)
     {
@@ -503,11 +457,11 @@ size_t props_get_key_count(props_t props)
     return impl->key_count;
 }
 
-const char* props_get_key_at(props_t props, size_t index)
+const char* props_get_key_at(props_t* props, size_t index)
 {
     if (!props)
     {
-        return nullptr;
+        return NULL;
     }
     
     props_impl_t* impl = to_impl(props);
@@ -518,13 +472,13 @@ const char* props_get_key_at(props_t props, size_t index)
     
     if (index >= impl->key_count)
     {
-        return nullptr;
+        return NULL;
     }
     
-    return impl->key_cache[index].data;
+    return impl->key_cache[index].value;
 }
 
-void props_print(props_t props)
+void props_print(props_t* props)
 {
     if (!props)
     {
@@ -562,7 +516,7 @@ static prop_value_t* alloc_prop_value(props_impl_t* impl)
 {
     if (impl->pool_used >= impl->pool_size)
     {
-        return nullptr;  // Pool exhausted
+        return NULL;  // Pool exhausted
     }
     
     return &impl->pool[impl->pool_used++];
@@ -590,7 +544,7 @@ static void rebuild_key_cache(props_impl_t* impl)
         }
         
         // Copy the key to the cache
-        name_set(&impl->key_cache[impl->key_count], prop->key.data);
+        name_set(&impl->key_cache[impl->key_count], prop->key.value);
         impl->key_count++;
     }
     
@@ -612,7 +566,7 @@ static bool parse_ini_line_with_section(props_impl_t* impl, const char* line, co
         return false;
     }
     
-    trim_whitespace(&key);
+    text_trim(&key);
     if (key.length == 0)
     {
         return false;
@@ -626,7 +580,7 @@ static bool parse_ini_line_with_section(props_impl_t* impl, const char* line, co
     {
         text_set(&full_key, section);
         text_append(&full_key, ".");
-        text_append(&full_key, key.data);
+        text_append(&full_key, key.value);
     }
     else
     {
@@ -652,10 +606,10 @@ static bool parse_ini_line_with_section(props_impl_t* impl, const char* line, co
         text_append(&value, ch_str);
     }
     
-    trim_whitespace(&value);
+    text_trim(&value);
     
     // Store the property
-    uint64_t hash_key = hash_string(full_key.data);
+    uint64_t hash_key = hash_string(full_key.value);
     prop_value_t* prop = alloc_prop_value(impl);
     if (!prop)
     {
@@ -679,60 +633,9 @@ static bool parse_vector(const char* str, vec3_t* result)
         return false;
     }
     
-    // Look for pattern: (x,y,z) or (x, y, z)
-    const char* start = strchr(str, '(');
-    const char* end = strchr(str, ')');
+    tokenizer_t tokenizer;
+    tokenizer_init(&tokenizer, str);
     
-    if (!start || !end || end <= start)
-    {
-        return false;
-    }
-    
-    // Extract the content between parentheses
-    size_t content_len = end - start - 1;
-    char* content = (char*)malloc(content_len + 1);
-    if (!content)
-    {
-        return false;
-    }
-    
-    strncpy(content, start + 1, content_len);
-    content[content_len] = '\0';
-    
-    // Parse three floats separated by commas
-    int count = sscanf(content, "%f,%f,%f", &result->x, &result->y, &result->z);
-    free(content);
-    
-    return count == 3;
+    return tokenizer_read_vec3(&tokenizer, result);
 }
 
-static void trim_whitespace(text_t* text)
-{
-    if (!text || text->length == 0)
-    {
-        return;
-    }
-    
-    // Trim leading whitespace
-    size_t start = 0;
-    while (start < text->length && isspace(text->data[start]))
-    {
-        start++;
-    }
-    
-    // Trim trailing whitespace
-    size_t end = text->length;
-    while (end > start && isspace(text->data[end - 1]))
-    {
-        end--;
-    }
-    
-    // Move content to beginning and update length
-    if (start > 0)
-    {
-        memmove(text->data, text->data + start, end - start);
-    }
-    
-    text->length = end - start;
-    text->data[text->length] = '\0';
-}

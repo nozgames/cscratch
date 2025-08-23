@@ -5,6 +5,12 @@
 #include <signal.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/stat.h>
+#endif
+
 asset_importer_traits_t* shader_importer_create();
 
 typedef struct import_job
@@ -14,10 +20,10 @@ typedef struct import_job
 } import_job_t;
 
 static array_t* g_import_queue = NULL;
-static props_t g_config = NULL;
+static props_t* g_config = NULL;
 
-void process_file_change(const char* file_path, file_change_type_t change_type);
-void process_import_queue();
+void process_file_change(const path_t* file_path, file_change_type_t change_type, asset_importer_traits_t** importers);
+void process_import_queue(asset_importer_traits_t** importers);
 
 static volatile bool g_running = true;
 
@@ -43,6 +49,7 @@ const char* change_type_to_string(file_change_type_t type)
 
 int main(int argc, char* argv[])
 {
+	// Initialize importers array
 	asset_importer_traits_t* importers[] = {
 		shader_importer_create(),
 		NULL
@@ -51,32 +58,25 @@ int main(int argc, char* argv[])
 	// Set up signal handler for Ctrl-C
 	signal(SIGINT, signal_handler);
 
-	// Load importer configuration
-	g_config = props_create();
+	path_t path;
+	path_set(&path, "./importer.cfg");
+	g_config = props_load_from_file(NULL, &path);
 	if (!g_config)
 	{
-		printf("Failed to create props object\n");
+		printf("missing configuration '%s'\n", path.value);
 		return 1;
 	}
 
-	printf("Loading importer configuration from ./importer.cfg\n");
-	if (!props_load_from_file(g_config, "./importer.cfg"))
-	{
-		printf("Failed to load ./importer.cfg (file may not exist)\n");
-		props_destroy(g_config);
-		return 1;
-	}
-
-	printf("Configuration loaded successfully!\n");
+	printf("loaded configuration '%s'\n", path.value);
 
 	// Initialize file watcher
-	file_watcher_init(500); // Check every 500ms
+	file_watcher_init(500);
 
 	// Get source directories from config
 	if (!props_has_key(g_config, "source"))
 	{
 		printf("No [source] section found in config\n");
-		props_destroy(g_config);
+		object_free(g_config);
 		file_watcher_shutdown();
 		return 1;
 	}
@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
 	if (!file_watcher_start())
 	{
 		printf("Failed to start file watcher\n");
-		props_destroy(g_config);
+		object_free(g_config);
 		file_watcher_shutdown();
 		return 1;
 	}
@@ -111,16 +111,12 @@ int main(int argc, char* argv[])
 		file_change_event_t event;
 		while (file_watcher_poll(&event))
 		{
-			printf("[%s] %s\n", 
-				change_type_to_string(event.type), 
-				event.path.data);
-			
-			// Process file changes for import
-			process_file_change(event.path.data, event.type);
+			// Process file changes for import (silently)
+			process_file_change(&event.path, event.type, importers);
 		}
 		
 		// Process any queued imports
-		process_import_queue();
+		process_import_queue(importers);
 		
 		// Sleep briefly to avoid busy waiting
 		thread_sleep_ms(100); // 100ms
@@ -129,19 +125,22 @@ int main(int argc, char* argv[])
 	// Clean up
 	file_watcher_stop();
 	file_watcher_shutdown();
-	props_destroy(g_config);
+	object_free(g_config);
 
 	// Clean up import queue
 	if (g_import_queue)
-		array_destroy(g_import_queue);
+		array_free(g_import_queue);
 
 	return 0;
 }
 
-void process_file_change(const char* file_path, file_change_type_t change_type)
+void process_file_change(const path_t* file_path, file_change_type_t change_type, asset_importer_traits_t** importers)
 {
 	if (change_type == file_change_type_deleted)
 		return; // Don't process deleted files
+	
+	// Debug: show what file was detected
+	printf("File changed: %s\n", file_path->value);
 
 	if (!g_import_queue)
 	{
@@ -153,15 +152,9 @@ void process_file_change(const char* file_path, file_change_type_t change_type)
 		}
 	}
 
-	// Get importers array
-	asset_importer_traits_t* importers[] = {
-		shader_importer_create(),
-		NULL
-	};
-
 	// Find an importer that can handle this file
 	path_t source_path;
-	path_set(&source_path, file_path);
+	path_copy(&source_path, file_path);
 	asset_importer_traits_t* selected_importer = NULL;
 
 	for (int i = 0; importers[i] != NULL; i++)
@@ -169,6 +162,7 @@ void process_file_change(const char* file_path, file_change_type_t change_type)
 		if (importers[i]->can_import && importers[i]->can_import(&source_path))
 		{
 			selected_importer = importers[i];
+			printf("  -> Can import with shader importer\n");
 			break;
 		}
 	}
@@ -180,7 +174,7 @@ void process_file_change(const char* file_path, file_change_type_t change_type)
 		for (size_t i = 0; i < array_length(g_import_queue); i++)
 		{
 			import_job_t* job = (import_job_t*)array_get(g_import_queue, i);
-			if (strcmp(job->source_path.data, source_path.data) == 0)
+			if (path_eq(&job->source_path, &source_path))
 			{
 				already_queued = true;
 				break;
@@ -194,23 +188,30 @@ void process_file_change(const char* file_path, file_change_type_t change_type)
 			{
 				new_job->source_path = source_path;
 				new_job->importer = selected_importer;
-				printf("Queued for import: %s\n", file_path);
+				// Silent - will print when actually imported
 			}
 		}
 	}
 }
 
-void process_import_queue()
+void process_import_queue(asset_importer_traits_t** importers)
 {
 	if (!g_import_queue || array_is_empty(g_import_queue))
 		return;
 
 	// Get output directory from config
-	const char* output_dir = "assets"; // Default
-	if (g_config && props_has_key(g_config, "output_dir"))
-	{
-		output_dir = props_get_string(g_config, "output_dir", "assets");
+	const char* output_dir = props_get_string(g_config, "output.directory", "assets");
+	
+	// Ensure output directory exists
+#ifdef _WIN32
+	if (!CreateDirectoryA(output_dir, NULL)) {
+		if (GetLastError() != ERROR_ALREADY_EXISTS) {
+			printf("Failed to create directory: %s\n", output_dir);
+		}
 	}
+#else
+	mkdir(output_dir, 0755);
+#endif
 
 	path_t output_path;
 	path_set(&output_path, output_dir);
@@ -248,11 +249,8 @@ void process_import_queue()
 			if (can_import_now)
 			{
 				// Import this file
-				printf("Importing: %s\n", job->source_path.data);
 				if (job->importer->import_func)
-				{
-					job->importer->import_func(&job->source_path, &output_path);
-				}
+					job->importer->import_func(&job->source_path, &output_path, g_config);
 				made_progress = true;
 			}
 			else
@@ -277,9 +275,9 @@ void process_import_queue()
 	for (size_t i = 0; i < array_length(g_import_queue); i++)
 	{
 		import_job_t* job = (import_job_t*)array_get(g_import_queue, i);
-		printf("WARNING: Could not import %s (possible circular dependency)\n", job->source_path.data);
+		printf("WARNING: Could not import %s (possible circular dependency)\n", job->source_path.value);
 	}
 
 	array_clear(g_import_queue);
-	array_destroy(remaining_jobs);
+	array_free(remaining_jobs);
 }

@@ -54,6 +54,9 @@ char tokenizer_peek(const tokenizer_t* tok);
 // Read and advance to next character
 char tokenizer_next(tokenizer_t* tok);
 
+// Expect a specific character and advance if found
+bool tokenizer_expect(tokenizer_t* tok, char expected);
+
 // Skip whitespace characters (except newlines)
 void tokenizer_skip_whitespace(tokenizer_t* tok);
 
@@ -74,6 +77,12 @@ bool tokenizer_read_identifier(tokenizer_t* tok, text_t* result);
 
 // Read a number (integer or float)
 bool tokenizer_read_number(tokenizer_t* tok, text_t* result);
+
+// Read a number and parse it as a float
+bool tokenizer_read_number_as_float(tokenizer_t* tok, float* result);
+
+// Read a vec3 in format (x, y, z)
+bool tokenizer_read_vec3(tokenizer_t* tok, vec3_t* result);
 
 // Skip a single-line comment (// or #)
 void tokenizer_skip_line_comment(tokenizer_t* tok);

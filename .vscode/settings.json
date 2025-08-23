@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "*.styles": "ini",
+        "stdio.h": "c"
+    }
+}

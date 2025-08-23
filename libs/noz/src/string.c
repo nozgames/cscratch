@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <assert.h>
+#include <ctype.h>
 
 #ifndef nullptr
 #define nullptr NULL
@@ -21,6 +22,18 @@
     return src_len; \
 } while(0)
 
+static bool string_eq(const char* a, size_t a_len, const char* b, size_t b_len)
+{
+    if (a_len != b_len)
+        return false;
+
+    bool eq = true;
+    for (size_t i = 0; eq && i < a_len; i++, a++, b++)
+        eq = *a == *b;
+
+    return eq;
+}
+
 // ============================================================================
 // name_t implementation
 // ============================================================================
@@ -30,20 +43,35 @@ name_t* name_set(name_t* dst, const char* src)
     assert(dst);
     
     if (!src) {
-        dst->data[0] = '\0';
+        dst->value[0] = '\0';
         dst->length = 0;
         return dst;
     }
     
     size_t src_len = strlen(src);
-    if (src_len >= sizeof(dst->data)) {
-        src_len = sizeof(dst->data) - 1;
+    if (src_len >= sizeof(dst->value)) {
+        src_len = sizeof(dst->value) - 1;
     }
     
-    memcpy(dst->data, src, src_len);
-    dst->data[src_len] = '\0';
+    memcpy(dst->value, src, src_len);
+    dst->value[src_len] = '\0';
     dst->length = src_len;
     
+    return dst;
+}
+
+bool name_empty(const name_t* name)
+{
+    assert(name);
+    return name->length == 0;
+}
+
+name_t* name_copy(name_t* dst, const name_t* src)
+{
+    assert(dst);
+    assert(src);
+
+    memcpy(dst, src, sizeof(name_t));
     return dst;
 }
 
@@ -55,16 +83,16 @@ name_t* name_format(name_t* dst, const char* fmt, ...)
     va_list args;
     va_start(args, fmt);
     
-    int written = vsnprintf(dst->data, sizeof(dst->data), fmt, args);
+    int written = vsnprintf(dst->value, sizeof(dst->value), fmt, args);
     
     va_end(args);
     
     if (written < 0) {
-        dst->data[0] = '\0';
+        dst->value[0] = '\0';
         dst->length = 0;
-    } else if ((size_t)written >= sizeof(dst->data)) {
-        dst->length = sizeof(dst->data) - 1;
-        dst->data[dst->length] = '\0';
+    } else if ((size_t)written >= sizeof(dst->value)) {
+        dst->length = sizeof(dst->value) - 1;
+        dst->value[dst->length] = '\0';
     } else {
         dst->length = written;
     }
@@ -72,27 +100,97 @@ name_t* name_format(name_t* dst, const char* fmt, ...)
     return dst;
 }
 
+bool name_eq(const name_t* a, const name_t* b)
+{
+    assert(a);
+    assert(b);
+	return string_eq(a->value, a->length, b->value, b->length);
+}
+
+bool name_eq_cstr(const name_t* a, const char* b)
+{
+    assert(a);
+    assert(b);
+    return string_eq(a->value, a->length, b, strlen(b));
+}
+
 // ============================================================================
 // path_t implementation  
 // ============================================================================
+
+// Helper function to find the last separator in a path
+static const char* path_find_last_separator(const char* value, size_t length)
+{
+    const char* last_sep = nullptr;
+    for (size_t i = 0; i < length; i++) {
+        if (value[i] == '/' || value[i] == '\\') {
+            last_sep = &value[i];
+        }
+    }
+    return last_sep;
+}
+
+// Helper function to find the last dot after the last separator
+static const char* path_find_extension_dot(const char* value, size_t length)
+{
+    const char* last_dot = nullptr;
+    const char* last_sep = nullptr;
+    
+    for (size_t i = 0; i < length; i++) {
+        if (value[i] == '/' || value[i] == '\\') {
+            last_sep = &value[i];
+            last_dot = nullptr; // Reset dot search after separator
+        } else if (value[i] == '.') {
+            last_dot = &value[i];
+        }
+    }
+    
+    // Only return the dot if it's after the last separator and not at the start
+    if (last_dot && last_dot != value && (!last_sep || last_dot > last_sep)) {
+        return last_dot;
+    }
+    return nullptr;
+}
+
+// Helper for case-insensitive string comparison
+static bool path_compare_extension(const char* ext1, const char* ext2)
+{
+    while (*ext1 && *ext2) {
+        char c1 = *ext1;
+        char c2 = *ext2;
+        
+        // Convert to lowercase for comparison
+        if (c1 >= 'A' && c1 <= 'Z') c1 += 32;
+        if (c2 >= 'A' && c2 <= 'Z') c2 += 32;
+        
+        if (c1 != c2) {
+            return false;
+        }
+        
+        ext1++;
+        ext2++;
+    }
+    
+    return *ext1 == '\0' && *ext2 == '\0';
+}
 
 path_t* path_set(path_t* dst, const char* src)
 {
     assert(dst);
     
     if (!src) {
-        dst->data[0] = '\0';
+        dst->value[0] = '\0';
         dst->length = 0;
         return dst;
     }
     
     size_t src_len = strlen(src);
-    if (src_len >= sizeof(dst->data)) {
-        src_len = sizeof(dst->data) - 1;
+    if (src_len >= sizeof(dst->value)) {
+        src_len = sizeof(dst->value) - 1;
     }
     
-    memcpy(dst->data, src, src_len);
-    dst->data[src_len] = '\0';
+    memcpy(dst->value, src, src_len);
+    dst->value[src_len] = '\0';
     dst->length = src_len;
     
     return dst;
@@ -104,11 +202,26 @@ path_t* path_copy(path_t* dst, const path_t* src)
     assert(src);
     
     if (dst != src) {
-        memcpy(dst->data, src->data, src->length + 1);
+        memcpy(dst->value, src->value, src->length + 1);
         dst->length = src->length;
     }
     
     return dst;
+}
+
+bool path_eq(const path_t* a, const path_t* b)
+{
+    assert(a);
+    assert(b);
+    return string_eq(a->value, a->length, b->value, b->length);
+}
+
+path_t* path_clear(path_t* path)
+{
+    assert(path);
+    path->value[0] = '\0';
+    path->length = 0;
+    return path;
 }
 
 path_t* path_append(path_t* dst, const char* component)
@@ -120,25 +233,25 @@ path_t* path_append(path_t* dst, const char* component)
     }
     
     // Add separator if needed
-    if (dst->length > 0 && dst->data[dst->length - 1] != '/' && dst->data[dst->length - 1] != '\\') {
-        if (dst->length + 1 < sizeof(dst->data)) {
-            dst->data[dst->length++] = '/';
-            dst->data[dst->length] = '\0';
+    if (dst->length > 0 && dst->value[dst->length - 1] != '/' && dst->value[dst->length - 1] != '\\') {
+        if (dst->length + 1 < sizeof(dst->value)) {
+            dst->value[dst->length++] = '/';
+            dst->value[dst->length] = '\0';
         }
     }
     
     // Append component
     size_t comp_len = strlen(component);
-    size_t available = sizeof(dst->data) - dst->length - 1;
+    size_t available = sizeof(dst->value) - dst->length - 1;
     
     if (comp_len > available) {
         comp_len = available;
     }
     
     if (comp_len > 0) {
-        memcpy(dst->data + dst->length, component, comp_len);
+        memcpy(dst->value + dst->length, component, comp_len);
         dst->length += comp_len;
-        dst->data[dst->length] = '\0';
+        dst->value[dst->length] = '\0';
     }
     
     return dst;
@@ -152,43 +265,44 @@ path_t* path_join(path_t* dst, const char* base, const char* component)
     return path_append(dst, component);
 }
 
-const char* path_dirname(const path_t* path)
+path_t* path_dir(const path_t* src, path_t* dst)
 {
-    assert(path);
+    assert(src);
+    assert(dst);
     
-    static char dirname_buf[1024];
-    
-    if (path->length == 0) {
-        dirname_buf[0] = '.';
-        dirname_buf[1] = '\0';
-        return dirname_buf;
+    if (src->length == 0) {
+        dst->value[0] = '.';
+        dst->value[1] = '\0';
+        dst->length = 1;
+        return dst;
     }
     
-    // Find last separator
-    const char* last_sep = nullptr;
-    for (size_t i = 0; i < path->length; i++) {
-        if (path->data[i] == '/' || path->data[i] == '\\') {
-            last_sep = &path->data[i];
-        }
-    }
+    const char* last_sep = path_find_last_separator(src->value, src->length);
     
     if (!last_sep) {
-        dirname_buf[0] = '.';
-        dirname_buf[1] = '\0';
-        return dirname_buf;
+        dst->value[0] = '.';
+        dst->value[1] = '\0';
+        dst->length = 1;
+        return dst;
     }
     
-    size_t dir_len = last_sep - path->data;
+    size_t dir_len = last_sep - src->value;
     if (dir_len == 0) {
-        dirname_buf[0] = '/';
-        dirname_buf[1] = '\0';
+        dst->value[0] = '/';
+        dst->value[1] = '\0';
+        dst->length = 1;
     } else {
-        memcpy(dirname_buf, path->data, dir_len);
-        dirname_buf[dir_len] = '\0';
+        if (dir_len >= sizeof(dst->value)) {
+            dir_len = sizeof(dst->value) - 1;
+        }
+        memcpy(dst->value, src->value, dir_len);
+        dst->value[dir_len] = '\0';
+        dst->length = dir_len;
     }
     
-    return dirname_buf;
+    return dst;
 }
+
 
 const char* path_basename(const path_t* path)
 {
@@ -198,19 +312,23 @@ const char* path_basename(const path_t* path)
         return "";
     }
     
-    // Find last separator
-    const char* last_sep = nullptr;
-    for (size_t i = 0; i < path->length; i++) {
-        if (path->data[i] == '/' || path->data[i] == '\\') {
-            last_sep = &path->data[i];
-        }
-    }
+    const char* last_sep = path_find_last_separator(path->value, path->length);
     
     if (!last_sep) {
-        return path->data;
+        return path->value;
     }
     
     return last_sep + 1;
+}
+
+void path_filename(const path_t* src, name_t* dst)
+{
+    // todo: implement
+}
+
+void path_filename_without_extension(const path_t* src, name_t* dst)
+{
+    // todo: implement
 }
 
 const char* path_extension(const path_t* path)
@@ -221,20 +339,9 @@ const char* path_extension(const path_t* path)
         return "";
     }
     
-    // Find last dot after last separator
-    const char* last_dot = nullptr;
-    const char* last_sep = nullptr;
+    const char* last_dot = path_find_extension_dot(path->value, path->length);
     
-    for (size_t i = 0; i < path->length; i++) {
-        if (path->data[i] == '/' || path->data[i] == '\\') {
-            last_sep = &path->data[i];
-            last_dot = nullptr; // Reset dot search after separator
-        } else if (path->data[i] == '.') {
-            last_dot = &path->data[i];
-        }
-    }
-    
-    if (!last_dot || last_dot == path->data) {
+    if (!last_dot) {
         return "";
     }
     
@@ -254,24 +361,7 @@ bool path_has_extension(const path_t* path, const char* ext)
         return false;
     }
     
-    // Case-insensitive comparison
-    while (*path_ext && *ext) {
-        char c1 = *path_ext;
-        char c2 = *ext;
-        
-        // Convert to lowercase for comparison
-        if (c1 >= 'A' && c1 <= 'Z') c1 += 32;
-        if (c2 >= 'A' && c2 <= 'Z') c2 += 32;
-        
-        if (c1 != c2) {
-            return false;
-        }
-        
-        path_ext++;
-        ext++;
-    }
-    
-    return *path_ext == '\0' && *ext == '\0';
+    return path_compare_extension(path_ext, ext);
 }
 
 bool path_cstr_has_extension(const char* path_str, const char* ext)
@@ -280,44 +370,54 @@ bool path_cstr_has_extension(const char* path_str, const char* ext)
         return false;
     }
     
-    // Find the extension in the C string
-    const char* last_dot = nullptr;
-    const char* last_sep = nullptr;
-    const char* p = path_str;
+    size_t len = strlen(path_str);
+    const char* last_dot = path_find_extension_dot(path_str, len);
     
-    while (*p) {
-        if (*p == '/' || *p == '\\') {
-            last_sep = p;
-            last_dot = nullptr;
-        } else if (*p == '.') {
-            last_dot = p;
-        }
-        p++;
-    }
-    
-    if (!last_dot || last_dot == path_str) {
+    if (!last_dot) {
         return false;
     }
     
-    // Compare extension (case-insensitive)
-    const char* path_ext = last_dot + 1;
-    while (*path_ext && *ext) {
-        char c1 = *path_ext;
-        char c2 = *ext;
-        
-        // Convert to lowercase for comparison
-        if (c1 >= 'A' && c1 <= 'Z') c1 += 32;
-        if (c2 >= 'A' && c2 <= 'Z') c2 += 32;
-        
-        if (c1 != c2) {
-            return false;
-        }
-        
-        path_ext++;
-        ext++;
+    return path_compare_extension(last_dot + 1, ext);
+}
+
+path_t* path_set_extension(path_t* path, const char* ext)
+{
+    assert(path);
+    
+    if (!ext) {
+        return path;
     }
     
-    return *path_ext == '\0' && *ext == '\0';
+    const char* last_dot = path_find_extension_dot(path->value, path->length);
+    
+    // Determine where to start the new extension
+    size_t ext_start = last_dot ? (last_dot - path->value) : path->length;
+    
+    // Calculate new length
+    size_t ext_len = strlen(ext);
+    size_t dot_len = (*ext == '.') ? 0 : 1;  // Add dot if ext doesn't start with one
+    size_t new_len = ext_start + dot_len + ext_len;
+    
+    if (new_len >= sizeof(path->value)) {
+        // Too long, truncate
+        new_len = sizeof(path->value) - 1;
+    }
+    
+    // Set the extension
+    if (dot_len > 0) {
+        path->value[ext_start] = '.';
+    }
+    
+    size_t copy_len = new_len - ext_start - dot_len;
+    if (copy_len > ext_len) {
+        copy_len = ext_len;
+    }
+    
+    memcpy(path->value + ext_start + dot_len, (*ext == '.') ? ext + 1 : ext, copy_len);
+    path->value[new_len] = '\0';
+    path->length = new_len;
+    
+    return path;
 }
 
 path_t* path_normalize(path_t* path)
@@ -335,7 +435,7 @@ path_t* path_normalize(path_t* path)
     // Process each component
     while (i < path->length) {
         // Skip consecutive separators
-        while (i < path->length && (path->data[i] == '/' || path->data[i] == '\\')) {
+        while (i < path->length && (path->value[i] == '/' || path->value[i] == '\\')) {
             if (temp_len == 0 || (temp_len > 0 && temp[temp_len - 1] != '/')) {
                 temp[temp_len++] = '/';
             }
@@ -344,7 +444,7 @@ path_t* path_normalize(path_t* path)
         
         // Get next component
         size_t comp_start = i;
-        while (i < path->length && path->data[i] != '/' && path->data[i] != '\\') {
+        while (i < path->length && path->value[i] != '/' && path->value[i] != '\\') {
             i++;
         }
         
@@ -352,10 +452,10 @@ path_t* path_normalize(path_t* path)
             size_t comp_len = i - comp_start;
             
             // Handle . and ..
-            if (comp_len == 1 && path->data[comp_start] == '.') {
+            if (comp_len == 1 && path->value[comp_start] == '.') {
                 // Skip current directory marker
                 continue;
-            } else if (comp_len == 2 && path->data[comp_start] == '.' && path->data[comp_start + 1] == '.') {
+            } else if (comp_len == 2 && path->value[comp_start] == '.' && path->value[comp_start + 1] == '.') {
                 // Go up one directory
                 if (temp_len > 0) {
                     // Remove trailing slash
@@ -369,7 +469,7 @@ path_t* path_normalize(path_t* path)
                 }
             } else {
                 // Normal component - copy it
-                memcpy(temp + temp_len, path->data + comp_start, comp_len);
+                memcpy(temp + temp_len, path->value + comp_start, comp_len);
                 temp_len += comp_len;
             }
         }
@@ -382,12 +482,12 @@ path_t* path_normalize(path_t* path)
     
     // Copy back to path
     if (temp_len == 0) {
-        path->data[0] = '.';
-        path->data[1] = '\0';
+        path->value[0] = '.';
+        path->value[1] = '\0';
         path->length = 1;
     } else {
-        memcpy(path->data, temp, temp_len);
-        path->data[temp_len] = '\0';
+        memcpy(path->value, temp, temp_len);
+        path->value[temp_len] = '\0';
         path->length = temp_len;
     }
     
@@ -403,20 +503,26 @@ bool path_is_absolute(const path_t* path)
     }
     
     // Unix absolute path
-    if (path->data[0] == '/') {
+    if (path->value[0] == '/') {
         return true;
     }
     
     // Windows absolute path (C:\ or C:/)
     if (path->length >= 3 && 
-        ((path->data[0] >= 'A' && path->data[0] <= 'Z') || 
-         (path->data[0] >= 'a' && path->data[0] <= 'z')) &&
-        path->data[1] == ':' &&
-        (path->data[2] == '/' || path->data[2] == '\\')) {
+        ((path->value[0] >= 'A' && path->value[0] <= 'Z') || 
+         (path->value[0] >= 'a' && path->value[0] <= 'z')) &&
+        path->value[1] == ':' &&
+        (path->value[2] == '/' || path->value[2] == '\\')) {
         return true;
     }
     
     return false;
+}
+
+bool path_is_empty(const path_t* path)
+{
+    assert(path);
+    return path->length == 0 || path->value[0] == '\0';
 }
 
 // ============================================================================
@@ -426,7 +532,7 @@ bool path_is_absolute(const path_t* path)
 text_t* text_init(text_t* text)
 {
     assert(text);
-    text->data[0] = '\0';
+    text->value[0] = '\0';
     text->length = 0;
     return text;
 }
@@ -436,18 +542,18 @@ text_t* text_set(text_t* dst, const char* src)
     assert(dst);
     
     if (!src) {
-        dst->data[0] = '\0';
+        dst->value[0] = '\0';
         dst->length = 0;
         return dst;
     }
     
     size_t src_len = strlen(src);
-    if (src_len >= sizeof(dst->data)) {
-        src_len = sizeof(dst->data) - 1;
+    if (src_len >= sizeof(dst->value)) {
+        src_len = sizeof(dst->value) - 1;
     }
     
-    memcpy(dst->data, src, src_len);
-    dst->data[src_len] = '\0';
+    memcpy(dst->value, src, src_len);
+    dst->value[src_len] = '\0';
     dst->length = src_len;
     
     return dst;
@@ -459,7 +565,7 @@ text_t* text_copy(text_t* dst, const text_t* src)
     assert(src);
     
     if (dst != src) {
-        memcpy(dst->data, src->data, src->length + 1);
+        memcpy(dst->value, src->value, src->length + 1);
         dst->length = src->length;
     }
     
@@ -475,16 +581,16 @@ text_t* text_append(text_t* dst, const char* src)
     }
     
     size_t src_len = strlen(src);
-    size_t available = sizeof(dst->data) - dst->length - 1;
+    size_t available = sizeof(dst->value) - dst->length - 1;
     
     if (src_len > available) {
         src_len = available;
     }
     
     if (src_len > 0) {
-        memcpy(dst->data + dst->length, src, src_len);
+        memcpy(dst->value + dst->length, src, src_len);
         dst->length += src_len;
-        dst->data[dst->length] = '\0';
+        dst->value[dst->length] = '\0';
     }
     
     return dst;
@@ -498,16 +604,16 @@ text_t* text_format(text_t* dst, const char* fmt, ...)
     va_list args;
     va_start(args, fmt);
     
-    int written = vsnprintf(dst->data, sizeof(dst->data), fmt, args);
+    int written = vsnprintf(dst->value, sizeof(dst->value), fmt, args);
     
     va_end(args);
     
     if (written < 0) {
-        dst->data[0] = '\0';
+        dst->value[0] = '\0';
         dst->length = 0;
-    } else if ((size_t)written >= sizeof(dst->data)) {
-        dst->length = sizeof(dst->data) - 1;
-        dst->data[dst->length] = '\0';
+    } else if ((size_t)written >= sizeof(dst->value)) {
+        dst->length = sizeof(dst->value) - 1;
+        dst->value[dst->length] = '\0';
     } else {
         dst->length = written;
     }
@@ -524,8 +630,46 @@ size_t text_length(const text_t* text)
 text_t* text_clear(text_t* text)
 {
     assert(text);
-    text->data[0] = '\0';
+    text->value[0] = '\0';
     text->length = 0;
+    return text;
+}
+
+text_t* text_trim(text_t* text)
+{
+    assert(text);
+    
+    if (text->length == 0) {
+        return text;
+    }
+    
+    // Trim leading whitespace
+    size_t start = 0;
+    while (start < text->length && isspace((unsigned char)text->value[start])) {
+        start++;
+    }
+    
+    // All whitespace?
+    if (start == text->length) {
+        text->value[0] = '\0';
+        text->length = 0;
+        return text;
+    }
+    
+    // Trim trailing whitespace
+    size_t end = text->length;
+    while (end > start && isspace((unsigned char)text->value[end - 1])) {
+        end--;
+    }
+    
+    // Move content to beginning if needed
+    if (start > 0) {
+        memmove(text->value, text->value + start, end - start);
+    }
+    
+    text->length = end - start;
+    text->value[text->length] = '\0';
+    
     return text;
 }
 
@@ -538,7 +682,7 @@ bool text_equals(const text_t* a, const text_t* b)
         return false;
     }
     
-    return memcmp(a->data, b->data, a->length) == 0;
+    return memcmp(a->value, b->value, a->length) == 0;
 }
 
 bool text_equals_cstr(const text_t* text, const char* str)
@@ -554,5 +698,5 @@ bool text_equals_cstr(const text_t* text, const char* str)
         return false;
     }
     
-    return memcmp(text->data, str, str_len) == 0;
+    return memcmp(text->value, str, str_len) == 0;
 }

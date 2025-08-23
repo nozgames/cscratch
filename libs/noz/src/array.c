@@ -34,7 +34,7 @@ array_t* array_create(size_t element_size, size_t initial_capacity)
     return array;
 }
 
-void array_destroy(array_t* array)
+void array_free(array_t* array)
 {
     if (!array) return;
     

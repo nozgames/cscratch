@@ -1,0 +1,42 @@
+//
+//  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
+//
+
+#pragma once
+
+typedef enum asset_type 
+{
+    asset_type_unknown = 0,
+    asset_type_texture,
+    asset_type_mesh,
+    asset_type_sound,
+    asset_type_shader,
+    asset_type_material,
+    asset_type_font,
+    asset_type_count
+} asset_type_t;
+
+// Asset file signatures - all start with 'NZ'
+#define NOZ_TEXTURE_SIG  0x4E5A5458  // 'NZTX'
+#define NOZ_MESH_SIG     0x4E5A4D53  // 'NZMS'  
+#define NOZ_SOUND_SIG    0x4E5A534E  // 'NZSN'
+#define NOZ_SHADER_SIG   0x4E5A5348  // 'NZSH'
+#define NOZ_MATERIAL_SIG 0x4E5A4D54  // 'NZMT'
+#define NOZ_FONT_SIG     0x4E5A4654  // 'NZFT'
+
+// Asset header structure - common to all asset files
+typedef struct asset_header 
+{
+    uint32_t signature;      // 4-byte signature identifying asset type
+    uint32_t runtime_size;   // Estimated runtime memory requirement
+    uint32_t version;        // Asset format version
+    uint32_t flags;          // Asset-specific flags
+} asset_header_t;
+
+bool asset_header_read(stream_t* stream, asset_header_t* header);
+bool asset_header_write(stream_t* stream, const asset_header_t* header);
+bool asset_header_validate(const asset_header_t* header, uint32_t expected_signature);
+const char* asset_signature_to_string(uint32_t signature);
+asset_type_t asset_signature_to_type(uint32_t signature);
+const char* asset_type_to_string(asset_type_t type);
+path_t* asset_path(path_t* dst, const name_t* name, const char* ext);

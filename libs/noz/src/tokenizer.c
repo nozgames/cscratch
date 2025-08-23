@@ -51,6 +51,17 @@ char tokenizer_next(tokenizer_t* tok)
     return c;
 }
 
+bool tokenizer_expect(tokenizer_t* tok, char expected)
+{
+    tokenizer_skip_whitespace(tok);
+    if (tokenizer_peek(tok) != expected)
+    {
+        return false;
+    }
+    tokenizer_next(tok);
+    return true;
+}
+
 void tokenizer_skip_whitespace(tokenizer_t* tok)
 {
     while (tokenizer_has_more(tok) && isspace(tokenizer_peek(tok)) && tokenizer_peek(tok) != '\n')
@@ -241,6 +252,40 @@ bool tokenizer_read_number(tokenizer_t* tok, text_t* result)
     }
     
     return has_digits && result->length > 0;
+}
+
+bool tokenizer_read_number_as_float(tokenizer_t* tok, float* result)
+{
+    assert(tok);
+    assert(result);
+    
+    tokenizer_skip_whitespace(tok);
+    
+    text_t number;
+    bool success = tokenizer_read_number(tok, &number);
+    if (success)
+    {
+        *result = (float)atof(number.value);
+    }
+    
+    return success;
+}
+
+bool tokenizer_read_vec3(tokenizer_t* tok, vec3_t* result)
+{
+    assert(tok);
+    assert(result);
+    
+    bool success = true;
+    success &= tokenizer_expect(tok, '(');
+    success &= tokenizer_read_number_as_float(tok, &result->x);
+    success &= tokenizer_expect(tok, ',');
+    success &= tokenizer_read_number_as_float(tok, &result->y);
+    success &= tokenizer_expect(tok, ',');
+    success &= tokenizer_read_number_as_float(tok, &result->z);
+    success &= tokenizer_expect(tok, ')');
+    
+    return success;
 }
 
 void tokenizer_skip_line_comment(tokenizer_t* tok)
@@ -492,7 +537,7 @@ bool token_is_type(const token_t* token, token_type_t type)
 
 bool token_is_value(const token_t* token, const char* value)
 {
-    return token && value && strcmp(token->value.data, value) == 0;
+    return token && value && strcmp(token->value.value, value) == 0;
 }
 
 const char* token_type_name(token_type_t type)

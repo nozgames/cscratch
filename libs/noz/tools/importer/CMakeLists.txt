@@ -64,18 +64,34 @@ target_include_directories(cgltf_lib INTERFACE ${cgltf_SOURCE_DIR})
 
 file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
 
-# Add executable
-#add_executable(importer EXCLUDE_FROM_ALL ${SOURCE_FILES})
-add_executable(importer ${SOURCE_FILES})
+# Separate source files for importer and asset_manifest
+file(GLOB IMPORTER_SOURCE_FILES 
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/importer_main.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/importers/*.c"
+)
+
+# Add main importer executable
+add_executable(importer ${IMPORTER_SOURCE_FILES})
+
+# Add asset manifest generator executable
+add_executable(asset_manifest 
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/asset_manifest.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/asset_manifest_main.c"
+)
 
 # Include directories
 target_include_directories(importer PRIVATE include ${CMAKE_SOURCE_DIR}/libs/noz/include)
+target_include_directories(asset_manifest PRIVATE ${CMAKE_SOURCE_DIR}/libs/noz/include)
 
 # Link libraries
 target_link_libraries(importer PRIVATE
     noz
     cgltf_lib
     SDL3_shadercross::SDL3_shadercross
+)
+
+target_link_libraries(asset_manifest PRIVATE
+    noz
 )
 
 # Platform-specific libraries
@@ -87,10 +103,12 @@ if(WIN32)
 endif()
 
 set_target_properties(importer PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+set_target_properties(asset_manifest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 target_compile_definitions(importer PRIVATE _CRT_SECURE_NO_WARNINGS )
+target_compile_definitions(asset_manifest PRIVATE _CRT_SECURE_NO_WARNINGS )
 
-# Enable precompiled headers
+# Enable precompiled headers for importer only (asset_manifest is standalone)
 target_precompile_headers(importer PRIVATE src/importer_pch.h)
 
 # Copy dxcompiler.dll to output directory after build (Windows only)

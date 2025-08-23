@@ -1,15 +1,13 @@
+//
+//  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
+//
+
 #pragma once
 
-#include <stdint.h>
-#include <stddef.h>
-
-// Hash a block of data and return a 64-bit hash
 uint64_t hash_64(const void* data, size_t size);
-
-// Hash a null-terminated string
 uint64_t hash_string(const char* str);
+uint64_t hash_name(const name_t* name);
 
-// Hash multiple values together (variadic macro helper)
 #define hash_combine(...) hash_64_combine(__VA_ARGS__, 0)
 
 // Implementation detail - don't call directly

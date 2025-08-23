@@ -61,7 +61,7 @@ void arena_allocator_pop(arena_allocator_t* a)
 		;
 }
 
-const arena_allocator_t* arena_allocator_create(size_t size)
+arena_allocator_t* arena_allocator_create(size_t size)
 {
 	// arena_allocator_t + data + stack
 	arena_allocator_t* allocator = (arena_allocator_t*)calloc(

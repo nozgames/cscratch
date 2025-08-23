@@ -24,7 +24,7 @@ typedef enum command_type
 
 typedef struct bind_material
 {
-    material_t material;
+    material_t* material;
 } bind_material_t;
 
 typedef struct bind_transform
@@ -83,7 +83,7 @@ typedef struct set_text_options
 
 typedef struct draw_mesh
 {
-    mesh_t mesh;
+    mesh_t* mesh;
 } draw_mesh_t;
 
 typedef struct begin_pass
@@ -91,7 +91,7 @@ typedef struct begin_pass
     bool clear;
     color_t color;
     bool msaa;
-    texture_t target;
+    texture_t* target;
 } begin_pass_t;
 
 typedef struct bind_default_texture
@@ -130,8 +130,7 @@ typedef struct render_buffer_impl
     bool is_full;
 } render_buffer_impl_t;
 
-static object_type_t g_render_buffer_type = nullptr;
-static render_buffer_impl_t* g_render_buffer = nullptr;
+static render_buffer_impl_t* g_render_buffer = NULL;
 
 static inline void render_buffer_add_command(const command_t* cmd)
 {
@@ -156,7 +155,7 @@ void render_buffer_clear(void)
     g_render_buffer->transform_count = 1;
 }
 
-void render_buffer_begin_pass(bool clear, color_t clear_color, bool msaa, texture_t target)
+void render_buffer_begin_pass(bool clear, color_t clear_color, bool msaa, texture_t* target)
 {
     command_t cmd = {
         .type = command_type_begin_pass,
@@ -196,10 +195,10 @@ void render_buffer_bind_default_texture(int texture_index)
     render_buffer_add_command(&cmd);
 }
 
-void render_buffer_bind_camera(camera_t camera)
+void render_buffer_bind_camera(const camera_t* camera)
 {
     assert(camera);
-    render_buffer_bind_camera_matrices(entity_world_to_local((entity_t)camera), camera_projection(camera));
+    render_buffer_bind_camera_matrices(entity_world_to_local(camera), camera_projection(camera));
 }
 
 void render_buffer_bind_camera_matrices(mat4_t view, mat4_t projection)
@@ -216,7 +215,7 @@ void render_buffer_bind_camera_matrices(mat4_t view, mat4_t projection)
     render_buffer_add_command(&cmd);
 }
 
-void render_buffer_bind_material(const material_t material)
+void render_buffer_bind_material(material_t* material)
 {
     assert(material);
 
@@ -281,7 +280,7 @@ void render_buffer_bind_color(color_t color)
     render_buffer_add_command(&cmd);
 }
 
-void render_buffer_render_mesh(mesh_t mesh)
+void render_buffer_render_mesh(mesh_t* mesh)
 {
     assert(mesh);
     command_t cmd = {
@@ -294,7 +293,7 @@ void render_buffer_render_mesh(mesh_t mesh)
 
 void render_buffer_execute(SDL_GPUCommandBuffer* cb)
 {
-    SDL_GPURenderPass* pass = nullptr;
+    SDL_GPURenderPass* pass = NULL;
 
     const command_t* commands = g_render_buffer->commands;
 	size_t command_count = g_render_buffer->command_count;
@@ -363,7 +362,7 @@ void render_buffer_execute(SDL_GPUCommandBuffer* cb)
 
         case command_type_end_pass:
             renderer_end_pass();
-            pass = nullptr;
+            pass = NULL;
             break;
 
         case command_type_begin_shadow_pass:
@@ -428,8 +427,6 @@ void render_buffer_execute(SDL_GPUCommandBuffer* cb)
 
 void render_buffer_init(const renderer_traits* traits)
 {
-    g_render_buffer_type = object_type_create("render_buffer");
-
     size_t commands_size = traits->max_frame_commands * sizeof(command_t);
 	size_t transforms_size = traits->max_frame_transforms * sizeof(mat4_t);
     size_t buffer_size = sizeof(render_buffer_impl_t) + commands_size + transforms_size;
@@ -452,5 +449,5 @@ void render_buffer_uninit()
 {
     assert(g_render_buffer);
     free(g_render_buffer);
-    g_render_buffer = nullptr;
+    g_render_buffer = NULL;
 }

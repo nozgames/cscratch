@@ -88,19 +88,14 @@ void application_init(const application_traits* traits)
     application_update_screen_size();
 
 	object_init();
-    object_pool_init();
-    map_init();
-    stream_init();
-	renderer_init(&traits->renderer, g_application.window);
+    scene_init();
+    renderer_init(&traits->renderer, g_application.window);
 }
 
 // @uninit
 void application_uninit()
 {
 	renderer_uninit();
-    stream_uninit();
-    map_uninit();
-    object_pool_uninit();
     object_uninit();
 }
 
