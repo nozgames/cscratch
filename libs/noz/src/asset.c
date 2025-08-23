@@ -49,29 +49,29 @@ const char* asset_signature_to_string(uint32_t signature)
     return sig_str;
 }
 
-asset_type_t asset_signature_to_type(uint32_t signature)
+type_t asset_signature_to_type(uint32_t signature)
 {
     switch (signature) {
-        case NOZ_TEXTURE_SIG:  return asset_type_texture;
-        case NOZ_MESH_SIG:     return asset_type_mesh;
-        case NOZ_SOUND_SIG:    return asset_type_sound;
-        case NOZ_SHADER_SIG:   return asset_type_shader;
-        case NOZ_MATERIAL_SIG: return asset_type_material;
-        case NOZ_FONT_SIG:     return asset_type_font;
-        default:               return asset_type_unknown;
+        case NOZ_TEXTURE_SIG:  return type_texture;
+        case NOZ_MESH_SIG:     return type_mesh;
+        case NOZ_SOUND_SIG:    return type_sound;
+        case NOZ_SHADER_SIG:   return type_shader;
+        case NOZ_MATERIAL_SIG: return type_material;
+        case NOZ_FONT_SIG:     return type_font;
+        default:               return type_unknown;
     }
 }
 
-const char* asset_type_to_string(asset_type_t type)
+const char* asset_type_to_string(type_t type)
 {
     switch (type) {
-        case asset_type_texture:  return "texture";
-        case asset_type_mesh:     return "mesh";
-        case asset_type_sound:    return "sound";
-        case asset_type_shader:   return "shader";
-        case asset_type_material: return "material";
-        case asset_type_font:     return "font";
-        default:                  return "unknown";
+        case type_texture:  return "texture";
+        case type_mesh:     return "mesh";
+        case type_sound:    return "sound";
+        case type_shader:   return "shader";
+        case type_material: return "material";
+        case type_font:     return "font";
+        default:            return "unknown";
     }
 }
 

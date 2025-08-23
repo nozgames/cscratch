@@ -3,6 +3,7 @@
 //
 
 #include <stdio.h>
+#include <stdarg.h>
 
 // @forward
 void application_update_screen_size();
@@ -48,12 +49,19 @@ void application_traits_init_defaults(application_traits* traits)
 }
 
 // @error
-void application_error(const char* error)
+void application_error(const char* format, ...)
 {
-    if (error)
+    char buffer[1024];
+    
+    if (format)
     {
-        fprintf(stderr, "error: %s\n", error);
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, g_application.title, error, NULL);
+        va_list args;
+        va_start(args, format);
+        vsnprintf(buffer, sizeof(buffer), format, args);
+        va_end(args);
+        
+        fprintf(stderr, "error: %s\n", buffer);
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, g_application.title, buffer, NULL);
     }
     else
     {

@@ -3,6 +3,7 @@
 //
 
 #include <noz/file_watcher.h>
+#include <noz/platform.h>
 #include <noz/hash.h>
 #include <noz/map.h>
 
@@ -25,8 +26,8 @@ NOZ_WARNINGS_ENABLE()
 typedef struct file_info
 {
     path_t path;
-    uint64_t mtime;  // Modification time
-    uint64_t size;   // File size
+    uint64_t modified_time;  // Modification time
+    uint64_t size;           // File size
 } file_info_t;
 
 // Event queue (circular buffer)
@@ -392,21 +393,23 @@ static int file_watcher_thread(void* data)
 }
 
 // Callback function for platform directory scanning
-static void file_scan_callback(const char* file_path, const file_stat_t* stat, void* user_data)
+static void file_scan_callback(const path_t* file_path, const file_stat_t* stat, void* user_data)
 {
     (void)user_data; // Unused
     
     // Only process regular files
     if (stat->is_regular_file)
     {
-        process_file(file_path, stat);
+        process_file(file_path->value, stat);
     }
 }
 
 // Cross-platform implementation using platform abstraction
 static void scan_directory_recursive(const char* dir_path)
 {
-    platform_enum_files(dir_path, file_scan_callback, NULL);
+    path_t path;
+    path_set(&path, dir_path);
+    directory_enum_files(&path, file_scan_callback, NULL);
 }
 
 // Process a single file (cross-platform)
@@ -421,11 +424,11 @@ static void process_file(const char* file_path, const file_stat_t* st)
     if (existing)
     {
         // File already tracked, check for modifications
-        if (existing->mtime != st->mtime)
+        if (existing->modified_time != (uint64_t)st->modified_time)
         {
             // File was modified
             queue_event(&existing->path, file_change_type_modified);
-            existing->mtime = st->mtime;
+            existing->modified_time = (uint64_t)st->modified_time;
         }
         // Mark as seen by restoring the size
         existing->size = st->size;
@@ -437,7 +440,7 @@ static void process_file(const char* file_path, const file_stat_t* st)
         if (info)
         {
             path_copy(&info->path, &path);
-            info->mtime = st->mtime;
+            info->modified_time = (uint64_t)st->modified_time;
             info->size = st->size;
             
             map_set(g_watcher.file_map, key, info);

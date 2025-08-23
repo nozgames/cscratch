@@ -8,7 +8,7 @@ typedef struct object_impl entity_t;
 typedef struct object_impl camera_t;
 
 #define ENTITY_BASE_SIZE 160
-#define ENTITY_BASE char __base[ENTITY_BASE_SIZE]
+#define ENTITY_BASE char __entity[ENTITY_BASE_SIZE]
 
 inline void* to_object(const object_t* obj, int16_t type_id)
 {

@@ -8,3 +8,4 @@
 - we should be using our allocators more 
 - allocator passed to the object_create 
 - when loading by a name just scan for matching keys in the texture list
+- threaded loading of assets (thread safe allocator for it)

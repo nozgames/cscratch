@@ -7,10 +7,11 @@
 enum
 {
 	// all noz engine types are negative and user types are positive
-    type_noz = -1000,
+    type_unknown = -1000,
 
     // @object
     type_stream,
+    type_list,
     type_map,
     type_props,
     type_file_watcher,
@@ -24,6 +25,7 @@ enum
     type_shader,
     type_font,
     type_mesh,
+    type_sound,
 
     // @scene
     type_entity,

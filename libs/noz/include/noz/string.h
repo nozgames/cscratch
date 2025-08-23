@@ -42,6 +42,7 @@ path_t* path_set_extension(path_t* path, const char* ext);
 path_t* path_normalize(path_t* path);
 bool path_is_absolute(const path_t* path);
 bool path_is_empty(const path_t* path);
+path_t* path_make_relative(path_t* dst, const path_t* path, const path_t* base);
 
 // @text
 typedef struct text

@@ -33,6 +33,12 @@ void* arena_allocator_alloc(arena_allocator_t* a, size_t size)
 	}
 }
 
+void* arena_allocator_realloc(arena_allocator_t* a, void* ptr, size_t new_size)
+{
+	application_error("arena_allocator_realloc not supported");
+	return NULL;
+}
+
 void arena_allocator_free(arena_allocator_t* a)
 {
 	assert(a);
@@ -71,7 +77,8 @@ arena_allocator_t* arena_allocator_create(size_t size)
 		sizeof(size_t) * ARENA_ALLOCATOR_MAX_STACK);
 	allocator->base = (allocator_t) {
 		.alloc = (void* (*)(allocator_t*, size_t))arena_allocator_alloc,
-		.free = (void (*)(allocator_t*, void*))arena_allocator_free
+		.free = (void (*)(allocator_t*, void*))arena_allocator_free,
+		.realloc = (void* (*)(allocator_t*, void*, size_t))arena_allocator_realloc
 	};
 	allocator->stack = (size_t*)(allocator + 1);
 	allocator->stack_size = ARENA_ALLOCATOR_MAX_STACK;

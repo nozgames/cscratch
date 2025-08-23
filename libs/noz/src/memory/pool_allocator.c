@@ -28,6 +28,12 @@ void* pool_allocator_alloc(pool_allocator_t* a)
 	return (void*)(entry + 1);
 }
 
+void* pool_allocator_realloc(arena_allocator_t* a, void* ptr, size_t new_size)
+{
+	application_error("pool_allocator_realloc not supported");
+	return NULL;
+}
+
 void pool_allocator_free(pool_allocator_t* a, void* ptr)
 {
 	assert(a);
@@ -51,7 +57,8 @@ pool_allocator_t* pool_allocator_create(size_t entry_size, size_t entry_count)
 	pool_allocator_t* a = (pool_allocator_t*)calloc(1, sizeof(pool_allocator_t) + stride * entry_count);
 	a->base = (allocator_t){
 		.alloc = (void* (*)(allocator_t*, size_t))pool_allocator_alloc,
-		.free = (void (*)(allocator_t*, void*))pool_allocator_free
+		.free = (void (*)(allocator_t*, void*))pool_allocator_free,
+		.realloc = (void* (*)(allocator_t*, void*, size_t))pool_allocator_realloc
 	};
 	a->entries = (pool_entry_t*)(a + 1);
 

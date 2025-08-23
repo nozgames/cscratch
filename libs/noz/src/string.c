@@ -525,6 +525,32 @@ bool path_is_empty(const path_t* path)
     return path->length == 0 || path->value[0] == '\0';
 }
 
+path_t* path_make_relative(path_t* dst, const path_t* path, const path_t* base)
+{
+    assert(dst);
+    assert(path);
+    assert(base);
+    
+    // If base is empty, just copy the path
+    if (base->length == 0) {
+        return path_copy(dst, path);
+    }
+    
+    // Check if path starts with base
+    size_t base_len = base->length;
+    if (strncmp(path->value, base->value, base_len) == 0) {
+        // Skip the base path and any trailing separators
+        const char* relative = path->value + base_len;
+        while (*relative == '/' || *relative == '\\') {
+            relative++;
+        }
+        return path_set(dst, relative);
+    }
+    
+    // Path doesn't start with base, return as-is
+    return path_copy(dst, path);
+}
+
 // ============================================================================
 // text_t implementation
 // ============================================================================

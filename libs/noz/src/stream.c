@@ -3,6 +3,7 @@
 //
 
 #include <stdio.h>
+#include <stdarg.h>
 
 #define DEFAULT_INITIAL_CAPACITY 256
 
@@ -384,12 +385,20 @@ void stream_write_string(stream_t* stream, const char* value)
     stream_write_bytes(stream, (const uint8_t*)value, length);
 }
 
-void stream_write_raw_string(stream_t* stream, const char* value)
+void stream_write_raw_cstr(stream_t* stream, const char* format, ...)
 {
-    if (!stream || !value) return;
+    if (!stream || !format) return;
     
-    size_t length = strlen(value);
-    stream_write_bytes(stream, (const uint8_t*)value, length);
+    char buffer[4096];
+    va_list args;
+    va_start(args, format);
+    int written = vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    
+    if (written > 0 && (size_t)written < sizeof(buffer))
+    {
+        stream_write_bytes(stream, (const uint8_t*)buffer, written);
+    }
 }
 
 void stream_write_bytes(stream_t* stream, const uint8_t* data, size_t size) 

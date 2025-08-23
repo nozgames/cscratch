@@ -58,7 +58,7 @@ void stream_write_float(stream_t* stream, float value);
 void stream_write_double(stream_t* stream, double value);
 void stream_write_bool(stream_t* stream, bool value);
 void stream_write_string(stream_t* stream, const char* value);
-void stream_write_raw_string(stream_t* stream, const char* value);  // Write string without length prefix
+void stream_write_raw_cstr(stream_t* stream, const char* format, ...); // Write formatted C string without length prefix
 void stream_write_bytes(stream_t* stream, const uint8_t* data, size_t size);
 void stream_write(stream_t* stream, const void* src, size_t size);
 void stream_write_color(stream_t* stream, color_t value);
