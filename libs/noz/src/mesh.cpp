@@ -2,7 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-typedef struct mesh_impl 
+struct mesh_impl 
 {
     OBJECT_BASE;
 	name_t name;
@@ -15,32 +15,32 @@ typedef struct mesh_impl
     mesh_vertex* vertices;
     uint16_t* indices;
     bounds3 bounds;
-} mesh_impl_t;
+};
 
 static map_t* g_mesh_cache = NULL;
 static SDL_GPUDevice* g_device = NULL;
 
-static void mesh_upload(mesh_impl_t* impl);
-static void mesh_destroy_impl(mesh_impl_t* impl);
-static inline mesh_impl_t* to_impl(void* s) { return (mesh_impl_t*)to_object((object_t*)s, type_mesh); }
+static void mesh_upload(mesh_impl* impl);
+static void mesh_destroy_impl(mesh_impl* impl);
+static inline mesh_impl* to_impl(void* s) { return (mesh_impl*)to_object((object_t*)s, type_mesh); }
 
 inline size_t mesh_impl_size(size_t vertex_count, size_t index_count)
 {
     return
-        sizeof(mesh_impl_t) +
+        sizeof(mesh_impl) +
         sizeof(mesh_vertex) * vertex_count +
         sizeof(uint16_t) * index_count;
 }
 
 static mesh_t* mesh_alloc_internal(allocator_t* allocator, name_t* name, size_t vertex_count, size_t index_count)
 {
-    mesh_impl_t* impl = to_impl(object_alloc(allocator, mesh_impl_size(vertex_count, index_count), type_mesh));
+    mesh_impl* impl = to_impl(object_alloc(allocator, mesh_impl_size(vertex_count, index_count), type_mesh));
     if (!impl)
 	    return NULL; 
 
     impl->vertex_count = vertex_count;
     impl->index_count = index_count;
-    impl->vertices = (mesh_vertex*)(impl + sizeof(mesh_impl_t));
+    impl->vertices = (mesh_vertex*)(impl + sizeof(mesh_impl));
     impl->indices = (uint16_t*)(impl->vertices + sizeof(mesh_vertex) * vertex_count);
 	name_copy(&impl->name, name);
     return (mesh_t*)impl;
@@ -63,7 +63,7 @@ mesh_t* mesh_alloc_raw(
     assert(indices);
     
 	mesh_t* mesh = mesh_alloc_internal(allocator, name, vertex_count, index_count);
-    mesh_impl_t* impl = to_impl(mesh);
+    mesh_impl* impl = to_impl(mesh);
     impl->bounds = to_bounds(positions, vertex_count);
 
     if (bone_indices)
@@ -109,7 +109,7 @@ static mesh_t* mesh_load_stream(allocator_t* allocator, name_t* name, stream_t* 
     if (!mesh)
 		return NULL;
 
-    mesh_impl_t* impl = to_impl(mesh);
+    mesh_impl* impl = to_impl(mesh);
     stream_read(stream, impl->vertices, sizeof(mesh_vertex) * impl->vertex_count);
     stream_read(stream, impl->indices, sizeof(uint16_t) * impl->index_count);
     mesh_upload(impl);
@@ -139,7 +139,7 @@ mesh_t* mesh_load(allocator_t* allocator, name_t* name)
 }
 
 #if 0
-static void mesh_destroy_impl(mesh_impl_t* impl)
+static void mesh_destroy_impl(mesh_impl* impl)
 {
     if (impl->index_transfer)
         SDL_ReleaseGPUTransferBuffer(g_device, impl->index_transfer);
@@ -159,7 +159,7 @@ void mesh_render(mesh_t* mesh, SDL_GPURenderPass* pass)
 {
     assert(pass);
 
-    mesh_impl_t* impl = to_impl(mesh);
+    mesh_impl* impl = to_impl(mesh);
     if (!impl->vertex_buffer)
         return;
 
@@ -175,7 +175,7 @@ void mesh_render(mesh_t* mesh, SDL_GPURenderPass* pass)
     SDL_DrawGPUIndexedPrimitives(pass, (uint32_t)impl->index_count, 1, 0, 0, 0);
 }
 
-static void mesh_upload(mesh_impl_t* impl)
+static void mesh_upload(mesh_impl* impl)
 {
     assert(impl);
     assert(!impl->vertex_buffer);

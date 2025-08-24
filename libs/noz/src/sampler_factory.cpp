@@ -21,8 +21,8 @@ static uint64_t sampler_options_hash(const sampler_options_t* options)
     return hash_64((void*)options, sizeof(sampler_options_t));
 }
 
-SDL_GPUFilter to_sdl_filter(texture_filter_t filter);
-SDL_GPUSamplerAddressMode to_sdl_clamp(texture_clamp_t clamp);
+SDL_GPUFilter to_sdl_filter(texture_filter filter);
+SDL_GPUSamplerAddressMode to_sdl_clamp(texture_clamp clamp);
 
 SDL_GPUSampler* sampler_factory_sampler(texture_t* texture)
 {
@@ -38,7 +38,7 @@ SDL_GPUSampler* sampler_factory_sampler(texture_t* texture)
         return impl->sampler;
 
     // Create new sampler
-    SDL_GPUSamplerCreateInfo sampler_info = {0};
+    SDL_GPUSamplerCreateInfo sampler_info = {};
     sampler_info.min_filter = to_sdl_filter(options.min_filter);
     sampler_info.mag_filter = to_sdl_filter(options.mag_filter);
     sampler_info.mipmap_mode = (options.min_filter == texture_filter_nearest)
@@ -65,7 +65,7 @@ SDL_GPUSampler* sampler_factory_sampler(texture_t* texture)
     return impl->sampler;
 }
 
-SDL_GPUFilter to_sdl_filter(texture_filter_t filter)
+SDL_GPUFilter to_sdl_filter(texture_filter filter)
 {
     switch (filter)
     {
@@ -78,7 +78,7 @@ SDL_GPUFilter to_sdl_filter(texture_filter_t filter)
     }
 }
 
-SDL_GPUSamplerAddressMode to_sdl_clamp(texture_clamp_t mode)
+SDL_GPUSamplerAddressMode to_sdl_clamp(texture_clamp mode)
 {
     switch (mode)
     {

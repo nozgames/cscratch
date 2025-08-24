@@ -42,11 +42,11 @@ typedef struct bone
 
 typedef struct sampler_options
 {
-    texture_filter_t min_filter;
-    texture_filter_t mag_filter;
-    texture_clamp_t clamp_u;
-    texture_clamp_t clamp_v;
-    texture_clamp_t clamp_w;
+    texture_filter min_filter;
+    texture_filter mag_filter;
+    texture_clamp clamp_u;
+    texture_clamp clamp_v;
+    texture_clamp clamp_w;
     SDL_GPUCompareOp compare_op;
 } sampler_options_t;
 
@@ -94,7 +94,7 @@ typedef enum sampler_register
 } sampler_register_t;
 
 // Function to convert texture format to SDL format
-SDL_GPUTextureFormat texture_format_to_sdl(texture_format_t format);
+SDL_GPUTextureFormat texture_format_to_sdl(texture_format format);
 
 typedef enum animation_track_type
 {

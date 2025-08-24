@@ -4,26 +4,25 @@
 
 #define INITIAL_CACHE_SIZE 64
 
-typedef struct texture_impl 
+struct texture_impl 
 {
     OBJECT_BASE;
     name_t name;
     SDL_GPUTexture* handle;
     sampler_options_t sampler_options;
     ivec2 size;
-} texture_impl_t;
-
+};
 
 static SDL_GPUDevice* g_device = NULL;
 static map_t* g_texture_cache = NULL;
 
-static void texture_create_from_memory_impl(texture_impl_t* impl, void* data, size_t width, size_t height, int channels, bool generate_mipmaps);
-static void texture_load_impl(allocator_t* allocator, texture_impl_t* impl);
-static void texture_destroy_impl(texture_impl_t* impl);
-int texture_format_bytes_per_pixel(texture_format_t format);
-static inline texture_impl_t* to_impl(texture_t* t) { return (texture_impl_t*)to_object((object_t*)t, type_texture); }
+static void texture_create_from_memory_impl(texture_impl* impl, void* data, size_t width, size_t height, int channels, bool generate_mipmaps);
+static void texture_load_impl(allocator_t* allocator, texture_impl* impl);
+static void texture_destroy_impl(texture_impl* impl);
+int texture_format_bytes_per_pixel(texture_format format);
+static inline texture_impl* to_impl(texture_t* t) { return (texture_impl*)to_object((object_t*)t, type_texture); }
 
-SDL_GPUTextureFormat texture_format_to_sdl(texture_format_t format)
+SDL_GPUTextureFormat to_sdl(texture_format format)
 {
     switch (format) {
     case texture_format_rgba8:
@@ -50,11 +49,11 @@ texture_t* texture_load(allocator_t* allocator, name_t* name)
         return texture;
 
     // Create new texture
-    texture = (texture_t*)object_alloc(allocator, sizeof(texture_impl_t), type_texture);
+    texture = (texture_t*)object_alloc(allocator, sizeof(texture_impl), type_texture);
     if (!texture)
         return NULL;
 
-	texture_impl_t* impl = to_impl(texture);
+	texture_impl* impl = to_impl(texture);
     map_set(g_texture_cache, key, texture);
     
     impl->handle = NULL;
@@ -80,26 +79,26 @@ texture_t* texture_load(allocator_t* allocator, name_t* name)
     return (texture_t*)impl;
 }
 
-texture_t* texture_alloc_render_target(allocator_t* allocator, int width, int height, texture_format_t format, name_t* name)
+texture_t* texture_alloc(allocator_t* allocator, int width, int height, texture_format format, name_t* name)
 {
     assert(width > 0);
     assert(height > 0);
     assert(name);
     assert(g_device);
        
-    texture_t* texture = (texture_t*)object_alloc(allocator, sizeof(texture_impl_t), type_texture);
+    texture_t* texture = (texture_t*)object_alloc(allocator, sizeof(texture_impl), type_texture);
     if (!texture)
         return NULL;
     
-    texture_impl_t* impl = (texture_impl_t*)to_impl(texture);
+    texture_impl* impl = (texture_impl*)to_impl(texture);
     impl->size.x = width;
     impl->size.y = height;
 	name_copy(&impl->name, name);
 
 
-    SDL_GPUTextureCreateInfo texture_info = {0};
+    SDL_GPUTextureCreateInfo texture_info = {};
     texture_info.type = SDL_GPU_TEXTURETYPE_2D;
-    texture_info.format = texture_format_to_sdl(format);
+    texture_info.format = to_sdl(format);
     texture_info.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
     texture_info.width = width;
     texture_info.height = height;
@@ -115,12 +114,12 @@ texture_t* texture_alloc_render_target(allocator_t* allocator, int width, int he
     return texture;
 }
 
-texture_t* texture_alloc_raw(allocator_t* allocator, void* data, size_t width, size_t height, texture_format_t format, name_t* name)
+texture_t* texture_alloc(allocator_t* allocator, void* data, size_t width, size_t height, texture_format format, name_t* name)
 {
     assert(data);
     assert(name);
     
-    texture_t* texture = (texture_t*)object_alloc(allocator, sizeof(texture_impl_t), type_texture);
+    texture_t* texture = (texture_t*)object_alloc(allocator, sizeof(texture_impl), type_texture);
     if (!texture)
         return NULL;
     
@@ -129,7 +128,7 @@ texture_t* texture_alloc_raw(allocator_t* allocator, void* data, size_t width, s
 }
 
 #if 0
-static void texture_destroy_impl(texture_impl_t* impl)
+static void texture_destroy_impl(texture_impl* impl)
 {
     assert(impl);
     
@@ -173,7 +172,7 @@ sampler_options_t texture_sampler_options(texture_t* texture)
     return to_impl(texture)->sampler_options;
 }
 
-static void texture_create_from_memory_impl(texture_impl_t* impl, void* data, size_t width, size_t height, int channels, bool generate_mipmaps)
+static void texture_create_from_memory_impl(texture_impl* impl, void* data, size_t width, size_t height, int channels, bool generate_mipmaps)
 {
     assert(impl);
     assert(data);
@@ -221,7 +220,7 @@ static void texture_create_from_memory_impl(texture_impl_t* impl, void* data, si
     const size_t pitch = width * channels;
     const size_t size = pitch * height;
 
-    SDL_GPUTransferBufferCreateInfo transfer_info = {0};
+    SDL_GPUTransferBufferCreateInfo transfer_info = {};
     transfer_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     transfer_info.size = (Uint32)size;
     transfer_info.props = 0;
@@ -302,7 +301,7 @@ static void texture_create_from_memory_impl(texture_impl_t* impl, void* data, si
     if (allocated_rgba) free(rgba_data);
 }
 
-static void texture_load_impl(allocator_t* allocator, texture_impl_t* impl)
+static void texture_load_impl(allocator_t* allocator, texture_impl* impl)
 {
     path_t texture_path;
     asset_path(&texture_path, &impl->name, "texture");
@@ -338,11 +337,11 @@ static void texture_load_impl(allocator_t* allocator, texture_impl_t* impl)
     }
 
     // Read sampler options
-    impl->sampler_options.min_filter = (texture_filter_t)stream_read_uint8(stream);
-    impl->sampler_options.mag_filter = (texture_filter_t)stream_read_uint8(stream);
-    impl->sampler_options.clamp_u = (texture_clamp_t)stream_read_uint8(stream);
-    impl->sampler_options.clamp_v = (texture_clamp_t)stream_read_uint8(stream);
-    impl->sampler_options.clamp_w = (texture_clamp_t)stream_read_uint8(stream);
+    impl->sampler_options.min_filter = (texture_filter)stream_read_uint8(stream);
+    impl->sampler_options.mag_filter = (texture_filter)stream_read_uint8(stream);
+    impl->sampler_options.clamp_u = (texture_clamp)stream_read_uint8(stream);
+    impl->sampler_options.clamp_v = (texture_clamp)stream_read_uint8(stream);
+    impl->sampler_options.clamp_w = (texture_clamp)stream_read_uint8(stream);
     bool mips = stream_read_bool(stream);
 
     if (mips)
@@ -397,7 +396,7 @@ static void texture_load_impl(allocator_t* allocator, texture_impl_t* impl)
     object_free(stream);
 }
 
-int texture_format_bytes_per_pixel(texture_format_t format)
+int texture_format_bytes_per_pixel(texture_format format)
 {
     switch (format)
     {
@@ -417,7 +416,7 @@ SDL_GPUTexture* texture_gpu_texture(texture_t* texture)
     return texture_gpu_handle(texture);
 }
 
-int texture_bytes_per_pixel(texture_format_t format)
+int texture_bytes_per_pixel(texture_format format)
 {
     return texture_format_bytes_per_pixel(format);
 }

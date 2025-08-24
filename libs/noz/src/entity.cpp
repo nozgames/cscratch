@@ -57,7 +57,7 @@ void entity_init()
         text_t msg;
         text_init(&msg);
         text_format(&msg, "ENTITY_BASE_SIZE != %zu", entity_type_size);
-        application_error(msg.value);
+        Exit(msg.value);
         return;
 	}
 }

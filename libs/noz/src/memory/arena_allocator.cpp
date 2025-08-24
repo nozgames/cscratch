@@ -37,7 +37,7 @@ void* arena_allocator_alloc(arena_allocator_t* a, size_t size)
 
 void* arena_allocator_realloc(arena_allocator_t* a, void* ptr, size_t new_size)
 {
-	application_error("arena_allocator_realloc not supported");
+	Exit("arena_allocator_realloc not supported");
 	return NULL;
 }
 

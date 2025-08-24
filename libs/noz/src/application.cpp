@@ -5,11 +5,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-// @forward
-void application_update_screen_size();
-
 // @traits
-static application_traits g_default_traits = 
+static ApplicationTraits g_default_traits = 
 {
 	.title = "noz",
 	.width = 800,
@@ -29,7 +26,7 @@ static application_traits g_default_traits =
 };
 
 // @impl
-struct application_impl
+struct Application
 {
     SDL_Window* window;
     bool has_focus;
@@ -39,16 +36,16 @@ struct application_impl
     const char* title;
 };
 
-static application_impl g_application = {0};
+static Application g_application = {0};
 
-void application_traits_init_defaults(application_traits* traits)
+void InitDefaults(ApplicationTraits* traits)
 {
     assert(traits);
-    memcpy(traits, &g_default_traits, sizeof(application_traits));
+    memcpy(traits, &g_default_traits, sizeof(ApplicationTraits));
 }
 
 // @error
-void application_error(const char* format, ...)
+void Exit(const char* format, ...)
 {
     char buffer[1024];
     
@@ -71,8 +68,17 @@ void application_error(const char* format, ...)
     exit(1);
 }
 
+static void UpdateScreenSize()
+{
+    int w;
+    int h;
+    SDL_GetWindowSize(g_application.window, &w, &h);
+    g_application.screen_size = { w, h };
+    g_application.screen_aspect_ratio = (float)w / (float)h;
+}
+
 // @init
-void application_init(application_traits* traits)
+void InitApplication(ApplicationTraits* traits)
 {
     if (!traits)
 		traits = &g_default_traits;
@@ -84,7 +90,7 @@ void application_init(application_traits* traits)
 
 	Uint32 windowFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
 
-	memset(&g_application, 0, sizeof(application_impl));
+	memset(&g_application, 0, sizeof(Application));
     g_application.window = SDL_CreateWindow(traits->title, traits->width, traits->height, windowFlags);
     if (!g_application.window)
     {
@@ -92,7 +98,7 @@ void application_init(application_traits* traits)
         return;
     }
 
-    application_update_screen_size();
+    UpdateScreenSize();
 
 	object_init();
     scene_init();
@@ -100,14 +106,14 @@ void application_init(application_traits* traits)
 }
 
 // @uninit
-void application_uninit()
+void ShutdownApplication()
 {
 	renderer_uninit();
     object_uninit();
 }
 
 // @update
-bool application_update()
+bool UpdateApplication()
 {
     SDL_Event event;
     while (SDL_PollEvent(&event))
@@ -120,37 +126,28 @@ bool application_update()
         else if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST)
             g_application.has_focus = false;
         else if (event.type == SDL_EVENT_WINDOW_RESIZED)
-            application_update_screen_size();
+            UpdateScreenSize();
     }
 
     return true;
 }
 
-void application_update_screen_size()
-{
-    int w;
-    int h;
-    SDL_GetWindowSize(g_application.window, &w, &h);
-    g_application.screen_size = {w, h};
-    g_application.screen_aspect_ratio = (float)w / (float)h;
-}
-
-void application_begin_render_frame()
+void BeginRenderFrame()
 {
     renderer_begin_frame();
 }
 
-void application_end_render_frame()
+void EndRenderFrame()
 {
     renderer_end_frame();
 }
 
-ivec2 screen_size()
+ivec2 GetScreenSize()
 {
     return g_application.screen_size;
 }
 
-float screen_aspect_ratio()
+float GetScreenAspectRatio()
 {
     return g_application.screen_aspect_ratio;
 }

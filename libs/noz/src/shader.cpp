@@ -4,7 +4,7 @@
 
 // todo: rework memory management here after asset loading
 
-typedef struct shader_impl 
+struct shader_impl 
 {
     OBJECT_BASE;
     name_t name;
@@ -17,17 +17,17 @@ typedef struct shader_impl
     SDL_GPUBlendFactor src_blend;
     SDL_GPUBlendFactor dst_blend;
     SDL_GPUCullMode cull;
-} shader_impl_t;
+};
 
 static map_t* g_shader_cache = NULL;
 static SDL_GPUDevice* g_device = NULL;
 
-static inline shader_impl_t* to_impl(void* s) { return (shader_impl_t*)to_object((object_t*)s, type_shader); }
+static inline shader_impl* to_impl(void* s) { return (shader_impl*)to_object((object_t*)s, type_shader); }
 
 // todo: destructor
 #if 0
 
-static void shader_destroy_impl(shader_impl_t* impl)
+static void shader_destroy_impl(shader_impl* impl)
 {
     assert(impl);
     if (impl->vertex)
@@ -55,11 +55,11 @@ shader_t* shader_load(allocator_t* allocator, name_t* name)
     if (shader) 
         return NULL;
 
-	shader = (shader_t*)object_alloc(allocator, sizeof(shader_impl_t), type_shader);
+	shader = (shader_t*)object_alloc(allocator, sizeof(shader_impl), type_shader);
     if (!shader)
         return NULL;
    
-    shader_impl_t* impl = (shader_impl_t*)to_impl(shader);
+    shader_impl* impl = (shader_impl*)to_impl(shader);
 	name_copy(&impl->name, name);
     impl->vertex = NULL;
     impl->fragment = NULL;

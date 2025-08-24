@@ -39,35 +39,35 @@ void object_init()
 	size_t object_type_size = sizeof(object_impl_t);
 	if (object_type_size != OBJECT_BASE_SIZE)
 	{
-		application_error("OBJECT_BASE_SIZE != %zu", object_type_size);
+		Exit("OBJECT_BASE_SIZE != %zu", object_type_size);
 		return;
 	}
 
 	size_t offset = offsetof(object_impl_t, type);
 	if (offset != OBJECT_OFFSET_TYPE)
 	{
-		application_error("OBJECT_OFFSET_TYPE != %zu", object_type_size);
+		Exit("OBJECT_OFFSET_TYPE != %zu", object_type_size);
 		return;
 	}
 
 	offset = offsetof(object_impl_t, base_type);
 	if (offset != OBJECT_OFFSET_BASE)
 	{
-		application_error("OBJECT_OFFSET_BASE != %zu", offset);
+		Exit("OBJECT_OFFSET_BASE != %zu", offset);
 		return;
 	}
 
 	offset = offsetof(object_impl_t, allocator);
 	if (offset != OBJECT_OFFSET_ALLOCATOR)
 	{
-		application_error("OBJECT_OFFSET_ALLOCATOR != %zu", offset);
+		Exit("OBJECT_OFFSET_ALLOCATOR != %zu", offset);
 		return;
 	}
 
 	offset = offsetof(object_impl_t, size);
 	if (offset != OBJECT_OFFSET_SIZE)
 	{
-		application_error("OBJECT_OFFSET_SIZE != %zu", offset);
+		Exit("OBJECT_OFFSET_SIZE != %zu", offset);
 		return;
 	}
 }

@@ -424,7 +424,7 @@ void render_buffer_init(renderer_traits* traits)
     g_render_buffer = (render_buffer_impl_t*)malloc(buffer_size);
     if (!g_render_buffer)
     {
-        application_error_out_of_memory();
+        ExitOutOfMemory();
         return;
     }        
 

@@ -16,7 +16,7 @@ typedef struct object_impl shader_t;
 typedef struct object_impl camera_t;
 
 // @renderer_traits
-typedef struct renderer_traits
+struct renderer_traits
 {
     size_t max_textures;
     size_t max_shaders;
@@ -27,38 +27,37 @@ typedef struct renderer_traits
     size_t max_frame_objects;
     size_t max_frame_transforms;
     uint32_t shadow_map_size;
-
-} renderer_traits;
+};
 
 // @renderer
 
 
 // @texture
 
-typedef enum texture_filter
+enum texture_filter
 {
     texture_filter_nearest,
     texture_filter_linear
-} texture_filter_t;
+};
 
-typedef enum texture_clamp
+enum texture_clamp
 {
     texture_clamp_repeat,
     texture_clamp_clamp,
     texture_clamp_repeat_mirrored
-} texture_clamp_t;
+};
 
-typedef enum texture_format
+enum texture_format
 {
     texture_format_rgba8,
     texture_format_rgba16f,
     texture_format_r8
-} texture_format_t;
+};
 
 texture_t* texture_load(allocator_t* allocator, name_t* path);
-texture_t* texture_alloc_raw(allocator_t* allocator, void* data, size_t width, size_t height, texture_format_t format, name_t* name);
-texture_t* texture_alloc_render_target(allocator_t* allocator, int width, int height, texture_format_t format, name_t* name);
-int texture_bytes_per_pixel(texture_format_t format);
+texture_t* texture_alloc(allocator_t* allocator, void* data, size_t width, size_t height, texture_format format, name_t* name);
+texture_t* texture_alloc(allocator_t* allocator, int width, int height, texture_format format, name_t* name);
+int texture_bytes_per_pixel(texture_format format);
 ivec2 texture_size(texture_t* texture);
 
 // @font

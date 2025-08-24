@@ -2,25 +2,19 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-// Process stage directives (//@ VERTEX and //@ FRAGMENT blocks)
-static char* preprocess_stage_directives(char* source, char* stage)
+static char* PreprocessStageDirectives(char* source, char* stage)
 {
     size_t len = strlen(source);
     char* result = (char*)malloc(len + 1);
     if (!result) return NULL;
     
     strcpy(result, source);
-    
-    // Simple approach: look for //@ VERTEX or //@ FRAGMENT markers
-    // and keep only the relevant sections
-    // This is a simplified version - could be improved with proper parsing
-    
     return result;
 }
 
-static bool compile_and_write_shader(
-    char* vertex_source,
-    char* fragment_source,
+static bool CompileAndWriteShader(
+    const char* vertex_source,
+    const char* fragment_source,
     stream_t* output_stream,
     path_t* include_dir)
 {
@@ -110,7 +104,7 @@ static bool compile_and_write_shader(
     return true;
 }
 
-void shader_importer_import(path_t* source_path, path_t* output_path, props_t* config)
+void ImportShader(path_t* source_path, path_t* output_path, props_t* config)
 {
     // Get source directories
     size_t source_count = props_get_list_count(config, "source");
@@ -118,9 +112,7 @@ void shader_importer_import(path_t* source_path, path_t* output_path, props_t* c
     if (source_count > 32) source_count = 32;
     
     for (size_t i = 0; i < source_count; i++)
-    {
         source_dirs[i] = props_get_list_item(config, "source", i, "");
-    }
     
     // Find relative path from source directories
     path_t relative_path;
@@ -133,7 +125,8 @@ void shader_importer_import(path_t* source_path, path_t* output_path, props_t* c
 
     // Read source file
     stream_t* source_stream = stream_load_from_file(NULL, source_path);
-    if (!source_stream) {
+    if (!source_stream)
+    {
         printf("Failed to open shader source: %s\n", source_path->value);
         return;
     }
@@ -164,7 +157,8 @@ void shader_importer_import(path_t* source_path, path_t* output_path, props_t* c
     path_dir(source_path, &include_path);
     
     // Compile and write shader
-    if (compile_and_write_shader(source, source, output_stream, &include_path)) {
+    if (CompileAndWriteShader(source, source, output_stream, &include_path)) 
+    {
         // Build output file path preserving directory structure
         path_t final_path;
         path_copy(&final_path, output_path);
@@ -180,9 +174,12 @@ void shader_importer_import(path_t* source_path, path_t* output_path, props_t* c
         path_dir(&final_path, &output_dir);
         directory_create_recursive(&output_dir);
         
-        if (!stream_save_to_file(output_stream, &final_path)) {
+        if (!stream_save_to_file(output_stream, &final_path)) 
+        {
             printf("Failed to save shader: %s\n", final_path.value);
-        } else {
+        }
+        else 
+        {
             // Remove extension for clean output
             path_t clean_path;
             path_copy(&clean_path, &relative_path);
@@ -208,15 +205,15 @@ bool shader_importer_does_depend_on(path_t* source_path, path_t* dependency_path
     return false;
 }
 
-static asset_importer_traits_t shader_importer_traits = {
+static asset_importer_traits_t g_shader_importer_traits = {
     .can_import = shader_importer_can_import,
-    .import_func = shader_importer_import,
+    .import_func = ImportShader,
     .does_depend_on = shader_importer_does_depend_on
 };
 
 asset_importer_traits_t* shader_importer_create()
 {
-    return &shader_importer_traits;
+    return &g_shader_importer_traits;
 }
 
 
@@ -264,7 +261,7 @@ asset_importer_traits_t* shader_importer_create()
     ShaderImporter::shader_info ShaderImporter::parse_shader(string& source, filesystem::path& source_path, string& stage)
     {
         shader_info info = {};
-        info.source = preprocess_includes(preprocess_stage_directives(source, stage), source_path);
+        info.source = preprocess_includes(PreprocessStageDirectives(source, stage), source_path);
 
         // Convert to lowercase for case-insensitive matching
         string code = info.source;
@@ -336,7 +333,7 @@ asset_importer_traits_t* shader_importer_create()
         return result;
     }
 
-    string ShaderImporter::preprocess_stage_directives(string& source, string& stage)
+    string ShaderImporter::PreprocessStageDirectives(string& source, string& stage)
     {
         string result = source;
 

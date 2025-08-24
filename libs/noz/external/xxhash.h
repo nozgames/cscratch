@@ -499,7 +499,7 @@ XXH_PUBLIC_API XXH_CONSTF unsigned XXH_versionNumber (void);
  */
 typedef enum {
     XXH_OK = 0, /*!< OK */
-    XXH_ERROR   /*!< Error */
+    XXH_ERROR   /*!< Exit */
 } XXH_errorcode;
 
 

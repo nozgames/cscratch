@@ -30,7 +30,7 @@ void* pool_allocator_alloc(pool_allocator_t* a)
 
 void* pool_allocator_realloc(arena_allocator_t* a, void* ptr, size_t new_size)
 {
-	application_error("pool_allocator_realloc not supported");
+	Exit("pool_allocator_realloc not supported");
 	return NULL;
 }
 

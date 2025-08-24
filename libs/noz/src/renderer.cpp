@@ -70,7 +70,7 @@ void init_shadow_pass(const renderer_traits* traits)
     g_renderer.shadow_map = SDL_CreateGPUTexture(g_renderer.device, &shadow_info);
     SDL_DestroyProperties(shadow_info.props);
     if (!g_renderer.shadow_map)
-        application_error(SDL_GetError());
+        Exit(SDL_GetError());
 
     // Create shadow sampler with depth comparison
     SDL_GPUSamplerCreateInfo shadow_sampler_info = {0};
@@ -85,7 +85,7 @@ void init_shadow_pass(const renderer_traits* traits)
     g_renderer.shadow_sampler = SDL_CreateGPUSampler(g_renderer.device, &shadow_sampler_info);
     SDL_DestroyProperties(shadow_info.props);
     if (!g_renderer.shadow_sampler)
-        application_error(SDL_GetError());
+        Exit(SDL_GetError());
 }
 
 void renderer_begin_frame()
@@ -411,14 +411,14 @@ void update_back_buffer()
 {
     // is the back buffer the correct size?
     assert(g_renderer.device);
-    ivec2 size = screen_size();
+    ivec2 size = GetScreenSize();
     if (g_renderer.linear_back_buffer && texture_size(g_renderer.linear_back_buffer) == size)
         return;
 
     name_t name;
 	name_set(&name, "linear");
     g_renderer.linear_back_buffer =
-        texture_alloc_render_target(NULL, size.x, size.y, texture_format_rgba16f, &name);
+        texture_alloc(NULL, size.x, size.y, texture_format_rgba16f, &name);
 }
 
 void init_gamma_pass()
@@ -467,14 +467,14 @@ void renderer_init(renderer_traits* traits, SDL_Window* window)
     // Create GPU device
     g_renderer.device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, NULL);
     if (!g_renderer.device)
-        application_error(SDL_GetError());
+        Exit(SDL_GetError());
 
     // Claim window for GPU device
     if (!SDL_ClaimWindowForGPUDevice(g_renderer.device, window))
     {
         SDL_DestroyGPUDevice(g_renderer.device);
         g_renderer.device = NULL;
-        application_error(SDL_GetError());
+        Exit(SDL_GetError());
     }
 
     texture_init(traits, g_renderer.device);
