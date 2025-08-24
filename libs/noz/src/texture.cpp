@@ -9,7 +9,7 @@ struct TextureImpl
     OBJECT_BASE;
     name_t name;
     SDL_GPUTexture* handle;
-    sampler_options_t sampler_options;
+    SamplerOptions sampler_options;
     ivec2 size;
 };
 
@@ -76,7 +76,7 @@ Texture* LoadTexture(Allocator* allocator, const name_t* name)
     impl->sampler_options.clamp_v = TEXTURE_CLAMP_CLAMP;
     impl->sampler_options.clamp_w = TEXTURE_CLAMP_CLAMP;
     impl->sampler_options.compare_op = SDL_GPU_COMPAREOP_INVALID;
-    CopyName(&impl->name, name);
+    SetName(&impl->name, name);
 
     // Handle special "white" texture
     if (name_eq_cstr(name, "white"))
@@ -104,7 +104,7 @@ Texture* AllocTexture(Allocator* allocator, int width, int height, TextureFormat
     auto impl = Impl(texture);
     impl->size.x = width;
     impl->size.y = height;
-    CopyName(&impl->name, name);
+    SetName(&impl->name, name);
 
     SDL_GPUTextureCreateInfo texture_info = {};
     texture_info.type = SDL_GPU_TEXTURETYPE_2D;
@@ -173,9 +173,9 @@ SDL_GPUTexture* GetGPUTexture(Texture* texture)
     return Impl(texture)->handle;
 }
 
-sampler_options_t GetSamplerOptions(Texture* texture)
+SamplerOptions GetSamplerOptions(Texture* texture)
 {
-    static sampler_options_t default_options = {TEXTURE_FILTER_LINEAR, TEXTURE_FILTER_LINEAR,
+    static SamplerOptions default_options = {TEXTURE_FILTER_LINEAR, TEXTURE_FILTER_LINEAR,
                                                 TEXTURE_CLAMP_CLAMP,   TEXTURE_CLAMP_CLAMP,
                                                 TEXTURE_CLAMP_CLAMP,   SDL_GPU_COMPAREOP_INVALID};
 
@@ -321,21 +321,21 @@ static void AllocTexture(TextureImpl* impl, void* data, size_t width, size_t hei
 
 static void LoadTexture(Allocator* allocator, TextureImpl* impl)
 {
-    path_t texture_path;
+    Path texture_path;
     SetAssetPath(&texture_path, &impl->name, "texture");
-    stream_t* stream = LoadStream(allocator, &texture_path);
+    Stream* stream = LoadStream(allocator, &texture_path);
     if (!stream)
         return;
 
     // Validate file signature
-    if (!stream_read_signature(stream, "NZXT", 4))
+    if (!ReadFileSignature(stream, "NZXT", 4))
     {
         Free(stream);
         return;
     }
 
     // Read version
-    uint32_t version = stream_read_uint32(stream);
+    uint32_t version = ReadU32(stream);
     if (version != 1)
     {
         Free(stream);
@@ -343,9 +343,9 @@ static void LoadTexture(Allocator* allocator, TextureImpl* impl)
     }
 
     // Read texture data
-    uint32_t format = stream_read_uint32(stream);
-    uint32_t width = stream_read_uint32(stream);
-    uint32_t height = stream_read_uint32(stream);
+    uint32_t format = ReadU32(stream);
+    uint32_t width = ReadU32(stream);
+    uint32_t height = ReadU32(stream);
 
     // Validate format
     if (format > 1)
@@ -355,25 +355,25 @@ static void LoadTexture(Allocator* allocator, TextureImpl* impl)
     }
 
     // Read sampler options
-    impl->sampler_options.min_filter = (TextureFilter)stream_read_uint8(stream);
-    impl->sampler_options.mag_filter = (TextureFilter)stream_read_uint8(stream);
-    impl->sampler_options.clamp_u = (TextureClamp)stream_read_uint8(stream);
-    impl->sampler_options.clamp_v = (TextureClamp)stream_read_uint8(stream);
-    impl->sampler_options.clamp_w = (TextureClamp)stream_read_uint8(stream);
-    bool mips = stream_read_bool(stream);
+    impl->sampler_options.min_filter = (TextureFilter)ReadU8(stream);
+    impl->sampler_options.mag_filter = (TextureFilter)ReadU8(stream);
+    impl->sampler_options.clamp_u = (TextureClamp)ReadU8(stream);
+    impl->sampler_options.clamp_v = (TextureClamp)ReadU8(stream);
+    impl->sampler_options.clamp_w = (TextureClamp)ReadU8(stream);
+    bool mips = ReadBool(stream);
 
     if (mips)
     {
         // Read number of mip levels
-        uint32_t num_mip_levels = stream_read_uint32(stream);
+        uint32_t num_mip_levels = ReadU32(stream);
 
         // For now, just read the base level and let GPU handle mipmaps
         // TODO: Upload all mip levels to GPU
         for (uint32_t level = 0; level < num_mip_levels; ++level)
         {
-            /*uint32_t mip_width =*/stream_read_uint32(stream);
-            /*uint32_t mip_height = */ stream_read_uint32(stream);
-            uint32_t mip_data_size = stream_read_uint32(stream);
+            /*uint32_t mip_width =*/ReadU32(stream);
+            /*uint32_t mip_height = */ ReadU32(stream);
+            uint32_t mip_data_size = ReadU32(stream);
 
             if (level == 0)
             {
@@ -381,20 +381,20 @@ static void LoadTexture(Allocator* allocator, TextureImpl* impl)
                 u8* mip_data = (u8*)malloc(mip_data_size);
                 if (mip_data)
                 {
-                    stream_read_bytes(stream, mip_data, mip_data_size);
+                    ReadBytes(stream, mip_data, mip_data_size);
                     AllocTexture(impl, mip_data, width, height, (format == 1) ? 4 : 3, true);
                     free(mip_data);
                 }
                 else
                 {
                     // Skip data if allocation failed
-                    stream_set_position(stream, stream_position(stream) + mip_data_size);
+                    SetPosition(stream, GetPosition(stream) + mip_data_size);
                 }
             }
             else
             {
                 // Skip other mip levels for now
-                stream_set_position(stream, stream_position(stream) + mip_data_size);
+                SetPosition(stream, GetPosition(stream) + mip_data_size);
             }
         }
     }
@@ -404,7 +404,7 @@ static void LoadTexture(Allocator* allocator, TextureImpl* impl)
         const size_t data_size = width * height * channels;
         if (const auto texture_data = (u8*)malloc(data_size))
         {
-            stream_read_bytes(stream, texture_data, data_size);
+            ReadBytes(stream, texture_data, data_size);
             AllocTexture(impl, texture_data, width, height, channels, false);
             free(texture_data);
         }

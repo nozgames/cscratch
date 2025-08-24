@@ -4,17 +4,18 @@
 
 #pragma once
 
-typedef ObjectTag list_t;
+struct List : Object {};
 
-list_t* list_alloc(Allocator* allocator, size_t capacity);
-size_t list_count(list_t* list);
-size_t list_capacity(list_t* list);
-void list_add(list_t* list, void* value);
-void* list_pop(list_t* list);
-void* list_get(list_t* list, size_t index);
-void list_clear(list_t* list);
-bool list_empty(list_t* list);
-int list_find(list_t* list, void* value);
-int list_find_predicate(list_t* list, bool (*predicate) (void*, void* data), void* data);
+List* CreateList(Allocator* allocator, size_t capacity);
+size_t GetCount(List* list);
+size_t GetCapacity(List* list);
+void Add(List* list, void* value);
+void* Pop(List* list);
+void* GetAt(List* list, size_t index);
+void Clear(List* list);
+bool IsEmpty(List* list);
+int Find(List* list, void* value);
+int Find(List* list, bool (*predicate) (void*, void* data), void* data);
 
-inline void list_push(list_t* list, void* value) { list_add(list, value); }
+inline void Push(List* list, void* value) { Add(list, value); }
+

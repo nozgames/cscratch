@@ -60,7 +60,7 @@ Shader* LoadShader(Allocator* allocator, const name_t* name)
         return nullptr;
    
     ShaderImpl* impl = (ShaderImpl*)Impl(shader);
-	CopyName(&impl->name, name);
+	SetName(&impl->name, name);
     impl->vertex = nullptr;
     impl->fragment = nullptr;
     impl->vertex_uniform_count = 0;
@@ -72,19 +72,19 @@ Shader* LoadShader(Allocator* allocator, const name_t* name)
     impl->cull = SDL_GPU_CULLMODE_NONE;
 
     // Load shader file
-    path_t shader_path;
+    Path shader_path;
     SetAssetPath(&shader_path, name, "shader");
-    stream_t* stream = LoadStream(allocator , &shader_path);
+    Stream* stream = LoadStream(allocator , &shader_path);
     if (!stream) 
         return nullptr;
 
-    if (!stream_read_signature(stream, "SHDR", 4))
+    if (!ReadFileSignature(stream, "SHDR", 4))
     {
         Free(stream);
         return nullptr;
     }
 
-    uint32_t version = stream_read_uint32(stream);
+    uint32_t version = ReadU32(stream);
     if (version != 1)
     {
         Free(stream);
@@ -92,16 +92,16 @@ Shader* LoadShader(Allocator* allocator, const name_t* name)
     }
 
     // Read bytecode lengths
-    uint32_t vertex_bytecode_length = stream_read_uint32(stream);
+    uint32_t vertex_bytecode_length = ReadU32(stream);
     uint8_t* vertex_bytecode = (uint8_t*)allocator_alloc(allocator, vertex_bytecode_length);
     if (!vertex_bytecode) 
     {
         Free(stream);
         return nullptr;
     }
-    stream_read_bytes(stream, vertex_bytecode, vertex_bytecode_length);
+    ReadBytes(stream, vertex_bytecode, vertex_bytecode_length);
 
-    uint32_t fragment_bytecode_length = stream_read_uint32(stream);
+    uint32_t fragment_bytecode_length = ReadU32(stream);
     uint8_t* fragment_bytecode = (uint8_t*)allocator_alloc(allocator, fragment_bytecode_length);
     if (!fragment_bytecode) 
     {
@@ -109,15 +109,15 @@ Shader* LoadShader(Allocator* allocator, const name_t* name)
         Free(stream);
         return nullptr;
     }
-    stream_read_bytes(stream, fragment_bytecode, fragment_bytecode_length);
+    ReadBytes(stream, fragment_bytecode, fragment_bytecode_length);
 
-    impl->vertex_uniform_count = stream_read_int32(stream);
-    impl->fragment_uniform_count = stream_read_int32(stream);
-    impl->sampler_count = stream_read_int32(stream);
-    impl->flags = (shader_flags_t)stream_read_uint8(stream);
-    impl->src_blend = (SDL_GPUBlendFactor)stream_read_uint32(stream);
-    impl->dst_blend = (SDL_GPUBlendFactor)stream_read_uint32(stream);
-    impl->cull = (SDL_GPUCullMode)stream_read_uint32(stream);
+    impl->vertex_uniform_count = ReadI32(stream);
+    impl->fragment_uniform_count = ReadI32(stream);
+    impl->sampler_count = ReadI32(stream);
+    impl->flags = (shader_flags_t)ReadU8(stream);
+    impl->src_blend = (SDL_GPUBlendFactor)ReadU32(stream);
+    impl->dst_blend = (SDL_GPUBlendFactor)ReadU32(stream);
+    impl->cull = (SDL_GPUCullMode)ReadU32(stream);
 
     Free(stream);
 

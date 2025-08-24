@@ -22,59 +22,59 @@ static style_t g_default_style = {
 };
  
 
-static bool style_deserialize_parameter(stream_t* stream, style_parameter_t* value)
+static bool style_deserialize_parameter(Stream* stream, style_parameter_t* value)
 {
-    value->keyword = (style_keyword_t)stream_read_uint8(stream);
+    value->keyword = (style_keyword_t)ReadU8(stream);
     return value->keyword == style_keyword_overwrite;
 }
 
 #if 0 // not used yet
-static void style_deserialize_bool(stream_t* stream, style_bool_t* value)
+static void style_deserialize_bool(Stream* stream, style_bool_t* value)
 {
     if (!style_deserialize_parameter(stream, (style_parameter_t*)value))
         return;
 
-    value->value = stream_read_bool(stream);
+    value->value = ReadBool(stream);
 }
-static void style_deserialize_float(stream_t* stream, style_float_t* value)
+static void style_deserialize_float(Stream* stream, style_float_t* value)
 {
     if (!style_deserialize_parameter(stream, (style_parameter_t*)value))
         return;
-    value->value = stream_read_float(stream);
+    value->value = ReadFloat(stream);
 }
 #endif
 
-static void style_deserialize_int(stream_t* stream, style_int_t* value)
+static void style_deserialize_int(Stream* stream, style_int_t* value)
 {
     if (!style_deserialize_parameter(stream, (style_parameter_t*)value))
         return;
-    value->value = stream_read_int32(stream);
+    value->value = ReadI32(stream);
 }
 
-static void style_deserialize_color(stream_t* stream, style_color_t* value)
+static void style_deserialize_color(Stream* stream, style_color_t* value)
 {
     if (!style_deserialize_parameter(stream, (style_parameter_t*)value))
         return;
-    value->value = stream_read_color(stream);
+    value->value = ReadColor(stream);
 }
 
-static void style_deserialize_flex_direction(stream_t* stream, style_flex_direction_t* value)
+static void style_deserialize_flex_direction(Stream* stream, style_flex_direction_t* value)
 {
     if (!style_deserialize_parameter(stream, (style_parameter_t*)value))
         return;
-    value->value = (flex_direction_t)stream_read_uint8(stream);
+    value->value = (flex_direction_t)ReadU8(stream);
 }
 
-static void style_deserialize_length(stream_t* stream, style_length_t* value)
+static void style_deserialize_length(Stream* stream, style_length_t* value)
 {
     if (!style_deserialize_parameter(stream, (style_parameter_t*)value))
         return;
 
-    value->unit = (style_length_unit_t)stream_read_uint8(stream);
-    value->value = stream_read_float(stream);
+    value->unit = (style_length_unit_t)ReadU8(stream);
+    value->value = ReadFloat(stream);
 }
 
-void style_deserialize_into(stream_t* stream, style_t* style)
+void style_deserialize_into(Stream* stream, style_t* style)
 {
     style_deserialize_flex_direction(stream, &style->flex_direction);
     style_deserialize_length(stream, &style->width);
@@ -92,68 +92,68 @@ void style_deserialize_into(stream_t* stream, style_t* style)
     style_deserialize_length(stream, &style->padding_right);
 }
 
-style_t style_deserialize(stream_t* stream)
+style_t style_deserialize(Stream* stream)
 {
     style_t style = {};
     style_deserialize_into(stream, &style);
     return style;
 }
 
-static bool style_serialize_parameter(stream_t* stream, style_parameter_t* value)
+static bool style_serialize_parameter(Stream* stream, style_parameter_t* value)
 {
-    stream_write_uint8(stream, value->keyword);
+    WriteU8(stream, value->keyword);
     return value->keyword == style_keyword_overwrite;
 }
 
-static void style_serialize_int(stream_t* stream, const style_int_t* value)
+static void style_serialize_int(Stream* stream, const style_int_t* value)
 {
     if (!style_serialize_parameter(stream, (style_parameter_t*)value))
         return;
-    stream_write_int32(stream, value->value);
+    WriteI32(stream, value->value);
 }
 
 #if 0
 
-static void style_serialize_bool(stream_t* stream, const style_bool_t* value)
+static void style_serialize_bool(Stream* stream, const style_bool_t* value)
 {
     if (!style_serialize_parameter(stream, (style_parameter_t*)value))
         return;
-    stream_write_bool(stream, value->value);
+    WriteBool(stream, value->value);
 }
 
-static void style_serialize_float(stream_t* stream, const style_float_t* value)
+static void style_serialize_float(Stream* stream, const style_float_t* value)
 {
     if (!style_serialize_parameter(stream, (style_parameter_t*)value))
         return;
-    stream_write_float(stream, value->value);
+    WriteFloat(stream, value->value);
 }
 
 #endif
 
-static void style_serialize_color(stream_t* stream, const style_color_t* value)
+static void style_serialize_color(Stream* stream, const style_color_t* value)
 {
     if (!style_serialize_parameter(stream, (style_parameter_t*)value))
         return;
-    stream_write_color(stream, value->value);
+    WriteColor(stream, value->value);
 }
 
-static void style_serialize_flex_direction(stream_t* stream, const style_flex_direction_t* value)
+static void style_serialize_flex_direction(Stream* stream, const style_flex_direction_t* value)
 {
     if (!style_serialize_parameter(stream, (style_parameter_t*)value))
         return;
-    stream_write_uint8(stream, (uint8_t)value->value);
+    WriteU8(stream, (uint8_t)value->value);
 }
 
-static void style_serialize_length(stream_t* stream, const style_length_t* value)
+static void style_serialize_length(Stream* stream, const style_length_t* value)
 {
     if (!style_serialize_parameter(stream, (style_parameter_t*)value))
         return;
 
-    stream_write_uint8(stream, (uint8_t)value->unit);
-    stream_write_float(stream, value->value);
+    WriteU8(stream, (uint8_t)value->unit);
+    WriteFloat(stream, value->value);
 }
 
-void style_serialize(const style_t* style, stream_t* stream)
+void style_serialize(const style_t* style, Stream* stream)
 {
     style_serialize_flex_direction(stream, &style->flex_direction);
     style_serialize_length(stream, &style->width);

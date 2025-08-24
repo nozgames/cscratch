@@ -6,28 +6,28 @@
 #include "noz/stream.h"
 #include <string.h>
 
-bool ReadAssetHeader(stream_t* stream, asset_header_t* header)
+bool ReadAssetHeader(Stream* stream, asset_header_t* header)
 {
     if (!stream || !header) return false;
     
     // Read header fields
-    header->signature = stream_read_uint32(stream);
-    header->runtime_size = stream_read_uint32(stream);
-    header->version = stream_read_uint32(stream);
-    header->flags = stream_read_uint32(stream);
+    header->signature = ReadU32(stream);
+    header->runtime_size = ReadU32(stream);
+    header->version = ReadU32(stream);
+    header->flags = ReadU32(stream);
     
-    return !stream_is_eos(stream);
+    return !IsEOS(stream);
 }
 
-bool WriteAssetHeader(stream_t* stream, asset_header_t* header)
+bool WriteAssetHeader(Stream* stream, asset_header_t* header)
 {
     if (!stream || !header) return false;
     
     // Write header fields
-    stream_write_uint32(stream, header->signature);
-    stream_write_uint32(stream, header->runtime_size);
-    stream_write_uint32(stream, header->version);
-    stream_write_uint32(stream, header->flags);
+    WriteU32(stream, header->signature);
+    WriteU32(stream, header->runtime_size);
+    WriteU32(stream, header->version);
+    WriteU32(stream, header->flags);
     
     return true;
 }
@@ -75,7 +75,7 @@ const char* ToString(type_t type)
     }
 }
 
-void SetAssetPath(path_t* dst, const name_t* name, const char* ext)
+void SetAssetPath(Path* dst, const name_t* name, const char* ext)
 {
     assert(dst);
     assert(name);

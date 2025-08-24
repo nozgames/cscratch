@@ -12,7 +12,7 @@ typedef struct name
 } name_t;
 
 name_t* name_set(name_t* dst, const char* src);
-name_t* CopyName(name_t* dst, const name_t* src);
+name_t* SetName(name_t* dst, const name_t* src);
 name_t* name_format(name_t* dst, const char* fmt, ...);
 bool name_empty(const name_t* name);
 bool name_eq(name_t* a, name_t* b);
@@ -23,29 +23,29 @@ typedef struct path
 {
     char value[1024];
     size_t length;
-} path_t;
+} Path;
 
-path_t* path_set(path_t* dst, const char* src);
-path_t* path_copy(path_t* dst, path_t* src);
-bool path_eq(path_t* a, path_t* b);
-path_t* path_clear(path_t* path);
-path_t* path_append(path_t* dst, const char* component);
-path_t* path_join(path_t* dst, const char* base, const char* component);
-path_t* path_dir(path_t* src, path_t* dst);
-void path_filename(path_t* src, name_t* dst);
-void path_filename_without_extension(path_t* src, name_t* dst);
-const char* path_basename(path_t* path);
-const char* path_extension(path_t* path);
-bool path_has_extension(path_t* path, const char* ext);
+Path* path_set(Path* dst, const char* src);
+Path* path_copy(Path* dst, Path* src);
+bool path_eq(Path* a, Path* b);
+Path* path_clear(Path* path);
+Path* path_append(Path* dst, const char* component);
+Path* path_join(Path* dst, const char* base, const char* component);
+Path* path_dir(Path* src, Path* dst);
+void path_filename(Path* src, name_t* dst);
+void path_filename_without_extension(Path* src, name_t* dst);
+const char* path_basename(Path* path);
+const char* path_extension(Path* path);
+bool path_has_extension(Path* path, const char* ext);
 bool path_cstr_has_extension(char* path, const char* ext);
-path_t* path_set_extension(path_t* path, const char* ext);
-path_t* path_normalize(path_t* path);
-bool path_is_absolute(path_t* path);
-bool path_is_empty(path_t* path);
-path_t* path_make_relative(path_t* dst, path_t* path, path_t* base);
-path_t* path_make_absolute(path_t* dst, path_t* path);
-bool path_is_under(path_t* path, path_t* base);
-bool path_find_relative_to_bases(path_t* dst, path_t* path, const char** bases, size_t base_count);
+Path* path_set_extension(Path* path, const char* ext);
+Path* path_normalize(Path* path);
+bool path_is_absolute(Path* path);
+bool path_is_empty(Path* path);
+Path* path_make_relative(Path* dst, Path* path, Path* base);
+Path* path_make_absolute(Path* dst, Path* path);
+bool path_is_under(Path* path, Path* base);
+bool path_find_relative_to_bases(Path* dst, Path* path, const char** bases, size_t base_count);
 
 // @text
 typedef struct text

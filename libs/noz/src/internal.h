@@ -40,7 +40,7 @@ typedef struct bone
     vec3 direction;
 } bone_t;
 
-typedef struct sampler_options
+struct SamplerOptions
 {
     TextureFilter min_filter;
     TextureFilter mag_filter;
@@ -48,10 +48,10 @@ typedef struct sampler_options
     TextureClamp clamp_v;
     TextureClamp clamp_w;
     SDL_GPUCompareOp compare_op;
-} sampler_options_t;
+};
 
 // Function to compare sampler options
-bool sampler_options_equals(sampler_options_t* a, sampler_options_t* b);
+bool sampler_options_equals(SamplerOptions* a, SamplerOptions* b);
 
 // Shader flags enum (C99 version)
 typedef enum shader_flags 
@@ -110,57 +110,47 @@ typedef struct animation_track
     int data_offset;
 } animation_track_t;
 
-// @object
-void InitObject();
-void ShutdownObject();
-
-// @entity
-void InitEntity();
-void ShutdownEntity();
-
 // @renderer
 void InitRenderer(RendererTraits* traits, SDL_Window* window);
 void ShutdownRenderer();
-void renderer_begin_frame();
-void renderer_end_frame();
-SDL_GPURenderPass* renderer_begin_pass(bool clear, color_t clear_color, bool msaa, Texture* target);
-SDL_GPURenderPass* renderer_begin_gamma_pass();
-SDL_GPURenderPass* renderer_begin_shadow_pass();
-void renderer_end_pass();
-void renderer_bind_texture(SDL_GPUCommandBuffer* cb, Texture* texture, int index);
-void renderer_bind_material(Material* material);
-void renderer_bind_default_texture(int texture_index);
+void BeginFrameGPU();
+void EndFrameGPU();
+SDL_GPURenderPass* BeginPassGPU(bool clear, color_t clear_color, bool msaa, Texture* target);
+SDL_GPURenderPass* BeginShadowPassGPU();
+SDL_GPURenderPass* BeginGammaPassGPU();
+void EndRenderPassGPU();
+void BindTextureGPU(SDL_GPUCommandBuffer* cb, Texture* texture, int index);
+void BindShaderGPU(Shader* shader);
+void BindMaterialGPU(Material* material);
+void BindDefaultTextureGPU(int texture_index);
 
 // @render_buffer
 void InitRenderBuffer(RendererTraits* traits);
 void ShutdownRenderBuffer();
-void render_buffer_begin_gamma_pass();
-void render_buffer_clear();
-void render_buffer_execute(SDL_GPUCommandBuffer* cb);
+void BeginGammaPass();
+void ClearRenderCommands();
+void ExecuteRenderCommands(SDL_GPUCommandBuffer* cb);
 
 // @sampler_factory
 void InitSamplerFactory(RendererTraits* traits, SDL_GPUDevice* device);
 void ShutdownSamplerFactory();
-SDL_GPUSampler* sampler_factory_sampler(Texture* texture);
+SDL_GPUSampler* GetGPUSampler(Texture* texture);
 
 // @pipeline_factory
 void InitPipelineFactory(SDL_Window* window, SDL_GPUDevice* device);
 void ShutdownPipelineFactory();
-SDL_GPUGraphicsPipeline* pipeline_factory_pipeline(Shader* shader, bool msaa, bool shadow);
-
-// @material
-void material_bind_gpu(Material* material, SDL_GPUCommandBuffer* cb);
+SDL_GPUGraphicsPipeline* GetGPUPipeline(Shader* shader, bool msaa, bool shadow);
 
 // @mesh
 void InitMesh(RendererTraits* traits, SDL_GPUDevice* device);
 void ShutdownMesh();
-void RenderMesh(Mesh* mesh, SDL_GPURenderPass* pass);
+void DrawMeshGPU(Mesh* mesh, SDL_GPURenderPass* pass);
 
 // @texture
 void InitTexture(RendererTraits* traits, SDL_GPUDevice* dev);
 void ShutdownTexture();
 SDL_GPUTexture* GetGPUTexture(Texture* texture);
-sampler_options_t GetSamplerOptions(Texture* texture);
+SamplerOptions GetSamplerOptions(Texture* texture);
 
 // @shader
 void InitShader(RendererTraits* traits, SDL_GPUDevice* device);
@@ -184,10 +174,6 @@ const name_t* GetName(Shader* shader);
 void InitFont(RendererTraits* traits, SDL_GPUDevice* device);
 void ShutdownFont();
 Material* font_material(Font* font);
-
-// @camera
-void InitCamera();
-void ShutdownCamera();
 
 // @animation
 void animation_evaluate_frame(

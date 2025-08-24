@@ -23,7 +23,7 @@
 // File info for tracking changes
 typedef struct file_info
 {
-    path_t path;
+    Path path;
     uint64_t modified_time;  // Modification time
     uint64_t size;           // File size
 } file_info_t;
@@ -71,7 +71,7 @@ static struct
 static int file_watcher_thread(void* data);
 static void scan_directory_recursive(const char* dir_path);
 static void process_file(const char* file_path, const file_stat_t* st);
-static void queue_event(path_t* path, file_change_type_t type);
+static void queue_event(Path* path, file_change_type_t type);
 static file_info_t* alloc_file_info(void);
 static void free_file_info(file_info_t* info);
 
@@ -391,7 +391,7 @@ static int file_watcher_thread(void* data)
 }
 
 // Callback function for platform directory scanning
-static void file_scan_callback(path_t* file_path, file_stat_t* stat, void* user_data)
+static void file_scan_callback(Path* file_path, file_stat_t* stat, void* user_data)
 {
     (void)user_data; // Unused
     
@@ -405,7 +405,7 @@ static void file_scan_callback(path_t* file_path, file_stat_t* stat, void* user_
 // Cross-platform implementation using platform abstraction
 static void scan_directory_recursive(const char* dir_path)
 {
-    path_t path;
+    Path path;
     path_set(&path, dir_path);
     directory_enum_files(&path, file_scan_callback, NULL);
 }
@@ -413,7 +413,7 @@ static void scan_directory_recursive(const char* dir_path)
 // Process a single file (cross-platform)
 static void process_file(const char* file_path, const file_stat_t* st)
 {
-    path_t path;
+    Path path;
     path_set(&path, file_path);
     
     uint64_t key = Hash(file_path);
@@ -448,7 +448,7 @@ static void process_file(const char* file_path, const file_stat_t* st)
 }
 
 // Queue an event
-static void queue_event(path_t* path, file_change_type_t type)
+static void queue_event(Path* path, file_change_type_t type)
 {
     SDL_LockMutex(g_watcher.queue.mutex);
     

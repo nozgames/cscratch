@@ -2,13 +2,13 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-typedef struct uniform_buffer_info
+struct UniformBuffer
 {
-    uint32_t size;
-    uint32_t offset;
-} uniform_buffer_info_t;
+    u32 size;
+    u32 offset;
+};
 
-typedef struct material_impl
+struct MaterialImpl
 {    
     OBJECT_BASE;
     name_t name;
@@ -17,39 +17,39 @@ typedef struct material_impl
     Shader* shader;
     Texture** textures;
     size_t texture_count;
-    uniform_buffer_info_t* uniforms;
+    UniformBuffer* uniforms;
 	uint8_t* uniforms_data;
     //vector<texture> textures;
     //vector<uniform_buffer_info> uniforms;
     //vector<uint8_t> uniforms_data;
-} material_impl_t;
+};
 
-static inline material_impl_t* Impl(void* m) { return (material_impl_t*)to_object((Object*)m, type_material); }
+static MaterialImpl* Impl(Material* m) { return (MaterialImpl*)to_object(m, type_material); }
 
 
 #if 0
-inline uint8_t* material_vertex_uniform_data(material_impl_t* impl)
+inline uint8_t* material_vertex_uniform_data(MaterialImpl* impl)
 {
     assert(impl->vertex_uniform_count > 0);
     uniform_buffer_info_t* buffer = impl->uniforms + 0;
     return impl->uniforms_data + buffer->offset;
 }
 
-inline size_t material_vertex_uniform_data_size(material_impl_t* impl)
+inline size_t material_vertex_uniform_data_size(MaterialImpl* impl)
 {
     assert(impl->vertex_uniform_count > 0);
     uniform_buffer_info_t* buffer = impl->uniforms + impl->vertex_uniform_count - 1;
     return buffer->offset + buffer->size;
 }
 
-inline uint8_t* material_fragment_uniform_data(material_impl_t* impl)
+inline uint8_t* material_fragment_uniform_data(MaterialImpl* impl)
 {
     assert(impl->fragment_uniform_count > 0);
     uniform_buffer_info_t* buffer = impl->uniforms + impl->vertex_uniform_count;
     return impl->uniforms_data + buffer->offset;
 }
 
-inline size_t material_fragment_uniform_data_size(material_impl_t* impl)
+inline size_t material_fragment_uniform_data_size(MaterialImpl* impl)
 {
     assert(impl->fragment_uniform_count > 0);
     uniform_buffer_info_t* buffer = impl->uniforms + impl->vertex_uniform_count + impl->fragment_uniform_count - 1;
@@ -57,20 +57,20 @@ inline size_t material_fragment_uniform_data_size(material_impl_t* impl)
 }
 #endif
 
-Material* AllocMaterial(Allocator* allocator, Shader* shader, name_t* name)
+Material* CreateMaterial(Allocator* allocator, Shader* shader, name_t* name)
 {
-	material_impl_t* impl = Impl(Alloc(allocator, sizeof(material_impl_t*), type_material));
+    MaterialImpl* impl = Impl((Material*)Alloc(allocator, sizeof(MaterialImpl*), type_material));
     if (!impl)
-        return NULL;
+        return nullptr;
     impl->shader = shader;
-	impl->vertex_uniform_count = shader_vertex_uniform_count(shader);
+    impl->vertex_uniform_count = shader_vertex_uniform_count(shader);
     impl->fragment_uniform_count = shader_fragment_uniform_count(shader);
-	impl->texture_count = shader_sampler_count(shader);
-	CopyName(&impl->name, name);
+    impl->texture_count = shader_sampler_count(shader);
+    SetName(&impl->name, name);
     return (Material*)impl;
 }
 
-name_t* material_name(Material* material)
+name_t* GetName(Material* material)
 {
     return &Impl(material)->name;
 }
@@ -82,15 +82,20 @@ Shader* material_shader(Material* material)
 
 void material_set_texture(Material* material, Texture* texture, size_t index)
 {
-	material_impl_t* impl = Impl(material);
+    auto impl = Impl(material);
     assert(index < impl->texture_count);
     impl->textures[index] = texture;
 }
 
-void material_bind_gpu(Material* material, SDL_GPUCommandBuffer* cb)
+void BindMaterialGPU(Material* material, SDL_GPUCommandBuffer* cb)
 {
+    auto impl = Impl(material);
+    BindShaderGPU(impl->shader);
+
+    // todo: fix
+
 #if 0
-	material_impl_t* impl = Impl(material);
+	MaterialImpl* impl = Impl(material);
 
     // Then push uniform buffer data for vertex shader (additional buffers beyond default 0,1,2)
     if (impl->vertex_uniform_count > 0)

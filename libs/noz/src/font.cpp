@@ -51,16 +51,16 @@ static void font_destroy_impl(font_impl* impl)
 }
 #endif
 
-Font* font_load_from_stream(Allocator* allocator, stream_t* stream, name_t* name)
+Font* font_load_from_stream(Allocator* allocator, Stream* stream, name_t* name)
 {
     // Read header
-    if (!stream_read_signature(stream, "FONT", 4))
+    if (!ReadFileSignature(stream, "FONT", 4))
     {
         Free(stream);
         return nullptr;
     }
 
-    uint32_t version = stream_read_uint32(stream);
+    uint32_t version = ReadU32(stream);
     if (version != 1)
     {
         Free(stream);
@@ -71,7 +71,7 @@ Font* font_load_from_stream(Allocator* allocator, stream_t* stream, name_t* name
     if (!impl)
         return nullptr;
 
-    CopyName(&impl->name, name);
+    SetName(&impl->name, name);
 
     // Arrays are already zeroed by object_create
     // Initialize kerning index to 0xFFFF (no kerning)
@@ -79,35 +79,35 @@ Font* font_load_from_stream(Allocator* allocator, stream_t* stream, name_t* name
     impl->kerning_values = nullptr;
     impl->kerning_count = 0;
 
-    impl->original_font_size = stream_read_uint32(stream);
-    impl->atlas_width = stream_read_uint32(stream);
-    impl->atlas_height = stream_read_uint32(stream);
-    impl->ascent = stream_read_float(stream);
-    impl->descent = stream_read_float(stream);
-    impl->line_height = stream_read_float(stream);
-    impl->baseline = stream_read_float(stream);
+    impl->original_font_size = ReadU32(stream);
+    impl->atlas_width = ReadU32(stream);
+    impl->atlas_height = ReadU32(stream);
+    impl->ascent = ReadFloat(stream);
+    impl->descent = ReadFloat(stream);
+    impl->line_height = ReadFloat(stream);
+    impl->baseline = ReadFloat(stream);
 
     // Read glyph count and glyph data
-    uint16_t glyph_count = stream_read_uint16(stream);
+    uint16_t glyph_count = ReadU16(stream);
 
     // New efficient format: codepoint, then font_glyph structure directly
     for (uint32_t i = 0; i < glyph_count; ++i)
     {
-        uint32_t codepoint = stream_read_uint32(stream);
+        uint32_t codepoint = ReadU32(stream);
 
         if (codepoint < MAX_GLYPHS) {
             // Read directly into the glyph structure
             font_glyph* glyph = &impl->glyphs[codepoint];
-            stream_read(stream, glyph, sizeof(font_glyph));
+            ReadBytes(stream, glyph, sizeof(font_glyph));
         }
         else {
             // Skip this glyph's data
-            stream_seek_begin(stream, stream_position(stream) + sizeof(font_glyph));
+            SeekBegin(stream, GetPosition(stream) + sizeof(font_glyph));
         }
     }
 
     // Read kerning count and kerning data
-    impl->kerning_count = stream_read_uint16(stream);
+    impl->kerning_count = ReadU16(stream);
 
     if (impl->kerning_count > 0) {
         // Allocate kerning values array
@@ -119,9 +119,9 @@ Font* font_load_from_stream(Allocator* allocator, stream_t* stream, name_t* name
             // Read all kerning pairs
             for (uint16_t i = 0; i < impl->kerning_count; ++i)
             {
-                uint32_t first = stream_read_uint32(stream);
-                uint32_t second = stream_read_uint32(stream);
-                float amount = stream_read_float(stream);
+                uint32_t first = ReadU32(stream);
+                uint32_t second = ReadU32(stream);
+                float amount = ReadFloat(stream);
 
                 // Store in sparse representation
                 if (first < MAX_GLYPHS && second < MAX_GLYPHS) {
@@ -142,7 +142,7 @@ Font* font_load_from_stream(Allocator* allocator, stream_t* stream, name_t* name
         return nullptr;
     }
 
-    stream_read_bytes(stream, atlas_data, atlas_data_size);
+    ReadBytes(stream, atlas_data, atlas_data_size);
     Free(stream);
 
     impl->texture = AllocTexture(allocator, atlas_data, impl->atlas_width, impl->atlas_height, TEXTURE_FORMAT_R8, name);
@@ -158,7 +158,7 @@ Font* font_load_from_stream(Allocator* allocator, stream_t* stream, name_t* name
     name_t shader_name;
     name_set(&material_name, "font");
     name_set(&shader_name, "shaders/text");
-    impl->material = AllocMaterial(allocator, LoadShader(allocator, &shader_name), &material_name);
+    impl->material = CreateMaterial(allocator, LoadShader(allocator, &shader_name), &material_name);
     if (!impl->material)
     {
         Free((Font*)impl);
@@ -183,9 +183,9 @@ Font* font_load(Allocator* allocator, name_t* name)
     if (font)
         return font;
 
-    path_t font_path;
+    Path font_path;
     SetAssetPath(&font_path, name, "font");
-    stream_t* stream = LoadStream(nullptr, &font_path);
+    Stream* stream = LoadStream(nullptr, &font_path);
     if (!stream)
         return nullptr;
 

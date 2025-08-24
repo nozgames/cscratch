@@ -67,7 +67,7 @@ bool name_empty(const name_t* name)
     return name->length == 0;
 }
 
-name_t* CopyName(name_t* dst, const name_t* src)
+name_t* SetName(name_t* dst, const name_t* src)
 {
     assert(dst);
     assert(src);
@@ -175,7 +175,7 @@ static bool path_compare_extension(const char* ext1, const char* ext2)
     return *ext1 == '\0' && *ext2 == '\0';
 }
 
-path_t* path_set(path_t* dst, const char* src)
+Path* path_set(Path* dst, const char* src)
 {
     assert(dst);
     
@@ -197,7 +197,7 @@ path_t* path_set(path_t* dst, const char* src)
     return dst;
 }
 
-path_t* path_copy(path_t* dst, path_t* src)
+Path* path_copy(Path* dst, Path* src)
 {
     assert(dst);
     assert(src);
@@ -210,14 +210,14 @@ path_t* path_copy(path_t* dst, path_t* src)
     return dst;
 }
 
-bool path_eq(path_t* a, path_t* b)
+bool path_eq(Path* a, Path* b)
 {
     assert(a);
     assert(b);
     return string_eq(a->value, a->length, b->value, b->length);
 }
 
-path_t* path_clear(path_t* path)
+Path* path_clear(Path* path)
 {
     assert(path);
     path->value[0] = '\0';
@@ -225,7 +225,7 @@ path_t* path_clear(path_t* path)
     return path;
 }
 
-path_t* path_append(path_t* dst, const char* component)
+Path* path_append(Path* dst, const char* component)
 {
     assert(dst);
     
@@ -258,7 +258,7 @@ path_t* path_append(path_t* dst, const char* component)
     return dst;
 }
 
-path_t* path_join(path_t* dst, const char* base, const char* component)
+Path* path_join(Path* dst, const char* base, const char* component)
 {
     assert(dst);
     
@@ -266,7 +266,7 @@ path_t* path_join(path_t* dst, const char* base, const char* component)
     return path_append(dst, component);
 }
 
-path_t* path_dir(path_t* src, path_t* dst)
+Path* path_dir(Path* src, Path* dst)
 {
     assert(src);
     assert(dst);
@@ -305,7 +305,7 @@ path_t* path_dir(path_t* src, path_t* dst)
 }
 
 
-const char* path_basename(path_t* path)
+const char* path_basename(Path* path)
 {
     assert(path);
     
@@ -322,7 +322,7 @@ const char* path_basename(path_t* path)
     return last_sep + 1;
 }
 
-void path_filename(path_t* src, name_t* dst)
+void path_filename(Path* src, name_t* dst)
 {
     assert(src);
     assert(dst);
@@ -334,7 +334,7 @@ void path_filename(path_t* src, name_t* dst)
     name_set(dst, filename);
 }
 
-void path_filename_without_extension(path_t* src, name_t* dst)
+void path_filename_without_extension(Path* src, name_t* dst)
 {
     assert(src);
     assert(dst);
@@ -364,7 +364,7 @@ void path_filename_without_extension(path_t* src, name_t* dst)
     }
 }
 
-const char* path_extension(path_t* path)
+const char* path_extension(Path* path)
 {
     assert(path);
     
@@ -381,7 +381,7 @@ const char* path_extension(path_t* path)
     return last_dot + 1;
 }
 
-bool path_has_extension(path_t* path, const char* ext)
+bool path_has_extension(Path* path, const char* ext)
 {
     assert(path);
     
@@ -413,7 +413,7 @@ bool path_cstr_has_extension(const char* path_str, const char* ext)
     return path_compare_extension(last_dot + 1, ext);
 }
 
-path_t* path_set_extension(path_t* path, const char* ext)
+Path* path_set_extension(Path* path, const char* ext)
 {
     assert(path);
     
@@ -460,7 +460,7 @@ path_t* path_set_extension(path_t* path, const char* ext)
     return path;
 }
 
-path_t* path_normalize(path_t* path)
+Path* path_normalize(Path* path)
 {
     assert(path);
     
@@ -534,7 +534,7 @@ path_t* path_normalize(path_t* path)
     return path;
 }
 
-bool path_is_absolute(path_t* path)
+bool path_is_absolute(Path* path)
 {
     assert(path);
     
@@ -559,13 +559,13 @@ bool path_is_absolute(path_t* path)
     return false;
 }
 
-bool path_is_empty(path_t* path)
+bool path_is_empty(Path* path)
 {
     assert(path);
     return path->length == 0 || path->value[0] == '\0';
 }
 
-path_t* path_make_relative(path_t* dst, path_t* path, path_t* base)
+Path* path_make_relative(Path* dst, Path* path, Path* base)
 {
     assert(dst);
     assert(path);
@@ -591,7 +591,7 @@ path_t* path_make_relative(path_t* dst, path_t* path, path_t* base)
     return path_copy(dst, path);
 }
 
-path_t* path_make_absolute(path_t* dst, path_t* path)
+Path* path_make_absolute(Path* dst, Path* path)
 {
     assert(dst);
     assert(path);
@@ -603,7 +603,7 @@ path_t* path_make_absolute(path_t* dst, path_t* path)
     }
     
     // Get current directory and append the relative path
-    path_t cwd;
+    Path cwd;
     if (!path_current_directory(&cwd)) 
     {
         // If we can't get current directory, return path as-is
@@ -617,12 +617,12 @@ path_t* path_make_absolute(path_t* dst, path_t* path)
     return path_normalize(dst);
 }
 
-bool path_is_under(path_t* path, path_t* base)
+bool path_is_under(Path* path, Path* base)
 {
     assert(path);
     assert(base);
     
-    path_t relative;
+    Path relative;
     if (!path_make_relative(&relative, path, base))
     {
         return false;
@@ -644,7 +644,7 @@ bool path_is_under(path_t* path, path_t* base)
     return true;
 }
 
-bool path_find_relative_to_bases(path_t* dst, path_t* path, const char** bases, size_t base_count)
+bool path_find_relative_to_bases(Path* dst, Path* path, const char** bases, size_t base_count)
 {
     assert(dst);
     assert(path);
@@ -655,7 +655,7 @@ bool path_find_relative_to_bases(path_t* dst, path_t* path, const char** bases, 
     }
     
     // Make the input path absolute for comparison
-    path_t path_abs;
+    Path path_abs;
     path_make_absolute(&path_abs, path);
     
     // Try each base directory
@@ -664,7 +664,7 @@ bool path_find_relative_to_bases(path_t* dst, path_t* path, const char** bases, 
         if (!bases[i])
             continue;
             
-        path_t base_path, base_abs;
+        Path base_path, base_abs;
         path_set(&base_path, bases[i]);
         path_make_absolute(&base_abs, &base_path);
         

@@ -42,7 +42,7 @@ static Mesh* AllocMesh(Allocator* allocator, name_t* name, size_t vertex_count, 
     impl->index_count = index_count;
     impl->vertices = (mesh_vertex*)(impl + sizeof(MeshImpl));
     impl->indices = (uint16_t*)(impl->vertices + sizeof(mesh_vertex) * vertex_count);
-    CopyName(&impl->name, name);
+    SetName(&impl->name, name);
     return (Mesh*)impl;
 }
 
@@ -92,26 +92,26 @@ Mesh* AllocMesh(
     return mesh;
 }
 
-static Mesh* LoadMesh(Allocator* allocator, name_t* name, stream_t* stream)
+static Mesh* LoadMesh(Allocator* allocator, name_t* name, Stream* stream)
 {
-    if (!stream_read_signature(stream, "MESH", 4))
+    if (!ReadFileSignature(stream, "MESH", 4))
         return nullptr;
 
     // Read bounds
     bounds3 bounds;
-    stream_read(stream, &bounds, sizeof(bounds3));
+    ReadBytes(stream, &bounds, sizeof(bounds3));
 
     // counts
-    auto vertex_count = stream_read_uint32(stream);
-    auto index_count = stream_read_uint32(stream);
+    auto vertex_count = ReadU32(stream);
+    auto index_count = ReadU32(stream);
 
     auto mesh = AllocMesh(allocator, name, vertex_count, index_count);
     if (!mesh)
         return nullptr;
 
     auto impl = Impl(mesh);
-    stream_read(stream, impl->vertices, sizeof(mesh_vertex) * impl->vertex_count);
-    stream_read(stream, impl->indices, sizeof(uint16_t) * impl->index_count);
+    ReadBytes(stream, impl->vertices, sizeof(mesh_vertex) * impl->vertex_count);
+    ReadBytes(stream, impl->indices, sizeof(uint16_t) * impl->index_count);
     UploadMesh(impl);
 
     return mesh;
@@ -121,7 +121,7 @@ Mesh* mesh_load(Allocator* allocator, name_t* name)
 {
     assert(name);
     
-    path_t mesh_path;
+    Path mesh_path;
     SetAssetPath(&mesh_path, name, "mesh");
     auto stream = LoadStream(allocator, &mesh_path);
     if (!stream)
@@ -133,7 +133,7 @@ Mesh* mesh_load(Allocator* allocator, name_t* name)
     if (!mesh)
         return nullptr;
 
-    CopyName(&Impl(mesh)->name, name);
+    SetName(&Impl(mesh)->name, name);
 
     return mesh;
 }
@@ -155,7 +155,7 @@ static void mesh_destroy_impl(MeshImpl* impl)
 }
 #endif
 
-void RenderMesh(Mesh* mesh, SDL_GPURenderPass* pass)
+void DrawMeshGPU(Mesh* mesh, SDL_GPURenderPass* pass)
 {
     assert(pass);
 

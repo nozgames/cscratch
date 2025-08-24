@@ -101,7 +101,7 @@ struct style_t
 };
 
 
-void style_deserialize_into(stream_t* stream, style_t* style);
-style_t style_deserialize(stream_t* stream);
-void style_serialize(style_t* style, stream_t* stream);
+void style_deserialize_into(Stream* stream, style_t* style);
+style_t style_deserialize(Stream* stream);
+void style_serialize(style_t* style, Stream* stream);
 void style_merge(style_t* dst, style_t* src);

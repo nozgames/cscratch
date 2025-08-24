@@ -11,7 +11,7 @@
 
 typedef struct prop_value
 {
-    prop_type_t type;
+    PropType type;
     text_t key;                                  // Store the key for iteration
     union
     {
@@ -49,7 +49,7 @@ static bool parse_vector(const char* str, vec3* result);
 // Implementation
 static inline props_impl_t* Impl(void* p) { return (props_impl_t*)to_object((Object*)p, type_props); }
 
-Props* props_alloc(Allocator* allocator)
+Props* CreateProps(Allocator* allocator)
 {
     Props* props = (Props*)Alloc(allocator, sizeof(props_impl_t), type_props);
     if (!props)
@@ -91,31 +91,31 @@ void props_destroy(Props* props)
 }
 #endif
 
-Props* props_load_from_file(Allocator* allocator, path_t* file_path)
+Props* LoadProps(Allocator* allocator, Path* file_path)
 {
     assert(file_path);
     
-    stream_t* stream = LoadStream(allocator, file_path);
+    Stream* stream = LoadStream(allocator, file_path);
     if (!stream)
         return nullptr;
     
-    stream_seek_end(stream, 0);
-    stream_write_uint8(stream, 0);
+    SeekEnd(stream, 0);
+    WriteU8(stream, 0);
     
-    Props* result = props_load_from_memory(allocator, (const char*)stream_data(stream), stream_size(stream) - 1);
+    Props* result = LoadProps(allocator, (const char*)GetData(stream), GetSize(stream) - 1);
 
     Free(stream);
     
     return result;
 }
 
-Props* props_load_from_memory(Allocator* allocator, const char* content, size_t content_length)
+Props* LoadProps(Allocator* allocator, const char* content, size_t content_length)
 {
     assert(content);
     assert(content_length > 0);
     assert(content[content_length] == 0);
     
-    Props* props = (Props*)props_alloc(allocator);
+    Props* props = (Props*)CreateProps(allocator);
     if (!props)
         return NULL;
 
@@ -169,7 +169,7 @@ Props* props_load_from_memory(Allocator* allocator, const char* content, size_t 
             // List item format - add to current section as list
             if (current_section.length > 0)
             {
-                props_add_to_list(props, current_section.value, line.value);
+                AddToList(props, current_section.value, line.value);
             }
         }
     }
@@ -178,7 +178,7 @@ Props* props_load_from_memory(Allocator* allocator, const char* content, size_t 
     return props;
 }
 
-void props_clear(Props* props)
+void Clear(Props* props)
 {
     if (!props)
     {
@@ -198,7 +198,7 @@ void props_clear(Props* props)
     impl->key_cache_dirty = true;
 }
 
-void props_set_string(Props* props, const char* key, const char* value)
+void SetString(Props* props, const char* key, const char* value)
 {
     if (!props || !key || !value)
     {
@@ -223,33 +223,33 @@ void props_set_string(Props* props, const char* key, const char* value)
         impl->key_cache_dirty = true;
     }
     
-    prop->type = prop_type_value;
+    prop->type = PROP_TYPE_VALUE;
     text_set(&prop->key, key);
     text_set(&prop->single, value);
 }
 
-void props_set_int(Props* props, const char* key, int value)
+void SetInt(Props* props, const char* key, int value)
 {
     text_t str_value;
     text_format(&str_value, "%d", value);
-    props_set_string(props, key, str_value.value);
+    SetString(props, key, str_value.value);
 }
 
-void props_set_float(Props* props, const char* key, float value)
+void SetFloat(Props* props, const char* key, float value)
 {
     text_t str_value;
     text_format(&str_value, "%.6f", value);
-    props_set_string(props, key, str_value.value);
+    SetString(props, key, str_value.value);
 }
 
-void props_set_vec3(Props* props, const char* key, vec3 value)
+void SetVec3(Props* props, const char* key, vec3 value)
 {
     text_t str_value;
     text_format(&str_value, "(%.6f,%.6f,%.6f)", value.x, value.y, value.z);
-    props_set_string(props, key, str_value.value);
+    SetString(props, key, str_value.value);
 }
 
-void props_add_to_list(Props* props, const char* key, const char* value)
+void AddToList(Props* props, const char* key, const char* value)
 {
     if (!props || !key || !value)
     {
@@ -267,7 +267,7 @@ void props_add_to_list(Props* props, const char* key, const char* value)
         {
             return;
         }
-        prop->type = prop_type_list;
+        prop->type = PROP_TYPE_LIST;
         text_set(&prop->key, key);
         prop->list.count = 0;
         MapSet(impl->property_map, hash_key, prop);
@@ -275,10 +275,10 @@ void props_add_to_list(Props* props, const char* key, const char* value)
     }
     
     // Convert single to list if needed
-    if (prop->type == prop_type_value)
+    if (prop->type == PROP_TYPE_VALUE)
     {
         text_t old_value = prop->single;
-        prop->type = prop_type_list;
+        prop->type = PROP_TYPE_LIST;
         prop->list.count = 1;
         prop->list.values[0] = old_value;
     }
@@ -291,7 +291,7 @@ void props_add_to_list(Props* props, const char* key, const char* value)
     }
 }
 
-bool props_has_key(Props* props, const char* key)
+bool HasKey(Props* props, const char* key)
 {
     if (!props || !key)
     {
@@ -303,7 +303,7 @@ bool props_has_key(Props* props, const char* key)
     return MapGet(impl->property_map, hash_key) != NULL;
 }
 
-bool props_is_list(Props* props, const char* key)
+bool IsList(Props* props, const char* key)
 {
     if (!props || !key)
     {
@@ -314,24 +314,24 @@ bool props_is_list(Props* props, const char* key)
     uint64_t hash_key = Hash(key);
     prop_value_t* prop = (prop_value_t*)MapGet(impl->property_map, hash_key);
     
-    return prop && prop->type == prop_type_list;
+    return prop && prop->type == PROP_TYPE_LIST;
 }
 
-prop_type_t props_get_type(Props* props, const char* key)
+PropType GetPropertyType(Props* props, const char* key)
 {
     if (!props || !key)
     {
-        return prop_type_value;
+        return PROP_TYPE_VALUE;
     }
     
     props_impl_t* impl = Impl(props);
     uint64_t hash_key = Hash(key);
     prop_value_t* prop = (prop_value_t*)MapGet(impl->property_map, hash_key);
     
-    return prop ? prop->type : prop_type_value;
+    return prop ? prop->type : PROP_TYPE_VALUE;
 }
 
-const char* props_get_string(Props* props, const char* key, const char* default_value)
+const char* GetString(Props* props, const char* key, const char* default_value)
 {
     if (!props || !key)
     {
@@ -342,7 +342,7 @@ const char* props_get_string(Props* props, const char* key, const char* default_
     uint64_t hash_key = Hash(key);
     prop_value_t* prop = (prop_value_t*)MapGet(impl->property_map, hash_key);
     
-    if (!prop || prop->type != prop_type_value)
+    if (!prop || prop->type != PROP_TYPE_VALUE)
     {
         return default_value;
     }
@@ -350,15 +350,15 @@ const char* props_get_string(Props* props, const char* key, const char* default_
     return prop->single.value;
 }
 
-int props_get_int(Props* props, const char* key, int default_value)
+int GetInt(Props* props, const char* key, int default_value)
 {
-    const char* str_value = props_get_string(props, key, NULL);
+    const char* str_value = GetString(props, key, NULL);
     if (!str_value)
     {
         // For lists, return count
-        if (props_is_list(props, key))
+        if (IsList(props, key))
         {
-            return (int)props_get_list_count(props, key);
+            return (int)GetListCount(props, key);
         }
         return default_value;
     }
@@ -366,9 +366,9 @@ int props_get_int(Props* props, const char* key, int default_value)
     return atoi(str_value);
 }
 
-float props_get_float(Props* props, const char* key, float default_value)
+float GetFloat(Props* props, const char* key, float default_value)
 {
-    const char* str_value = props_get_string(props, key, NULL);
+    const char* str_value = GetString(props, key, NULL);
     if (!str_value)
     {
         return default_value;
@@ -377,9 +377,9 @@ float props_get_float(Props* props, const char* key, float default_value)
     return (float)atof(str_value);
 }
 
-bool props_get_bool(Props* props, const char* key, bool default_value)
+bool GetBool(Props* props, const char* key, bool default_value)
 {
-    const char* str_value = props_get_string(props, key, NULL);
+    const char* str_value = GetString(props, key, NULL);
     if (!str_value)
     {
         return default_value;
@@ -400,9 +400,9 @@ bool props_get_bool(Props* props, const char* key, bool default_value)
     return default_value;
 }
 
-vec3 props_get_vec3(Props* props, const char* key, vec3 default_value)
+vec3 GetVec3(Props* props, const char* key, vec3 default_value)
 {
-    const char* str_value = props_get_string(props, key, NULL);
+    const char* str_value = GetString(props, key, NULL);
     if (!str_value)
     {
         return default_value;
@@ -417,7 +417,7 @@ vec3 props_get_vec3(Props* props, const char* key, vec3 default_value)
     return default_value;
 }
 
-size_t props_get_list_count(Props* props, const char* key)
+size_t GetListCount(Props* props, const char* key)
 {
     if (!props || !key)
     {
@@ -433,10 +433,10 @@ size_t props_get_list_count(Props* props, const char* key)
         return 0;
     }
     
-    return prop->type == prop_type_list ? prop->list.count : 1;
+    return prop->type == PROP_TYPE_LIST ? prop->list.count : 1;
 }
 
-const char* props_get_list_item(Props* props, const char* key, size_t index, const char* default_value)
+const char* GetListElement(Props* props, const char* key, size_t index, const char* default_value)
 {
     if (!props || !key)
     {
@@ -452,7 +452,7 @@ const char* props_get_list_item(Props* props, const char* key, size_t index, con
         return default_value;
     }
     
-    if (prop->type == prop_type_value)
+    if (prop->type == PROP_TYPE_VALUE)
     {
         return index == 0 ? prop->single.value : default_value;
     }
@@ -465,7 +465,7 @@ const char* props_get_list_item(Props* props, const char* key, size_t index, con
     return prop->list.values[index].value;
 }
 
-size_t props_get_key_count(Props* props)
+size_t GetKeyCount(Props* props)
 {
     if (!props)
     {
@@ -481,7 +481,7 @@ size_t props_get_key_count(Props* props)
     return impl->key_count;
 }
 
-const char* props_get_key_at(Props* props, size_t index)
+const char* GetKeyAt(Props* props, size_t index)
 {
     if (!props)
     {
@@ -502,33 +502,33 @@ const char* props_get_key_at(Props* props, size_t index)
     return impl->key_cache[index].value;
 }
 
-void props_print(Props* props)
+void Print(Props* props)
 {
     if (!props)
     {
         return;
     }
     
-    size_t count = props_get_key_count(props);
+    size_t count = GetKeyCount(props);
     printf("Props (%zu keys):\n", count);
     
     for (size_t i = 0; i < count; i++)
     {
-        const char* key = props_get_key_at(props, i);
-        if (props_is_list(props, key))
+        const char* key = GetKeyAt(props, i);
+        if (IsList(props, key))
         {
-            size_t list_count = props_get_list_count(props, key);
+            size_t list_count = GetListCount(props, key);
             printf("  %s = [", key);
             for (size_t j = 0; j < list_count; j++)
             {
-                const char* value = props_get_list_item(props, key, j, "");
+                const char* value = GetListElement(props, key, j, "");
                 printf("%s\"%s\"", j > 0 ? ", " : "", value);
             }
             printf("]\n");
         }
         else
         {
-            const char* value = props_get_string(props, key, "");
+            const char* value = GetString(props, key, "");
             printf("  %s = \"%s\"\n", key, value);
         }
     }
@@ -556,7 +556,7 @@ static void rebuild_key_cache(props_impl_t* impl)
     for (size_t i = 0; i < impl->pool_used; i++)
     {
         prop_value_t* prop = &impl->pool[i];
-        if (prop->type != prop_type_value && prop->type != prop_type_list)
+        if (prop->type != PROP_TYPE_VALUE && prop->type != PROP_TYPE_LIST)
         {
             continue; // Skip unused entries
         }
@@ -640,7 +640,7 @@ static bool parse_ini_line_with_section(props_impl_t* impl, const char* line, co
         return false;
     }
     
-    prop->type = prop_type_value;
+    prop->type = PROP_TYPE_VALUE;
     text_copy(&prop->key, &full_key);
     text_copy(&prop->single, &value);
     

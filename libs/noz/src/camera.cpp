@@ -22,11 +22,3 @@ mat4 camera_projection(Camera* camera)
 {
     return Impl(camera)->projection;
 }
-
-void InitCamera()
-{
-}
-
-void ShutdownCamera()
-{
-}

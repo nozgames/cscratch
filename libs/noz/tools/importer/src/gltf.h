@@ -33,7 +33,7 @@ typedef struct gltf_animation
 {
     int frame_count;
     int frame_stride;
-    list_t* tracks;  // list of animation_track_t
+    List* tracks;  // list of animation_track_t
     float* data;
     size_t data_size;
 } gltf_animation_t;
@@ -54,14 +54,14 @@ typedef struct gltf_mesh
 
 typedef struct gltf_bone_filter
 {
-    list_t* exclude_bones;  // list of name_t
+    List* exclude_bones;  // list of name_t
     bool keep_leaf_bones;
 } gltf_bone_filter_t;
 
 typedef struct gltf
 {
     struct cgltf_data* data;
-    path_t path;
+    Path path;
 } gltf_t;
 
 // @init
@@ -69,21 +69,21 @@ gltf_t* gltf_alloc(Allocator* allocator);
 void gltf_free(gltf_t* gltf);
 
 // @file
-bool gltf_open(gltf_t* gltf, path_t* path);
+bool gltf_open(gltf_t* gltf, Path* path);
 void gltf_close(gltf_t* gltf);
 
 // @filter
 gltf_bone_filter_t* gltf_bone_filter_alloc(Allocator* allocator);
 void gltf_bone_filter_free(gltf_bone_filter_t* filter);
-gltf_bone_filter_t* gltf_bone_filter_from_meta_file(gltf_bone_filter_t* filter, path_t* meta_path);
+gltf_bone_filter_t* gltf_bone_filter_from_meta_file(gltf_bone_filter_t* filter, Path* meta_path);
 
 // @bones
-list_t* gltf_read_bones(gltf_t* gltf, gltf_bone_filter_t* filter, Allocator* allocator);
+List* gltf_read_bones(gltf_t* gltf, gltf_bone_filter_t* filter, Allocator* allocator);
 
 // @animation
-gltf_animation_t* gltf_read_animation(gltf_t* gltf, list_t* bones, name_t* animation_name, Allocator* allocator);
+gltf_animation_t* gltf_read_animation(gltf_t* gltf, List* bones, name_t* animation_name, Allocator* allocator);
 void gltf_animation_free(gltf_animation_t* animation);
 
 // @mesh
-gltf_mesh_t* gltf_read_mesh(gltf_t* gltf, list_t* bones, Allocator* allocator);
+gltf_mesh_t* gltf_read_mesh(gltf_t* gltf, List* bones, Allocator* allocator);
 void gltf_mesh_free(gltf_mesh_t* mesh);

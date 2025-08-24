@@ -23,7 +23,7 @@ void thread_sleep_ms(int milliseconds)
     Sleep(milliseconds);
 }
 
-bool file_stat(path_t* file_path, file_stat_t* stat)
+bool file_stat(Path* file_path, file_stat_t* stat)
 {
     struct _stat st;
     if (_stat(file_path->value, &st) != 0)
@@ -37,7 +37,7 @@ bool file_stat(path_t* file_path, file_stat_t* stat)
     return true;
 }
 
-bool directory_create(path_t* dir_path)
+bool directory_create(Path* dir_path)
 {
     // Try to create the directory
     if (_mkdir(dir_path->value) == 0)
@@ -53,9 +53,9 @@ bool directory_create(path_t* dir_path)
     return false;
 }
 
-bool directory_create_recursive(path_t* dir_path)
+bool directory_create_recursive(Path* dir_path)
 {
-    path_t parent;
+    Path parent;
     path_dir(dir_path, &parent);
     
     // If parent is not the same as current (not root), create parent first
@@ -71,13 +71,13 @@ bool directory_create_recursive(path_t* dir_path)
     return directory_create(dir_path);
 }
 
-bool directory_exists(path_t* dir_path)
+bool directory_exists(Path* dir_path)
 {
     file_stat_t stat;
     return file_stat(dir_path, &stat) && stat.is_directory;
 }
 
-bool path_current_directory(path_t* dst)
+bool path_current_directory(Path* dst)
 {
     if (!dst)
         return false;
@@ -90,12 +90,12 @@ bool path_current_directory(path_t* dst)
     return true;
 }
 
-bool directory_enum_files(path_t* dir_path, directory_enum_files_callback_t callback, void* user_data)
+bool directory_enum_files(Path* dir_path, directory_enum_files_callback_t callback, void* user_data)
 {
     WIN32_FIND_DATAA find_data;
     HANDLE find_handle;
-    path_t search_path;
-    path_t full_path;
+    Path search_path;
+    Path full_path;
     
     // Create search pattern
     path_copy(&search_path, dir_path);

@@ -4,67 +4,65 @@
 
 #pragma once
 
-typedef ObjectTag stream_t;
+struct Stream : Object {};
 
 // @alloc
-stream_t* stream_alloc(Allocator* allocator, size_t capacity);
-stream_t* stream_load_from_memory(Allocator* allocator, uint8_t* data, size_t size);
-stream_t* LoadStream(Allocator* allocator, path_t* path);
+Stream* CreateStream(Allocator* allocator, size_t capacity);
+Stream* LoadStream(Allocator* allocator, uint8_t* data, size_t size);
+Stream* LoadStream(Allocator* allocator, Path* path);
 
 // @file
-bool stream_save_to_file(stream_t* stream, path_t* path);
+bool SaveStream(Stream* stream, Path* path);
 
 // @data
-uint8_t* stream_data(stream_t* stream);
-size_t stream_size(stream_t* stream);
-void stream_clear(stream_t* stream);
+uint8_t* GetData(Stream* stream);
+size_t GetSize(Stream* stream);
+void Clear(Stream* stream);
 
 // @position
-size_t stream_position(stream_t* stream);
-void stream_set_position(stream_t* stream, size_t position);
-size_t stream_seek_begin(stream_t* stream, size_t offset);
-size_t stream_seek_end(stream_t* stream, size_t offset);
-bool stream_is_eos(stream_t* stream);
+size_t GetPosition(Stream* stream);
+void SetPosition(Stream* stream, size_t position);
+size_t SeekBegin(Stream* stream, size_t offset);
+size_t SeekEnd(Stream* stream, size_t offset);
+bool IsEOS(Stream* stream);
 
 // @read
-bool stream_read_signature(stream_t* stream, const char* expected_signature, size_t signature_length);
-uint8_t stream_read_uint8(stream_t* stream);
-uint16_t stream_read_uint16(stream_t* stream);
-uint32_t stream_read_uint32(stream_t* stream);
-uint64_t stream_read_uint64(stream_t* stream);
-int8_t stream_read_int8(stream_t* stream);
-int16_t stream_read_int16(stream_t* stream);
-int32_t stream_read_int32(stream_t* stream);
-int64_t stream_read_int64(stream_t* stream);
-float stream_read_float(stream_t* stream);
-double stream_read_double(stream_t* stream);
-bool stream_read_bool(stream_t* stream);
-void stream_read_bytes(stream_t* stream, uint8_t* dest, size_t count);
-void stream_read(stream_t* stream, void* dest, size_t size);
-color_t stream_read_color(stream_t* stream);
+bool ReadFileSignature(Stream* stream, const char* expected_signature, size_t signature_length);
+uint8_t ReadU8(Stream* stream);
+uint16_t ReadU16(Stream* stream);
+uint32_t ReadU32(Stream* stream);
+uint64_t ReadU64(Stream* stream);
+int8_t ReadI8(Stream* stream);
+int16_t ReadI16(Stream* stream);
+int32_t ReadI32(Stream* stream);
+int64_t ReadI64(Stream* stream);
+float ReadFloat(Stream* stream);
+double ReadDouble(Stream* stream);
+bool ReadBool(Stream* stream);
+void ReadBytes(Stream* stream, void* dest, size_t count);
+color_t ReadColor(Stream* stream);
 
 // @write
-void stream_write_signature(stream_t* stream, const char* signature, size_t signature_length);
-void stream_write_uint8(stream_t* stream, uint8_t value);
-void stream_write_uint16(stream_t* stream, uint16_t value);
-void stream_write_uint32(stream_t* stream, uint32_t value);
-void stream_write_uint64(stream_t* stream, uint64_t value);
-void stream_write_int8(stream_t* stream, int8_t value);
-void stream_write_int16(stream_t* stream, int16_t value);
-void stream_write_int32(stream_t* stream, int32_t value);
-void stream_write_int64(stream_t* stream, int64_t value);
-void stream_write_float(stream_t* stream, float value);
-void stream_write_double(stream_t* stream, double value);
-void stream_write_bool(stream_t* stream, bool value);
-void stream_write_string(stream_t* stream, const char* value);
-void stream_write_raw_cstr(stream_t* stream, const char* format, ...); // Write formatted C string without length prefix
-void stream_write_bytes(stream_t* stream, uint8_t* data, size_t size);
-void stream_write(stream_t* stream, void* src, size_t size);
-void stream_write_color(stream_t* stream, color_t value);
+void WriteFileSignature(Stream* stream, const char* signature, size_t signature_length);
+void WriteU8(Stream* stream, uint8_t value);
+void WriteU16(Stream* stream, uint16_t value);
+void WriteU32(Stream* stream, uint32_t value);
+void WriteU64(Stream* stream, uint64_t value);
+void WriteI8(Stream* stream, int8_t value);
+void WriteI16(Stream* stream, int16_t value);
+void WriteI32(Stream* stream, int32_t value);
+void WriteI64(Stream* stream, int64_t value);
+void WriteFloat(Stream* stream, float value);
+void WriteDouble(Stream* stream, double value);
+void WriteBool(Stream* stream, bool value);
+void WriteString(Stream* stream, const char* value);
+void WriteCSTR(Stream* stream, const char* format, ...); // Write formatted C string without length prefix
+void WriteBytes(Stream* stream, void* data, size_t size);
+void WriteColor(Stream* stream, color_t value);
 
 
-#define stream_read_struct(stream, type) \
+#define ReadStruct(stream, type) \
     ({ type result; stream_read(stream, &result, sizeof(type)); result; })
 
-#define stream_write_struct(stream, value) \
+#define WriteStruct(stream, value) \
     stream_write(stream, &(value), sizeof(value))

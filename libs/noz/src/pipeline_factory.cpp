@@ -171,7 +171,7 @@ static SDL_GPUGraphicsPipeline* create_pipeline(Shader* shader, const SDL_GPUVer
     return pipeline;
 }
 
-SDL_GPUGraphicsPipeline* pipeline_factory_pipeline(Shader* shader, bool msaa, bool shadow)
+SDL_GPUGraphicsPipeline* GetGPUPipeline(Shader* shader, bool msaa, bool shadow)
 {
     assert(g_window);
     assert(g_device);

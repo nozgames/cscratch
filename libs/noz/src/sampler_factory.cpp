@@ -16,21 +16,21 @@ static SDL_GPUDevice* g_device = NULL;
 
 static inline sampler_impl_t* Impl(void* s) { return (sampler_impl_t*)to_object((Object*)(s), type_sampler); }
 
-static uint64_t sampler_options_hash(const sampler_options_t* options) 
+static uint64_t sampler_options_hash(const SamplerOptions* options) 
 {
-    return Hash((void*)options, sizeof(sampler_options_t));
+    return Hash((void*)options, sizeof(SamplerOptions));
 }
 
 SDL_GPUFilter to_sdl_filter(TextureFilter filter);
 SDL_GPUSamplerAddressMode to_sdl_clamp(TextureClamp clamp);
 
-SDL_GPUSampler* sampler_factory_sampler(Texture* texture)
+SDL_GPUSampler* GetGPUSampler(Texture* texture)
 {
     assert(g_device);
     assert(g_sampler_cache);
     assert(texture);
 
-    sampler_options_t options = GetSamplerOptions(texture);
+    SamplerOptions options = GetSamplerOptions(texture);
     uint64_t key = sampler_options_hash(&options);
 
     sampler_impl_t* impl = (sampler_impl_t*)MapGet(g_sampler_cache, key);

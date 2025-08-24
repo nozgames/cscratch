@@ -64,8 +64,8 @@ Shader* LoadShader(Allocator* allocator, const name_t* name);
 const name_t* GetName(Shader* shader);
 
 // @material
-Material* AllocMaterial(Allocator* allocator, Shader* shader, name_t* name);
-name_t* material_name(Material* material);
+Material* CreateMaterial(Allocator* allocator, Shader* shader, name_t* name);
+name_t* GetName(Material* material);
 Shader* material_shader(Material* material);
 void material_set_texture(Material* material, Texture* texture, size_t index);
 
@@ -124,13 +124,13 @@ void mesh_builder_add_quad_points(
     uint8_t bone_index);
 
 // @render_buffer
-void render_buffer_clear(void);
+void ClearRenderCommands();
 void BeginRenderPass(bool clear, color_t clear_color, bool msaa, Texture* target);
-void render_buffer_begin_shadow_pass(mat4 light_view, mat4 light_projection);
-void render_buffer_bind_default_texture(int texture_index);
-void render_buffer_bind_camera(Camera* camera);
-void render_buffer_bind_camera_matrices(mat4 view, mat4 projection);
-void render_buffer_bind_transform(mat4 transform);
-void render_buffer_bind_material(Material* material);
-void render_buffer_render_mesh(Mesh* mesh);
-void EndRenderPass(void);
+void BeginShadowPass(mat4 light_view, mat4 light_projection);
+void BindDefaultTexture(int texture_index);
+void BindCamera(Camera* camera);
+void BindCamera(const mat4& view, const mat4& projection);
+void BindTransform(const mat4& transform);
+void BindMaterial(Material* material);
+void DrawMesh(Mesh* mesh);
+void EndRenderPass();

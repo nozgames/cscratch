@@ -6,8 +6,8 @@
 
 typedef struct asset_importer_traits
 {
-	bool (*can_import) (path_t* path);
-	void (*import_func) (path_t* source_path, path_t* output_dir, Props* config);
-	bool (*does_depend_on) (path_t* source_path, path_t* dependency_path);
+	bool (*can_import) (Path* path);
+	void (*import_func) (Path* source_path, Path* output_dir, Props* config);
+	bool (*does_depend_on) (Path* source_path, Path* dependency_path);
 
 } asset_importer_traits_t;

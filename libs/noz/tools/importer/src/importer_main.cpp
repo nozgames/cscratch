@@ -10,14 +10,14 @@ asset_importer_traits_t* GetShaderImporterTraits();
 typedef struct import_job
 {
     OBJECT_BASE;
-    path_t source_path;
+    Path source_path;
     asset_importer_traits_t* importer;
 } import_job_t;
 
-static list_t* g_import_queue = NULL;
+static List* g_import_queue = NULL;
 static Props* g_config = NULL;
 
-void process_file_change(path_t* file_path, file_change_type_t change_type, asset_importer_traits_t** importers);
+void process_file_change(Path* file_path, file_change_type_t change_type, asset_importer_traits_t** importers);
 void process_import_queue(asset_importer_traits_t** importers);
 import_job_t* to_import_job_impl(void* job)
 {
@@ -43,11 +43,11 @@ int main(int argc, char* argv[])
     // Set up signal handler for Ctrl-C
     signal(SIGINT, signal_handler);
 
-    g_import_queue = list_alloc(NULL, 1024);
+    g_import_queue = CreateList(NULL, 1024);
 
-    path_t path;
+    Path path;
     path_set(&path, "./importer.cfg");
-    g_config = props_load_from_file(NULL, &path);
+    g_config = LoadProps(NULL, &path);
     if (!g_config)
     {
         printf("missing configuration '%s'\n", path.value);
@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
     file_watcher_init(500);
 
     // Get source directories from config
-    if (!props_has_key(g_config, "source"))
+    if (!HasKey(g_config, "source"))
     {
         printf("No [source] section found in config\n");
         Free(g_config);
@@ -70,10 +70,10 @@ int main(int argc, char* argv[])
 
     // Add directories to watch
     printf("Adding directories to watch:\n");
-    size_t source_count = props_get_list_count(g_config, "source");
+    size_t source_count = GetListCount(g_config, "source");
     for (size_t i = 0; i < source_count; i++)
     {
-        const char* dir = props_get_list_item(g_config, "source", i, "");
+        const char* dir = GetListElement(g_config, "source", i, "");
         printf("  - %s\n", dir);
         if (!file_watcher_add_directory(dir))
         {
@@ -119,12 +119,12 @@ int main(int argc, char* argv[])
 
 static bool import_job_path_predicate(void* o, void* data)
 {
-    path_t* path = (path_t*)data;
+    Path* path = (Path*)data;
     import_job_t* job = to_import_job_impl(o);
     return path_eq(&job->source_path, path);
 }
 
-void process_file_change(path_t* file_path, file_change_type_t change_type, asset_importer_traits_t** importers)
+void process_file_change(Path* file_path, file_change_type_t change_type, asset_importer_traits_t** importers)
 {
     if (change_type == file_change_type_deleted)
         return; // Don't process deleted files
@@ -133,7 +133,7 @@ void process_file_change(path_t* file_path, file_change_type_t change_type, asse
     if (path_has_extension(file_path, "meta"))
     {
         // Remove .meta extension to get the asset file path
-        path_t asset_path;
+        Path asset_path;
         path_copy(&asset_path, file_path);
 
         // Remove the .meta extension
@@ -159,7 +159,7 @@ void process_file_change(path_t* file_path, file_change_type_t change_type, asse
     }
 
     // Find an importer that can handle this file
-    path_t source_path;
+    Path source_path;
     path_copy(&source_path, file_path);
     asset_importer_traits_t* selected_importer = NULL;
 
@@ -177,7 +177,7 @@ void process_file_change(path_t* file_path, file_change_type_t change_type, asse
         return;
 
     // is in the list already?
-    if (list_find_predicate(g_import_queue, import_job_path_predicate, &source_path) >= 0)
+    if (Find(g_import_queue, import_job_path_predicate, &source_path) >= 0)
         return;
 
     import_job_t* new_job = (import_job_t*)Alloc(NULL, sizeof(import_job_t), type_unknown);
@@ -186,19 +186,19 @@ void process_file_change(path_t* file_path, file_change_type_t change_type, asse
 
     new_job->source_path = source_path;
     new_job->importer = selected_importer;
-    list_add(g_import_queue, (Object*)new_job);
+    Add(g_import_queue, (Object*)new_job);
 }
 
 void process_import_queue(asset_importer_traits_t** importers)
 {
-    if (!g_import_queue || list_empty(g_import_queue))
+    if (!g_import_queue || IsEmpty(g_import_queue))
         return;
 
     // Get output directory from config
-    const char* output_dir = props_get_string(g_config, "output.directory", "assets");
+    const char* output_dir = GetString(g_config, "output.directory", "assets");
 
     // Ensure output directory exists (make it absolute)
-    path_t output_path, output_path_rel;
+    Path output_path, output_path_rel;
     path_set(&output_path_rel, output_dir);
     path_make_absolute(&output_path, &output_path_rel);
 
@@ -206,30 +206,30 @@ void process_import_queue(asset_importer_traits_t** importers)
     {
         printf("Failed to create directory: %s\n", output_path.value);
     }
-    list_t* remaining_jobs = list_alloc(NULL, list_count(g_import_queue));
+    List* remaining_jobs = CreateList(NULL, GetCount(g_import_queue));
     bool made_progress = true;
 
     // Keep processing until no more progress is made
-    while (made_progress && !list_empty(g_import_queue))
+    while (made_progress && !IsEmpty(g_import_queue))
     {
         made_progress = false;
-        list_clear(remaining_jobs);
+        Clear(remaining_jobs);
 
-        for (size_t i = 0; i < list_count(g_import_queue); i++)
+        for (size_t i = 0; i < GetCount(g_import_queue); i++)
         {
-            import_job_t* job = (import_job_t*)list_get(g_import_queue, i);
+            import_job_t* job = (import_job_t*)GetAt(g_import_queue, i);
             bool can_import_now = true;
 
             // Check dependencies if the importer supports it
             if (job->importer->does_depend_on)
             {
                 // Check if any files this one depends on are still in the queue
-                for (size_t j = 0; j < list_count(g_import_queue); j++)
+                for (size_t j = 0; j < GetCount(g_import_queue); j++)
                 {
                     if (i == j)
                         continue; // Don't check against self
 
-                    import_job_t* other_job = (import_job_t*)list_get(g_import_queue, j);
+                    import_job_t* other_job = (import_job_t*)GetAt(g_import_queue, j);
                     if (job->importer->does_depend_on(&job->source_path, &other_job->source_path))
                     {
                         can_import_now = false;
@@ -248,47 +248,47 @@ void process_import_queue(asset_importer_traits_t** importers)
             else
             {
                 // Keep this job for next iteration
-                list_add(remaining_jobs, (Object*)job);
+                Add(remaining_jobs, (Object*)job);
             }
         }
 
         // Swap lists
-        list_t* temp = g_import_queue;
+        List* temp = g_import_queue;
         g_import_queue = remaining_jobs;
         remaining_jobs = temp;
-        list_clear(remaining_jobs);
+        Clear(remaining_jobs);
     }
 
     // Clean up any remaining jobs (circular dependencies or errors)
-    for (size_t i = 0; i < list_count(g_import_queue); i++)
+    for (size_t i = 0; i < GetCount(g_import_queue); i++)
     {
-        import_job_t* job = (import_job_t*)list_get(g_import_queue, i);
+        import_job_t* job = (import_job_t*)GetAt(g_import_queue, i);
         printf("WARNING: Could not import %s (possible circular dependency)\n", job->source_path.value);
     }
 
-    list_clear(g_import_queue);
+    Clear(g_import_queue);
     Free(remaining_jobs);
 
     // Generate asset manifest after processing imports if enabled
-    bool manifest_enabled = props_get_bool(g_config, "manifest.enabled", false);
+    bool manifest_enabled = GetBool(g_config, "manifest.enabled", false);
     if (manifest_enabled)
     {
-        const char* manifest_path = props_get_string(g_config, "manifest.output_file", "./src/assets.c");
+        const char* manifest_path = GetString(g_config, "manifest.output_file", "./src/assets.c");
 
         // Create absolute path for manifest
-        path_t manifest_abs_path, manifest_rel_path;
+        Path manifest_abs_path, manifest_rel_path;
         path_set(&manifest_rel_path, manifest_path);
         path_make_absolute(&manifest_abs_path, &manifest_rel_path);
 
         // Ensure the manifest directory exists
-        path_t manifest_dir;
+        Path manifest_dir;
         path_dir(&manifest_abs_path, &manifest_dir);
         if (!directory_create_recursive(&manifest_dir))
         {
             printf("WARNING: Failed to create manifest directory: %s\n", manifest_dir.value);
         }
 
-        if (!asset_manifest_generate(output_path.value, manifest_abs_path.value))
+        if (!GenerateAssetManifest(output_path.value, manifest_abs_path.value))
         {
             printf("WARNING: Failed to generate asset manifest\n");
         }

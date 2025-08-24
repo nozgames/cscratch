@@ -12,6 +12,8 @@ struct EntityImpl
     bool world_to_local_dirty;
 };
 
+static_assert(ENTITY_BASE_SIZE == sizeof(EntityImpl));
+
 static EntityImpl* Impl(Entity* e) { return (EntityImpl*)to_base_object(e, type_entity); }
 
 static void MarkDirty(Entity* entity)
@@ -49,21 +51,4 @@ mat4 entity_world_to_local(Entity* e)
 mat4 entity_local_to_world(Entity* e)
 {
     return Impl(e)->local_to_world;
-}
-
-void InitEntity()
-{
-    size_t entity_type_size = sizeof(EntityImpl);
-    if (entity_type_size != ENTITY_BASE_SIZE)
-    {
-        text_t msg;
-        text_init(&msg);
-        text_format(&msg, "ENTITY_BASE_SIZE != %zu", entity_type_size);
-        Exit(msg.value);
-        return;
-    }
-}
-
-void ShutdownEntity()
-{    
 }

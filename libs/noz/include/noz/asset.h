@@ -22,13 +22,13 @@ typedef struct asset_header
     uint32_t flags;          // Asset-specific flags
 } asset_header_t;
 
-bool ReadAssetHeader(stream_t* stream, asset_header_t* header);
-bool WriteAssetHeader(stream_t* stream, asset_header_t* header);
+bool ReadAssetHeader(Stream* stream, asset_header_t* header);
+bool WriteAssetHeader(Stream* stream, asset_header_t* header);
 bool ValidateAssetHeader(asset_header_t* header, uint32_t expected_signature);
 const char* asset_signature_to_string(uint32_t signature);
 type_t ToType(uint32_t signature);
 const char* ToString(type_t type);
-void SetAssetPath(path_t* dst, const name_t* name, const char* ext);
+void SetAssetPath(Path* dst, const name_t* name, const char* ext);
 
 // Asset loading macro - creates a name_t and calls the appropriate load function
 // Usage: NOZ_ASSET_LOAD(shader, "shaders/border_effect", g_assets.shaders.border_effect);

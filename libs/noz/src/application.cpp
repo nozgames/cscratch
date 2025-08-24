@@ -96,17 +96,15 @@ void InitApplication(ApplicationTraits* traits)
 
     UpdateScreenSize();
 
-    InitObject();
     InitRenderer(&traits->renderer, g_application.window);
     InitScene();
 }
 
-// @uninit
+// @shutdown
 void ShutdownApplication()
 {
     ShutdownScene();
     ShutdownRenderer();
-    ShutdownObject();
 }
 
 // @update

@@ -88,7 +88,7 @@ void InitShadowPass(const RendererTraits* traits)
 
 void BeginRenderFrame()
 {
-    render_buffer_clear();
+    ClearRenderCommands();
     UpdateBackBuffer();
 
     SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(g_renderer.device);
@@ -209,22 +209,22 @@ void EndRenderFrame()
         return;
 
     RenderGammaPass();
-    render_buffer_execute(g_renderer.command_buffer);
+    ExecuteRenderCommands(g_renderer.command_buffer);
     SDL_SubmitGPUCommandBuffer(g_renderer.command_buffer);
 
     g_renderer.command_buffer = nullptr;
     g_renderer.render_pass = nullptr;
 }
 
-SDL_GPURenderPass* renderer_begin_pass_gpu(SDL_GPUTexture* target, bool clear, color_t clear_color)
+SDL_GPURenderPass* BeginPassGPU(SDL_GPUTexture* target, bool clear, color_t clear_color)
 {
-    SDL_GPUColorTargetInfo color_target = {0};
+    SDL_GPUColorTargetInfo color_target = {};
     color_target.texture = target;
     color_target.clear_color = color_to_sdl(clear_color);
     color_target.load_op = clear ? SDL_GPU_LOADOP_CLEAR : SDL_GPU_LOADOP_LOAD;
     color_target.store_op = SDL_GPU_STOREOP_STORE;
 
-    SDL_GPUDepthStencilTargetInfo depth_target = {0};
+    SDL_GPUDepthStencilTargetInfo depth_target = {};
     depth_target.texture = g_renderer.depth_texture;
     depth_target.clear_depth = 1.0f;
     depth_target.clear_stencil = 0;
@@ -239,7 +239,7 @@ SDL_GPURenderPass* renderer_begin_pass_gpu(SDL_GPUTexture* target, bool clear, c
     return g_renderer.render_pass;
 }
 
-SDL_GPURenderPass* renderer_begin_pass(bool clear, color_t clear_color, bool msaa, Texture* target)
+SDL_GPURenderPass* BeginPassGPU(bool clear, color_t clear_color, bool msaa, Texture* target)
 {
     assert(!g_renderer.render_pass);
 
@@ -248,7 +248,7 @@ SDL_GPURenderPass* renderer_begin_pass(bool clear, color_t clear_color, bool msa
         ? GetGPUTexture(target)
         : GetGPUTexture(g_renderer.linear_back_buffer);
 
-    renderer_begin_pass_gpu(gpu_texture, clear, clear_color);
+    BeginPassGPU(gpu_texture, clear, clear_color);
     return g_renderer.render_pass;
 
 #if 0
@@ -298,7 +298,7 @@ SDL_GPURenderPass* renderer_begin_pass(bool clear, color_t clear_color, bool msa
 #endif
 }
 
-void renderer_end_pass()
+void EndRenderPassGPU()
 {
     assert(g_renderer.render_pass);
 
@@ -308,13 +308,13 @@ void renderer_end_pass()
     g_renderer.msaa = false;
 }
 
-void renderer_bind_default_texture(int index)
+void BindDefaultTextureGPU(int index)
 {
     assert(g_renderer.device);
-    renderer_bind_texture(g_renderer.command_buffer, g_renderer.default_texture, sampler_register_user0 + index);
+    BindTextureGPU(g_renderer.command_buffer, g_renderer.default_texture, sampler_register_user0 + index);
 }
 
-void renderer_bind_texture(SDL_GPUCommandBuffer* cb, Texture* texture, int index)
+void BindTextureGPU(SDL_GPUCommandBuffer* cb, Texture* texture, int index)
 {
     if (g_renderer.shadow_pass)
         return;
@@ -324,16 +324,16 @@ void renderer_bind_texture(SDL_GPUCommandBuffer* cb, Texture* texture, int index
 
     // Main pass: bind diffuse texture and shadow map
     SDL_GPUTextureSamplerBinding binding = {0};
-    binding.sampler = sampler_factory_sampler(actual_texture);
+    binding.sampler = GetGPUSampler(actual_texture);
     binding.texture = GetGPUTexture(actual_texture);
     SDL_BindGPUFragmentSamplers(g_renderer.render_pass, index, &binding, 1);
 }
 
-void renderer_bind_shader(Shader* shader)
+void BindShaderGPU(Shader* shader)
 {
     assert(shader);
 
-    SDL_GPUGraphicsPipeline* pipeline = pipeline_factory_pipeline(
+    SDL_GPUGraphicsPipeline* pipeline = GetGPUPipeline(
         g_renderer.shadow_pass
             ? g_renderer.shadow_shader
             : shader,
@@ -350,33 +350,28 @@ void renderer_bind_shader(Shader* shader)
     g_renderer.pipeline = pipeline;
 }
 
-void renderer_bind_material(Material* material)
+void BindTransformGPU(const mat4* transform)
 {
-    assert(material);
-
-    Shader* shader = material_shader(material);
-    assert(shader);
-
-    renderer_bind_shader(shader);
-    material_bind_gpu(material, g_renderer.command_buffer);
+    SDL_PushGPUVertexUniformData(
+        g_renderer.command_buffer,
+        vertex_register_object,
+        transform,
+        sizeof(mat4));
 }
 
-void bind_transform(const mat4* transform)
-{
-    SDL_PushGPUVertexUniformData(g_renderer.command_buffer, (uint32_t)(vertex_register_object), transform,
-                                 sizeof(mat4));
-}
-
-void bind_bones(const mat4* bones, int count)
+void BindBoneTransformsGPU(const mat4* bones, int count)
 {
     assert(bones);
     assert(count > 0);
 
-    SDL_PushGPUVertexUniformData(g_renderer.command_buffer, (uint32_t)(vertex_register_bone), bones,
-                                 (Uint32)(count * sizeof(mat4)));
+    SDL_PushGPUVertexUniformData(
+        g_renderer.command_buffer,
+        vertex_register_bone,
+        bones,
+        (Uint32)(count * sizeof(mat4)));
 }
 
-SDL_GPURenderPass* renderer_begin_shadow_pass()
+SDL_GPURenderPass* BeginShadowPassGPU()
 {
     assert(!g_renderer.render_pass);
     assert(g_renderer.command_buffer);
@@ -402,7 +397,7 @@ static void ResetRenderState()
     g_renderer.pipeline = nullptr;
 
     for (int i = 0; i < (int)(sampler_register_count); i++)
-        renderer_bind_texture(g_renderer.command_buffer, g_renderer.default_texture, i);
+        BindTextureGPU(g_renderer.command_buffer, g_renderer.default_texture, i);
 }
 
 static void UpdateBackBuffer()
@@ -432,15 +427,15 @@ static void InitGammaPass()
 	Free(builder);
     g_renderer.gamma_mesh = mesh;
 
-    g_renderer.gamma_material = AllocMaterial(nullptr, LoadShader(nullptr, &shader_name), &gamma_name);
+    g_renderer.gamma_material = CreateMaterial(nullptr, LoadShader(nullptr, &shader_name), &gamma_name);
 
     // For now, just stub this out since gamma_mesh and gamma_material are commented out
     // TODO: Implement gamma pass when needed
 }
 
-SDL_GPURenderPass* renderer_begin_gamma_pass()
+SDL_GPURenderPass* BeginGammaPassGPU()
 {
-    return renderer_begin_pass_gpu(g_renderer.swap_chain_texture, false, color_transparent);
+    return BeginPassGPU(g_renderer.swap_chain_texture, false, color_transparent);
 }
 
 static void RenderGammaPass()
@@ -449,11 +444,11 @@ static void RenderGammaPass()
 
     material_set_texture(g_renderer.gamma_material, g_renderer.linear_back_buffer, 0);
 
-    render_buffer_begin_gamma_pass();
-    render_buffer_bind_camera_matrices(ident, ident);
-    render_buffer_bind_transform(ident);
-    render_buffer_bind_material(g_renderer.gamma_material);
-    render_buffer_render_mesh(g_renderer.gamma_mesh);
+    BeginGammaPass();
+    BindCamera(ident, ident);
+    BindTransform(ident);
+    BindMaterial(g_renderer.gamma_material);
+    DrawMesh(g_renderer.gamma_mesh);
     EndRenderPass();
 }
 

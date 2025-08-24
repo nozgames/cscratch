@@ -15,11 +15,11 @@ static char* PreprocessStageDirectives(char* source, char* stage)
 static bool CompileAndWriteShader(
     const char* vertex_source,
     const char* fragment_source,
-    stream_t* output_stream,
-    path_t* include_dir)
+    Stream* output_stream,
+    Path* include_dir)
 {
     // Make sure include directory is absolute
-    path_t absolute_include_dir;
+    Path absolute_include_dir;
     path_make_absolute(&absolute_include_dir, include_dir);
     
     // Setup HLSL info for vertex shader
@@ -77,25 +77,25 @@ static bool CompileAndWriteShader(
     WriteAssetHeader(output_stream, &header);
     
     // Write SHDR signature for shader-specific data
-    stream_write_signature(output_stream, "SHDR", 4);
-    stream_write_uint32(output_stream, 1); // version
+    WriteFileSignature(output_stream, "SHDR", 4);
+    WriteU32(output_stream, 1); // version
     
     // Write bytecode sizes and data
-    stream_write_uint32(output_stream, (uint32_t)vertex_size);
-    stream_write_bytes(output_stream, (uint8_t*)vertex_bytecode, vertex_size);
-    stream_write_uint32(output_stream, (uint32_t)fragment_size);
-    stream_write_bytes(output_stream, (uint8_t*)fragment_bytecode, fragment_size);
+    WriteU32(output_stream, (uint32_t)vertex_size);
+    WriteBytes(output_stream, (uint8_t*)vertex_bytecode, vertex_size);
+    WriteU32(output_stream, (uint32_t)fragment_size);
+    WriteBytes(output_stream, (uint8_t*)fragment_bytecode, fragment_size);
     
     // Write resource counts (simplified - would need parsing to get actual counts)
-    stream_write_int32(output_stream, 1); // vertex_uniform_count
-    stream_write_int32(output_stream, 1); // fragment_uniform_count
-    stream_write_int32(output_stream, 0); // sampler_count
+    WriteI32(output_stream, 1); // vertex_uniform_count
+    WriteI32(output_stream, 1); // fragment_uniform_count
+    WriteI32(output_stream, 0); // sampler_count
     
     // Write shader metadata
-    stream_write_uint8(output_stream, shader_flags_depth_test | shader_flags_depth_write);
-    stream_write_uint32(output_stream, SDL_GPU_BLENDFACTOR_SRC_ALPHA);
-    stream_write_uint32(output_stream, SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA);
-    stream_write_uint32(output_stream, SDL_GPU_CULLMODE_BACK);
+    WriteU8(output_stream, shader_flags_depth_test | shader_flags_depth_write);
+    WriteU32(output_stream, SDL_GPU_BLENDFACTOR_SRC_ALPHA);
+    WriteU32(output_stream, SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA);
+    WriteU32(output_stream, SDL_GPU_CULLMODE_BACK);
     
     // Clean up
     SDL_free(vertex_spirv);
@@ -104,18 +104,18 @@ static bool CompileAndWriteShader(
     return true;
 }
 
-void ImportShader(path_t* source_path, path_t* output_path, Props* config)
+void ImportShader(Path* source_path, Path* output_path, Props* config)
 {
     // Get source directories
-    size_t source_count = props_get_list_count(config, "source");
+    size_t source_count = GetListCount(config, "source");
     const char* source_dirs[32];  // Max 32 source directories
     if (source_count > 32) source_count = 32;
     
     for (size_t i = 0; i < source_count; i++)
-        source_dirs[i] = props_get_list_item(config, "source", i, "");
+        source_dirs[i] = GetListElement(config, "source", i, "");
     
     // Find relative path from source directories
-    path_t relative_path;
+    Path relative_path;
     if (!path_find_relative_to_bases(&relative_path, source_path, source_dirs, source_count))
     {
         // If we couldn't find relative path, just use the filename
@@ -124,21 +124,21 @@ void ImportShader(path_t* source_path, path_t* output_path, Props* config)
     }
 
     // Read source file
-    stream_t* source_stream = LoadStream(NULL, source_path);
+    Stream* source_stream = LoadStream(NULL, source_path);
     if (!source_stream)
     {
         printf("Failed to open shader source: %s\n", source_path->value);
         return;
     }
     
-    size_t size = stream_size(source_stream);
+    size_t size = GetSize(source_stream);
     char* source = (char*)malloc(size + 1);
     if (!source) {
         Free(source_stream);
         return;
     }
     
-    stream_read_bytes(source_stream, (uint8_t*)source, size);
+    ReadBytes(source_stream, (uint8_t*)source, size);
     source[size] = '\0';
     Free(source_stream);
     
@@ -146,21 +146,21 @@ void ImportShader(path_t* source_path, path_t* output_path, Props* config)
     // Later we can add stage-specific preprocessing
     
     // Create output stream
-    stream_t* output_stream = stream_alloc(NULL, 4096);
+    Stream* output_stream = CreateStream(NULL, 4096);
     if (!output_stream) {
         free(source);
         return;
     }
     
     // Get the directory of the source file for includes
-    path_t include_path;
+    Path include_path;
     path_dir(source_path, &include_path);
     
     // Compile and write shader
     if (CompileAndWriteShader(source, source, output_stream, &include_path)) 
     {
         // Build output file path preserving directory structure
-        path_t final_path;
+        Path final_path;
         path_copy(&final_path, output_path);
         
         // Append the relative path (with directory structure preserved)
@@ -170,18 +170,18 @@ void ImportShader(path_t* source_path, path_t* output_path, Props* config)
         path_set_extension(&final_path, "nzsh");
         
         // Ensure the output directory exists
-        path_t output_dir;
+        Path output_dir;
         path_dir(&final_path, &output_dir);
         directory_create_recursive(&output_dir);
         
-        if (!stream_save_to_file(output_stream, &final_path)) 
+        if (!SaveStream(output_stream, &final_path)) 
         {
             printf("Failed to save shader: %s\n", final_path.value);
         }
         else 
         {
             // Remove extension for clean output
-            path_t clean_path;
+            Path clean_path;
             path_copy(&clean_path, &relative_path);
             path_set_extension(&clean_path, "");
             printf("Imported 'shaders/%s'\n", path_basename(&clean_path));
@@ -192,13 +192,13 @@ void ImportShader(path_t* source_path, path_t* output_path, Props* config)
     free(source);
 }
 
-bool CanImportAsShader(path_t* path)
+bool CanImportAsShader(Path* path)
 {
     // path_has_extension expects extension without the dot
     return path_has_extension(path, "hlsl");
 }
 
-bool DoesShaderDependOn(path_t* source_path, path_t* dependency_path)
+bool DoesShaderDependOn(Path* source_path, Path* dependency_path)
 {
     // For now, shader files don't have dependencies
     // This could be extended to check for #include files

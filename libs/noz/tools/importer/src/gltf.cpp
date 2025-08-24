@@ -18,7 +18,7 @@
 static void read_bones_recursive(
     gltf_t* gltf,
     struct cgltf_node* node,
-    list_t* bones,
+    List* bones,
     int parent_index,
     gltf_bone_filter_t* filter,
     Allocator* allocator);
@@ -26,14 +26,14 @@ static void read_bones_recursive(
 static bool read_bone(
     gltf_t* gltf,
     struct cgltf_node* node,
-    list_t* bones,
+    List* bones,
     int parent_index,
     gltf_bone_filter_t* filter,
     Allocator* allocator);
 
-static bool is_bone_leaf(struct cgltf_node* node, list_t* exclude_bones);
+static bool is_bone_leaf(struct cgltf_node* node, List* exclude_bones);
 static void update_parent_bone_length(gltf_bone_t* bone, gltf_bone_t* parent_bone);
-static int read_frame_count(struct cgltf_animation* animation, list_t* bones);
+static int read_frame_count(struct cgltf_animation* animation, List* bones);
 static bool is_track_defaults(struct cgltf_accessor* accessor, animation_track_type_t track_type, gltf_bone_t* bone);
 
 // Buffer access helpers
@@ -68,7 +68,7 @@ void gltf_free(gltf_t* gltf)
 }
 
 // @file
-bool gltf_open(gltf_t* gltf, path_t* path)
+bool gltf_open(gltf_t* gltf, Path* path)
 {
     if (!gltf || !path)
         return false;
@@ -112,7 +112,7 @@ gltf_bone_filter_t* gltf_bone_filter_alloc(Allocator* allocator)
     if (!filter)
         return NULL;
     
-    filter->exclude_bones = list_alloc(allocator, 16);
+    filter->exclude_bones = CreateList(allocator, 16);
     filter->keep_leaf_bones = false;
     return filter;
 }
@@ -125,7 +125,7 @@ void gltf_bone_filter_free(gltf_bone_filter_t* filter)
     // The list and filter will be freed by the allocator
 }
 
-gltf_bone_filter_t* gltf_bone_filter_from_meta_file(gltf_bone_filter_t* filter, path_t* meta_path)
+gltf_bone_filter_t* gltf_bone_filter_from_meta_file(gltf_bone_filter_t* filter, Path* meta_path)
 {
     // TODO: Implement meta file parsing when the meta_file API is available in C
     // For now, return the filter unchanged
@@ -134,12 +134,12 @@ gltf_bone_filter_t* gltf_bone_filter_from_meta_file(gltf_bone_filter_t* filter, 
 }
 
 // @bones
-list_t* gltf_read_bones(gltf_t* gltf, gltf_bone_filter_t* filter, Allocator* allocator)
+List* gltf_read_bones(gltf_t* gltf, gltf_bone_filter_t* filter, Allocator* allocator)
 {
     if (!gltf || !gltf->data || !allocator)
         return NULL;
     
-    list_t* bones = list_alloc(allocator, 64);
+    List* bones = CreateList(allocator, 64);
     if (!bones)
         return NULL;
     
@@ -167,7 +167,7 @@ list_t* gltf_read_bones(gltf_t* gltf, gltf_bone_filter_t* filter, Allocator* all
 static void read_bones_recursive(
     gltf_t* gltf,
     struct cgltf_node* node,
-    list_t* bones,
+    List* bones,
     int parent_index,
     gltf_bone_filter_t* filter,
     Allocator* allocator)
@@ -178,9 +178,9 @@ static void read_bones_recursive(
     // Check if this bone should be excluded
     if (filter && filter->exclude_bones)
     {
-        for (size_t i = 0; i < list_count(filter->exclude_bones); ++i)
+        for (size_t i = 0; i < GetCount(filter->exclude_bones); ++i)
         {
-            name_t* exclude_name = (name_t*)list_get(filter->exclude_bones, i);
+            name_t* exclude_name = (name_t*)GetAt(filter->exclude_bones, i);
             if (exclude_name && node->name && name_eq_cstr(exclude_name, node->name))
                 return;
         }
@@ -193,7 +193,7 @@ static void read_bones_recursive(
     if (read_bone(gltf, node, bones, parent_index, filter, allocator))
     {
         // Get the index of the bone we just added
-        int bone_index = (int)list_count(bones) - 1;
+        int bone_index = (int)GetCount(bones) - 1;
         
         // Process children
         for (size_t i = 0; i < node->children_count; ++i)
@@ -204,7 +204,7 @@ static void read_bones_recursive(
 static bool read_bone(
     gltf_t* gltf,
     struct cgltf_node* node,
-    list_t* bones,
+    List* bones,
     int parent_index,
     gltf_bone_filter_t* filter,
     Allocator* allocator)
@@ -225,7 +225,7 @@ static bool read_bone(
     else
         name_set(&bone->name, "");
     
-    bone->index = (int)list_count(bones);
+    bone->index = (int)GetCount(bones);
     bone->parent_index = parent_index;
     bone->position = convert_vector3(node->translation);
     bone->rotation = convert_quaternion(node->rotation);
@@ -238,18 +238,18 @@ static bool read_bone(
         glm::scale(glm::mat4(1.0f), bone->scale);
 
     if (parent_index >= 0)
-        bone->local_to_world = ((gltf_bone_t*)list_get(bones, parent_index))->local_to_world * bone->local_to_world;
+        bone->local_to_world = ((gltf_bone_t*)GetAt(bones, parent_index))->local_to_world * bone->local_to_world;
 
     bone->world_to_local = inverse(bone->world_to_local);
     bone->length = 0.0f;
     bone->direction = VEC3_UP;
     
-    list_add(bones, bone);
+    Add(bones, bone);
     
     return true;
 }
 
-static bool is_bone_leaf(struct cgltf_node* node, list_t* exclude_bones)
+static bool is_bone_leaf(struct cgltf_node* node, List* exclude_bones)
 {
     (void)exclude_bones;
     
@@ -280,7 +280,7 @@ static void update_parent_bone_length(gltf_bone_t* bone, gltf_bone_t* parent_bon
 }
 
 // @animation
-gltf_animation_t* gltf_read_animation(gltf_t* gltf, list_t* bones, name_t* animation_name, Allocator* allocator)
+gltf_animation_t* gltf_read_animation(gltf_t* gltf, List* bones, name_t* animation_name, Allocator* allocator)
 {
     (void)animation_name; // TODO: Use animation name to select specific animation
     
@@ -301,7 +301,7 @@ gltf_animation_t* gltf_read_animation(gltf_t* gltf, list_t* bones, name_t* anima
     memset(animation, 0, sizeof(gltf_animation_t));
     
     animation->frame_count = read_frame_count(cgltf_anim, bones);
-    animation->tracks = list_alloc(allocator, 32);
+    animation->tracks = CreateList(allocator, 32);
     
     // First pass: determine tracks and calculate data size
     size_t data_offset = 0;
@@ -314,9 +314,9 @@ gltf_animation_t* gltf_read_animation(gltf_t* gltf, list_t* bones, name_t* anima
         // Find bone index
         const char* bone_name = channel->target_node->name ? channel->target_node->name : "";
         int bone_index = -1;
-        for (size_t j = 0; j < list_count(bones); ++j)
+        for (size_t j = 0; j < GetCount(bones); ++j)
         {
-            gltf_bone_t* bone = (gltf_bone_t*)list_get(bones, j);
+            gltf_bone_t* bone = (gltf_bone_t*)GetAt(bones, j);
             if (bone && name_eq_cstr(&bone->name, bone_name))
             {
                 bone_index = (int)j;
@@ -336,7 +336,7 @@ gltf_animation_t* gltf_read_animation(gltf_t* gltf, list_t* bones, name_t* anima
         
         // Check if this track matches bone's local values
         struct cgltf_accessor* accessor = channel->sampler->output;
-        gltf_bone_t* bone = (gltf_bone_t*)list_get(bones, (size_t)bone_index);
+        gltf_bone_t* bone = (gltf_bone_t*)GetAt(bones, (size_t)bone_index);
         if (is_track_defaults(accessor, track_type, bone))
             continue;
         
@@ -354,7 +354,7 @@ gltf_animation_t* gltf_read_animation(gltf_t* gltf, list_t* bones, name_t* anima
         
         data_offset += track_type == animation_track_type_rotation ? 4 : 3;
         
-        list_add(animation->tracks, track);
+        Add(animation->tracks, track);
     }
     
     animation->frame_stride = (int)data_offset;
@@ -376,10 +376,10 @@ gltf_animation_t* gltf_read_animation(gltf_t* gltf, list_t* bones, name_t* anima
             continue;
         
         // Skip if we didn't create a track for this channel
-        if (track_idx >= list_count(animation->tracks))
+        if (track_idx >= GetCount(animation->tracks))
             break;
         
-        animation_track_t* track = (animation_track_t*)list_get(animation->tracks, track_idx);
+        animation_track_t* track = (animation_track_t*)GetAt(animation->tracks, track_idx);
         if (!track)
             continue;
         
@@ -409,7 +409,7 @@ void gltf_animation_free(gltf_animation_t* animation)
 }
 
 // @mesh
-gltf_mesh_t* gltf_read_mesh(gltf_t* gltf, list_t* bones, Allocator* allocator)
+gltf_mesh_t* gltf_read_mesh(gltf_t* gltf, List* bones, Allocator* allocator)
 {
     if (!gltf || !gltf->data || !allocator)
         return NULL;
@@ -429,7 +429,7 @@ gltf_mesh_t* gltf_read_mesh(gltf_t* gltf, list_t* bones, Allocator* allocator)
     
     // Build joint to bone index mapping
     int* joint_to_bone_index = NULL;
-    if (skin && bones && list_count(bones) > 0)
+    if (skin && bones && GetCount(bones) > 0)
     {
         joint_to_bone_index = (int*)allocator_alloc(allocator, skin->joints_count * sizeof(int));
         if (joint_to_bone_index)
@@ -440,9 +440,9 @@ gltf_mesh_t* gltf_read_mesh(gltf_t* gltf, list_t* bones, Allocator* allocator)
                 struct cgltf_node* joint_node = skin->joints[i];
                 if (joint_node && joint_node->name)
                 {
-                    for (size_t j = 0; j < list_count(bones); ++j)
+                    for (size_t j = 0; j < GetCount(bones); ++j)
                     {
-                        gltf_bone_t* bone = (gltf_bone_t*)list_get(bones, j);
+                        gltf_bone_t* bone = (gltf_bone_t*)GetAt(bones, j);
                         if (bone && name_eq_cstr(&bone->name, joint_node->name))
                         {
                             joint_to_bone_index[i] = (int)j;
@@ -603,7 +603,7 @@ void gltf_mesh_free(gltf_mesh_t* mesh)
 }
 
 // Helper functions
-static int read_frame_count(struct cgltf_animation* animation, list_t* bones)
+static int read_frame_count(struct cgltf_animation* animation, List* bones)
 {
     (void)bones;
     

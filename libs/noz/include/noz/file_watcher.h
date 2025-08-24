@@ -14,7 +14,7 @@ typedef enum file_change_type
 // File change event
 typedef struct file_change_event
 {
-    path_t path;
+    Path path;
     file_change_type_t type;
     uint64_t timestamp;
 } file_change_event_t;

@@ -15,9 +15,7 @@
 
 typedef u16 type_t;
 
-struct ObjectTag {};
-
-typedef ObjectTag Object;
+struct Object {};
 
 #define type_invalid (-1)
 
