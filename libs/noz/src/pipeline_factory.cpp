@@ -36,26 +36,20 @@ static uint32_t GetVertexStride(const SDL_GPUVertexAttribute* attributes, size_t
     // Add size based on attribute format
     switch (last_attr->format) 
     {
-    case SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3:
-        stride += 12; // 3 * 4 bytes
+    case SDL_GPU_VERTEXELEMENTFORMAT_INT:
+    case SDL_GPU_VERTEXELEMENTFORMAT_FLOAT:
+    default:
+        stride += 4;
         break;
     case SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2:
         stride += 8; // 2 * 4 bytes
         break;
-    case SDL_GPU_VERTEXELEMENTFORMAT_INT4:
-        stride += 16; // 4 * 4 bytes
+    case SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3:
+        stride += 12; // 3 * 4 bytes
         break;
+    case SDL_GPU_VERTEXELEMENTFORMAT_INT4:
     case SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4:
         stride += 16; // 4 * 4 bytes
-        break;
-    case SDL_GPU_VERTEXELEMENTFORMAT_INT:
-        stride += 4; // 1 * 4 bytes
-        break;
-    case SDL_GPU_VERTEXELEMENTFORMAT_FLOAT:
-        stride += 4; // 1 * 4 bytes
-        break;
-    default:
-        stride += 4; // Default to 4 bytes
         break;
     }
 

@@ -3,62 +3,57 @@
 //
 
 #include <noz/props.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 
 #define MAX_PROPERTY_VALUES 32
 #define HASH_SIZE 256
 
-typedef struct prop_value
+struct PropValue
 {
     PropType type;
-    text_t key;                                  // Store the key for iteration
+    text_t key;
     union
     {
-        text_t single;                           // Single value
+        text_t single;
         struct
         {
-            text_t values[MAX_PROPERTY_VALUES];  // List values
+            text_t values[MAX_PROPERTY_VALUES];
             size_t count;
         } list;
     };
-} prop_value_t;
+};
 
-typedef struct props_impl
+struct PropsImpl
 {
     OBJECT_BASE;
-    Map* property_map;        // Maps name_t key hash -> prop_value_t*
-    prop_value_t* pool;    // Pool of prop values
+    Map* property_map;
+    PropValue* pool;
     size_t pool_size;
     size_t pool_used;
-    
-    // Cache for key enumeration
     name_t* key_cache;
     size_t key_cache_size;
     size_t key_count;
     bool key_cache_dirty;
-} props_impl_t;
+};
 
-static prop_value_t* alloc_prop_value(props_impl_t* impl);
-static void rebuild_key_cache(props_impl_t* impl);
+static PropValue* AllocPropValue(PropsImpl* impl);
+static void RebuildKeyCache(PropsImpl* impl);
+static bool ParseLine(PropsImpl* impl, const char* line, const char* section);
+static bool ParseVector(const char* str, vec3* result);
 
-// Parsing functions
-static bool parse_ini_line_with_section(props_impl_t* impl, const char* line, const char* section);
-static bool parse_vector(const char* str, vec3* result);
-
-// Implementation
-static inline props_impl_t* Impl(void* p) { return (props_impl_t*)Cast((Object*)p, type_props); }
+static PropsImpl* Impl(Props * p) { return (PropsImpl*)Cast((Object*)p, type_props); }
 
 Props* CreateProps(Allocator* allocator)
 {
-    auto* props = (Props*)CreateObject(allocator, sizeof(props_impl_t), type_props);
+    auto* props = (Props*)CreateObject(allocator, sizeof(PropsImpl), type_props);
     if (!props)
         return nullptr;
     
-    props_impl_t* impl = Impl(props);
+    PropsImpl* impl = Impl(props);
     impl->property_map = CreateMap(allocator, HASH_SIZE);
     impl->pool_size = HASH_SIZE;
-    impl->pool = (prop_value_t*)calloc(impl->pool_size, sizeof(prop_value_t));
+    impl->pool = (PropValue*)calloc(impl->pool_size, sizeof(PropValue));
     impl->pool_used = 0;
     
     impl->key_cache_size = 64;
@@ -72,7 +67,7 @@ Props* CreateProps(Allocator* allocator)
 #if 0
 void props_destroy(Props* props)
 {
-    props_impl_t* impl = Impl(props);
+    PropsImpl* impl = Impl(props);
     
     if (impl->property_map)
         Destroy(impl->property_map);
@@ -115,11 +110,11 @@ Props* LoadProps(Allocator* allocator, const char* content, size_t content_lengt
     assert(content_length > 0);
     assert(content[content_length] == 0);
     
-    Props* props = (Props*)CreateProps(allocator);
+    auto* props = CreateProps(allocator);
     if (!props)
         return nullptr;
 
-    props_impl_t* impl = Impl(props);
+    PropsImpl* impl = Impl(props);
 
     tokenizer_t tokenizer;
     tokenizer_init(&tokenizer, content);
@@ -159,7 +154,7 @@ Props* LoadProps(Allocator* allocator, const char* content, size_t content_lengt
         if (strchr(line.value, '=') != nullptr)
         {
             // Key=value format - use current section as prefix
-            if (!parse_ini_line_with_section(impl, line.value, current_section.value))
+            if (!ParseLine(impl, line.value, current_section.value))
             {
                 // Continue parsing even if a line fails
             }
@@ -185,14 +180,14 @@ void Clear(Props* props)
         return;
     }
     
-    props_impl_t* impl = Impl(props);
+    PropsImpl* impl = Impl(props);
     
     // Clear the map (this doesn't free the property values)
     Clear(impl->property_map);
     
     // Reset pool
     impl->pool_used = 0;
-    memset(impl->pool, 0, impl->pool_size * sizeof(prop_value_t));
+    memset(impl->pool, 0, impl->pool_size * sizeof(PropValue));
     
     impl->key_count = 0;
     impl->key_cache_dirty = true;
@@ -205,16 +200,16 @@ void SetString(Props* props, const char* key, const char* value)
         return;
     }
     
-    props_impl_t* impl = Impl(props);
+    PropsImpl* impl = Impl(props);
     name_t key_name;
     name_set(&key_name, key);
     
     uint64_t hash_key = Hash(key);
-    prop_value_t* prop = (prop_value_t*)GetValue(impl->property_map, hash_key);
+    PropValue* prop = (PropValue*)GetValue(impl->property_map, hash_key);
     
     if (!prop)
     {
-        prop = alloc_prop_value(impl);
+        prop = AllocPropValue(impl);
         if (!prop)
         {
             return;
@@ -256,97 +251,69 @@ void AddToList(Props* props, const char* key, const char* value)
         return;
     }
     
-    props_impl_t* impl = Impl(props);
-    uint64_t hash_key = Hash(key);
-    prop_value_t* prop = (prop_value_t*)GetValue(impl->property_map, hash_key);
+    auto* impl = Impl(props);
+    uint64_t prop_key = Hash(key);
+    auto* prop_value = (PropValue*)GetValue(impl->property_map, prop_key);
     
-    if (!prop)
+    if (!prop_value)
     {
-        prop = alloc_prop_value(impl);
-        if (!prop)
+        prop_value = AllocPropValue(impl);
+        if (!prop_value)
         {
             return;
         }
-        prop->type = PROP_TYPE_LIST;
-        text_set(&prop->key, key);
-        prop->list.count = 0;
-        SetValue(impl->property_map, hash_key, prop);
+        prop_value->type = PROP_TYPE_LIST;
+        text_set(&prop_value->key, key);
+        prop_value->list.count = 0;
+        SetValue(impl->property_map, prop_key, prop_value);
         impl->key_cache_dirty = true;
     }
     
     // Convert single to list if needed
-    if (prop->type == PROP_TYPE_VALUE)
+    if (prop_value->type == PROP_TYPE_VALUE)
     {
-        text_t old_value = prop->single;
-        prop->type = PROP_TYPE_LIST;
-        prop->list.count = 1;
-        prop->list.values[0] = old_value;
+        text_t old_value = prop_value->single;
+        prop_value->type = PROP_TYPE_LIST;
+        prop_value->list.count = 1;
+        prop_value->list.values[0] = old_value;
     }
     
     // Add to list
-    if (prop->list.count < MAX_PROPERTY_VALUES)
+    if (prop_value->list.count < MAX_PROPERTY_VALUES)
     {
-        text_set(&prop->list.values[prop->list.count], value);
-        prop->list.count++;
+        text_set(&prop_value->list.values[prop_value->list.count], value);
+        prop_value->list.count++;
     }
 }
 
 bool HasKey(Props* props, const char* key)
 {
-    if (!props || !key)
-    {
-        return false;
-    }
-    
-    props_impl_t* impl = Impl(props);
-    uint64_t hash_key = Hash(key);
-    return GetValue(impl->property_map, hash_key) != nullptr;
+    assert(key);
+    return GetValue(Impl(props)->property_map, Hash(key)) != nullptr;
 }
 
 bool IsList(Props* props, const char* key)
 {
-    if (!props || !key)
-    {
-        return false;
-    }
-    
-    props_impl_t* impl = Impl(props);
-    uint64_t hash_key = Hash(key);
-    prop_value_t* prop = (prop_value_t*)GetValue(impl->property_map, hash_key);
-    
+    assert(key);
+    auto* prop = (PropValue*)GetValue(Impl(props)->property_map, Hash(key));
     return prop && prop->type == PROP_TYPE_LIST;
 }
 
 PropType GetPropertyType(Props* props, const char* key)
 {
-    if (!props || !key)
-    {
-        return PROP_TYPE_VALUE;
-    }
-    
-    props_impl_t* impl = Impl(props);
-    uint64_t hash_key = Hash(key);
-    prop_value_t* prop = (prop_value_t*)GetValue(impl->property_map, hash_key);
-    
+    assert(key);
+    auto* prop = (PropValue*)GetValue(Impl(props)->property_map, Hash(key));
     return prop ? prop->type : PROP_TYPE_VALUE;
 }
 
 const char* GetString(Props* props, const char* key, const char* default_value)
 {
-    if (!props || !key)
-    {
-        return default_value;
-    }
-    
-    props_impl_t* impl = Impl(props);
-    uint64_t hash_key = Hash(key);
-    prop_value_t* prop = (prop_value_t*)GetValue(impl->property_map, hash_key);
-    
+    assert(key);
+
+    auto* prop = (PropValue*)GetValue(Impl(props)->property_map, Hash(key));
     if (!prop || prop->type != PROP_TYPE_VALUE)
-    {
         return default_value;
-    }
-    
+
     return prop->single.value;
 }
 
@@ -370,10 +337,8 @@ float GetFloat(Props* props, const char* key, float default_value)
 {
     const char* str_value = GetString(props, key, nullptr);
     if (!str_value)
-    {
         return default_value;
-    }
-    
+
     return (float)atof(str_value);
 }
 
@@ -381,22 +346,20 @@ bool GetBool(Props* props, const char* key, bool default_value)
 {
     const char* str_value = GetString(props, key, nullptr);
     if (!str_value)
-    {
         return default_value;
-    }
-    
-    // Check for common boolean representations
-    if (strcmp(str_value, "true") == 0 || strcmp(str_value, "1") == 0 || 
-        strcmp(str_value, "yes") == 0 || strcmp(str_value, "on") == 0)
-    {
+
+    if (strcmp(str_value, "true") == 0 ||
+        strcmp(str_value, "1") == 0 ||
+        strcmp(str_value, "yes") == 0 ||
+        strcmp(str_value, "on") == 0)
         return true;
-    }
-    else if (strcmp(str_value, "false") == 0 || strcmp(str_value, "0") == 0 || 
-             strcmp(str_value, "no") == 0 || strcmp(str_value, "off") == 0)
-    {
+
+    if (strcmp(str_value, "false") == 0 ||
+        strcmp(str_value, "0") == 0 ||
+        strcmp(str_value, "no") == 0 ||
+        strcmp(str_value, "off") == 0)
         return false;
-    }
-    
+
     return default_value;
 }
 
@@ -404,111 +367,69 @@ vec3 GetVec3(Props* props, const char* key, vec3 default_value)
 {
     const char* str_value = GetString(props, key, nullptr);
     if (!str_value)
-    {
         return default_value;
-    }
-    
+
     vec3 result;
-    if (parse_vector(str_value, &result))
-    {
+    if (ParseVector(str_value, &result))
         return result;
-    }
-    
+
     return default_value;
 }
 
 size_t GetListCount(Props* props, const char* key)
 {
-    if (!props || !key)
-    {
-        return 0;
-    }
-    
-    props_impl_t* impl = Impl(props);
-    uint64_t hash_key = Hash(key);
-    prop_value_t* prop = (prop_value_t*)GetValue(impl->property_map, hash_key);
-    
+    assert(key);
+
+    auto* prop = (PropValue*)GetValue(Impl(props)->property_map, Hash(key));
     if (!prop)
-    {
         return 0;
-    }
-    
+
     return prop->type == PROP_TYPE_LIST ? prop->list.count : 1;
 }
 
 const char* GetListElement(Props* props, const char* key, size_t index, const char* default_value)
 {
-    if (!props || !key)
-    {
-        return default_value;
-    }
-    
-    props_impl_t* impl = Impl(props);
-    uint64_t hash_key = Hash(key);
-    prop_value_t* prop = (prop_value_t*)GetValue(impl->property_map, hash_key);
-    
+    assert(key);
+
+    auto prop = (PropValue*)GetValue(Impl(props)->property_map, Hash(key));
     if (!prop)
-    {
         return default_value;
-    }
-    
+
     if (prop->type == PROP_TYPE_VALUE)
-    {
         return index == 0 ? prop->single.value : default_value;
-    }
-    
+
     if (index >= prop->list.count)
-    {
         return default_value;
-    }
-    
+
     return prop->list.values[index].value;
 }
 
 size_t GetKeyCount(Props* props)
 {
-    if (!props)
-    {
-        return 0;
-    }
-    
-    props_impl_t* impl = Impl(props);
+    auto* impl = Impl(props);
     if (impl->key_cache_dirty)
-    {
-        rebuild_key_cache(impl);
-    }
-    
+        RebuildKeyCache(impl);
+
     return impl->key_count;
 }
 
 const char* GetKeyAt(Props* props, size_t index)
 {
-    if (!props)
-    {
-        return nullptr;
-    }
-    
-    props_impl_t* impl = Impl(props);
+    auto impl = Impl(props);
     if (impl->key_cache_dirty)
-    {
-        rebuild_key_cache(impl);
-    }
-    
+        RebuildKeyCache(impl);
+
     if (index >= impl->key_count)
-    {
         return nullptr;
-    }
-    
+
     return impl->key_cache[index].value;
 }
 
 void Print(Props* props)
 {
     if (!props)
-    {
         return;
-    }
-    
+
     size_t count = GetKeyCount(props);
     printf("Props (%zu keys):\n", count);
     
@@ -534,20 +455,16 @@ void Print(Props* props)
     }
 }
 
-// Private helper functions
-
-static prop_value_t* alloc_prop_value(props_impl_t* impl)
+static PropValue* AllocPropValue(PropsImpl* impl)
 {
     if (impl->pool_used >= impl->pool_size)
-    {
-        return nullptr;  // Pool exhausted
-    }
-    
+        return nullptr;
+
     return &impl->pool[impl->pool_used++];
 }
 
 
-static void rebuild_key_cache(props_impl_t* impl)
+static void RebuildKeyCache(PropsImpl* impl)
 {
     impl->key_cache_dirty = false;
     impl->key_count = 0;
@@ -555,7 +472,7 @@ static void rebuild_key_cache(props_impl_t* impl)
     // Build key cache from used pool entries
     for (size_t i = 0; i < impl->pool_used; i++)
     {
-        prop_value_t* prop = &impl->pool[i];
+        PropValue* prop = &impl->pool[i];
         if (prop->type != PROP_TYPE_VALUE && prop->type != PROP_TYPE_LIST)
         {
             continue; // Skip unused entries
@@ -574,11 +491,7 @@ static void rebuild_key_cache(props_impl_t* impl)
     
 }
 
-
-// Parsing functions
-
-
-static bool parse_ini_line_with_section(props_impl_t* impl, const char* line, const char* section)
+static bool ParseLine(PropsImpl* impl, const char* line, const char* section)
 {
     tokenizer_t tok;
     tokenizer_init(&tok, line);
@@ -586,16 +499,12 @@ static bool parse_ini_line_with_section(props_impl_t* impl, const char* line, co
     // Read key
     text_t key;
     if (!tokenizer_read_until(&tok, '=', &key))
-    {
         return false;
-    }
-    
+
     text_trim(&key);
     if (key.length == 0)
-    {
         return false;
-    }
-    
+
     // Create full key with section prefix
     text_t full_key;
     text_init(&full_key);
@@ -613,9 +522,8 @@ static bool parse_ini_line_with_section(props_impl_t* impl, const char* line, co
     
     // Skip '='
     if (tokenizer_peek(&tok) != '=')
-    {
         return false;
-    }
+
     tokenizer_next(&tok);
     
     // Read value
@@ -634,12 +542,10 @@ static bool parse_ini_line_with_section(props_impl_t* impl, const char* line, co
     
     // Store the property
     uint64_t hash_key = Hash(full_key.value);
-    prop_value_t* prop = alloc_prop_value(impl);
+    PropValue* prop = AllocPropValue(impl);
     if (!prop)
-    {
         return false;
-    }
-    
+
     prop->type = PROP_TYPE_VALUE;
     text_copy(&prop->key, &full_key);
     text_copy(&prop->single, &value);
@@ -650,16 +556,13 @@ static bool parse_ini_line_with_section(props_impl_t* impl, const char* line, co
     return true;
 }
 
-static bool parse_vector(const char* str, vec3* result)
+static bool ParseVector(const char* str, vec3* result)
 {
-    if (!str || !result)
-    {
-        return false;
-    }
-    
+    assert(str);
+    assert(result);
+
     tokenizer_t tokenizer;
     tokenizer_init(&tokenizer, str);
-    
     return tokenizer_read_vec3(&tokenizer, result);
 }
 
