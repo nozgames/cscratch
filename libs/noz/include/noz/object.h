@@ -5,6 +5,7 @@
 #pragma once
 
 #include "allocator.h"
+#include "types.h"
 
 #define OBJECT_BASE_SIZE (sizeof(u16) * 2 + sizeof(void*) + sizeof(u32))
 #define OBJECT_BASE char __object[OBJECT_BASE_SIZE]
@@ -13,11 +14,7 @@
 #define OBJECT_OFFSET_SIZE (sizeof(u16) * 2)
 #define OBJECT_OFFSET_ALLOCATOR (sizeof(u16) * 2 + sizeof(u32))
 
-typedef u16 type_t;
-
 struct Object {};
-
-#define type_invalid (-1)
 
 // @object
 Object* CreateObject(Allocator* allocator, size_t object_size, type_t object_type, type_t base_type);

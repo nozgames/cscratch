@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <filesystem>
 
 #define DEFAULT_INITIAL_CAPACITY 256
 
@@ -17,11 +18,11 @@ struct StreamImpl
 };
 
 static void EnsureCapacity(StreamImpl* impl, size_t required_size);
-static StreamImpl* Impl(Stream* stream) { return (StreamImpl*)Cast(stream, type_stream); }
+static StreamImpl* Impl(Stream* stream) { return (StreamImpl*)Cast(stream, TYPE_STREAM); }
 
 Stream* CreateStream(Allocator* allocator, size_t capacity)
 {
-    StreamImpl* impl = Impl((Stream*)CreateObject(allocator, sizeof(StreamImpl), type_stream));
+    StreamImpl* impl = Impl((Stream*)CreateObject(allocator, sizeof(StreamImpl), TYPE_STREAM));
     if (!impl)
         return nullptr;
 
@@ -56,11 +57,9 @@ Stream* LoadStream(Allocator* allocator, uint8_t* data, size_t size)
     return (Stream*)impl;
 }
 
-Stream* LoadStream(Allocator* allocator, Path* path)
+Stream* LoadStream(Allocator* allocator, const std::filesystem::path& path)
 {
-    assert(path);
-    
-    FILE* file = fopen(path->value, "rb");
+    FILE* file = fopen(path.string().c_str(), "rb");
     if (!file)
         return nullptr;
     
@@ -103,14 +102,14 @@ void stream_destroy(Stream* stream)
 }
 #endif
 
-bool SaveStream(Stream* stream, Path* path)
+bool SaveStream(Stream* stream, const std::filesystem::path& path)
 {
-    if (!stream || !path)
+    if (!stream)
         return false;
     
     StreamImpl* impl = Impl(stream);
     
-    FILE* file = fopen(path->value, "wb");
+    FILE* file = fopen(path.string().c_str(), "wb");
     if (!file)
         return false;
     
@@ -424,3 +423,4 @@ static void EnsureCapacity(StreamImpl* impl, size_t required_size)
         impl->capacity = new_capacity;
     }
 }
+

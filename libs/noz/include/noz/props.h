@@ -13,13 +13,14 @@ enum PropType
 };
 
 Props* CreateProps(Allocator* allocator);
-Props* LoadProps(Allocator* allocator, Path* file_path);
+Props* LoadProps(Allocator* allocator, Stream* stream);
 Props* LoadProps(Allocator* allocator, const char* content, size_t content_length);
 void Clear(Props* props);
 void SetString(Props* props, const char* key, const char* value);
 void SetInt(Props* props, const char* key, int value);
 void SetFloat(Props* props, const char* key, float value);
 void SetVec3(Props* props, const char* key, vec3 value);
+void SetColor(Props* props, const char* key, color_t value);
 void AddToList(Props* props, const char* key, const char* value);
 bool HasKey(Props* props, const char* key);
 bool IsList(Props* props, const char* key);
@@ -29,6 +30,7 @@ int GetInt(Props* props, const char* key, int default_value);
 float GetFloat(Props* props, const char* key, float default_value);
 bool GetBool(Props* props, const char* key, bool default_value);
 vec3 GetVec3(Props* props, const char* key, vec3 default_value);
+color_t GetColor(Props* props, const char* key, color_t default_value);
 size_t GetListCount(Props* props, const char* key);
 const char* GetListElement(Props* props, const char* key, size_t index, const char* default_value);
 size_t GetKeyCount(Props* props);

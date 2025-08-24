@@ -6,102 +6,101 @@
 
 // @style
 
-typedef enum pseudo_state
-{
-    pseudo_state_none = 0,
-    pseudo_state_hover = 1 << 0,
-    pseudo_state_active = 1 << 1,
-    pseudo_state_selected = 1 << 2,
-    pseudo_state_disabled = 1 << 3,
-    pseudo_state_focused = 1 << 4,
-    pseudo_state_pressed = 1 << 5,
-    pseudo_state_checked = 1 << 6
-} pseudo_state_t;
+typedef u32 PseudoState;
 
-typedef enum style_keyword
-{
-    style_keyword_inherit,
-    style_keyword_overwrite,
-    style_keyword_inline
-} style_keyword_t;
+constexpr PseudoState PSEUDO_STATE_NONE     = 0;
+constexpr PseudoState PSEUDO_STATE_HOVER    = 1 << 0;
+constexpr PseudoState PSEUDO_STATE_ACTIVE   = 1 << 1;
+constexpr PseudoState PSEUDO_STATE_SELECTED = 1 << 2;
+constexpr PseudoState PSEUDO_STATE_DISABLED = 1 << 3;
+constexpr PseudoState PSEUDO_STATE_FOCUSED  = 1 << 4;
+constexpr PseudoState PSEUDO_STATE_PRESSED  = 1 << 5;
+constexpr PseudoState PSEUDO_STATE_CHECKED  = 1 << 6;
 
-typedef enum flex_direction
+enum StyleKeyword
 {
-    flex_direction_row,
-    flex_direction_col,
-    flex_direction_row_reverse,
-    flex_direction_col_reverse
-} flex_direction_t;
+    STYLE_KEYWORD_INHERIT,
+    STYLE_KEYWORD_OVERWRITE,
+    STYLE_KEYWORD_INLINE
+};
 
-typedef enum style_length_unit
+enum FlexDirection
 {
-    style_length_unit_fixed,
-    style_length_unit_percent,
-    style_length_unit_auto
-} style_length_unit_t;
+    FLEX_DIRECTION_ROW,
+    FLEX_DIRECTION_COL,
+    FLEX_DIRECTION_ROW_REVERSE,
+    FLEX_DIRECTION_COL_REVERSE
+} ;
 
-typedef struct style_parameter
+enum StyleLengthUnit
 {
-    style_keyword_t keyword;
-} style_parameter_t;
+    STYLE_LENGTH_UNIT_FIXED,
+    STYLE_LENGTH_UNIT_PERCENT,
+    STYLE_LENGTH_UNIT_AUTO
+};
 
-typedef struct style_length
+struct StyleParameter
 {
-	style_parameter_t parameter;
-    style_length_unit_t unit;
+    StyleKeyword keyword;
+};
+
+struct StyleLength
+{
+    StyleParameter parameter;
+    StyleLengthUnit unit;
     float value;
-} style_length_t;
+};
 
-typedef struct style_color
+struct StyleColor
 {
-    style_parameter_t parameter;
+    StyleParameter parameter;
     color_t value;
-} style_color_t;
+};
 
-typedef struct style_float
+struct StyleFloat
 {
-    style_parameter_t parameter;
+    StyleParameter parameter;
     float value;
-} style_float_t;
+};
 
-typedef struct style_int
+struct StyleInt
 {
-    style_parameter_t parameter;
+    StyleParameter parameter;
     int value;
-} style_int_t;
+};
 
-typedef struct style_bool
+struct StyleBool
 {
-    style_parameter_t parameter;
+    StyleParameter parameter;
     bool value;
-} style_bool_t;
+};
 
-typedef struct style_flex_direction
+struct StyleFlexDirection
 {
-    style_parameter_t parameter;
-    flex_direction_t value;
-} style_flex_direction_t;
+    StyleParameter parameter;
+    FlexDirection value;
+};
 
-struct style_t
+struct Style
 {
-    style_flex_direction_t flex_direction;
-    style_length_t width;
-    style_length_t height;
-    style_color_t background_color;
-    style_color_t color;
-    style_int_t font_size;
-    style_length_t margin_top;
-    style_length_t margin_left;
-    style_length_t margin_bottom;
-    style_length_t margin_right;
-    style_length_t padding_top;
-    style_length_t padding_left;
-    style_length_t padding_bottom;
-    style_length_t padding_right;
+    StyleFlexDirection flex_direction;
+    StyleLength width;
+    StyleLength height;
+    StyleColor background_color;
+    StyleColor color;
+    StyleInt font_size;
+    StyleLength margin_top;
+    StyleLength margin_left;
+    StyleLength margin_bottom;
+    StyleLength margin_right;
+    StyleLength padding_top;
+    StyleLength padding_left;
+    StyleLength padding_bottom;
+    StyleLength padding_right;
 };
 
 
-void style_deserialize_into(Stream* stream, style_t* style);
-style_t style_deserialize(Stream* stream);
-void style_serialize(style_t* style, Stream* stream);
-void style_merge(style_t* dst, style_t* src);
+void DeserializeStyle(Stream* stream, Style* style);
+Style DeserializeStyle(Stream* stream);
+void SerializeStyle(const Style* style, Stream* stream);
+void MergeStyles(Style* dst, const Style* src);

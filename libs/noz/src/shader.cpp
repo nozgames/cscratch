@@ -22,7 +22,7 @@ struct ShaderImpl
 static Map* g_shader_cache = nullptr;
 static SDL_GPUDevice* g_device = nullptr;
 
-static ShaderImpl* Impl(Shader* s) { return (ShaderImpl*)Cast(s, type_shader); }
+static ShaderImpl* Impl(Shader* s) { return (ShaderImpl*)Cast(s, TYPE_SHADER); }
 
 // todo: destructor
 #if 0
@@ -55,7 +55,7 @@ Shader* LoadShader(Allocator* allocator, const name_t* name)
     if (shader) 
         return nullptr;
 
-    shader = (Shader*)CreateObject(allocator, sizeof(ShaderImpl), type_shader);
+    shader = (Shader*)CreateObject(allocator, sizeof(ShaderImpl), TYPE_SHADER);
     if (!shader)
         return nullptr;
    
@@ -72,9 +72,8 @@ Shader* LoadShader(Allocator* allocator, const name_t* name)
     impl->cull = SDL_GPU_CULLMODE_NONE;
 
     // Load shader file
-    Path shader_path;
-    SetAssetPath(&shader_path, name, "shader");
-    auto stream = LoadStream(allocator , &shader_path);
+    std::string asset_name = std::string(name->value) + ".shader";
+    auto stream = LoadAssetStream(allocator, asset_name.c_str());
     if (!stream) 
         return nullptr;
 

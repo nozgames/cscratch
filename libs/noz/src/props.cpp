@@ -41,12 +41,13 @@ static PropValue* AllocPropValue(PropsImpl* impl);
 static void RebuildKeyCache(PropsImpl* impl);
 static bool ParseLine(PropsImpl* impl, const char* line, const char* section);
 static bool ParseVector(const char* str, vec3* result);
+static bool ParseColor(const char* str, color_t* result);
 
-static PropsImpl* Impl(Props * p) { return (PropsImpl*)Cast((Object*)p, type_props); }
+static PropsImpl* Impl(Props * p) { return (PropsImpl*)Cast((Object*)p, TYPE_PROPS); }
 
 Props* CreateProps(Allocator* allocator)
 {
-    auto* props = (Props*)CreateObject(allocator, sizeof(PropsImpl), type_props);
+    auto* props = (Props*)CreateObject(allocator, sizeof(PropsImpl), TYPE_PROPS);
     if (!props)
         return nullptr;
     
@@ -86,11 +87,8 @@ void props_destroy(Props* props)
 }
 #endif
 
-Props* LoadProps(Allocator* allocator, Path* file_path)
+Props* LoadProps(Allocator* allocator, Stream* stream)
 {
-    assert(file_path);
-    
-    Stream* stream = LoadStream(allocator, file_path);
     if (!stream)
         return nullptr;
     
@@ -98,8 +96,6 @@ Props* LoadProps(Allocator* allocator, Path* file_path)
     WriteU8(stream, 0);
     
     Props* result = LoadProps(allocator, (const char*)GetData(stream), GetSize(stream) - 1);
-
-    Destroy(stream);
     
     return result;
 }
@@ -244,6 +240,14 @@ void SetVec3(Props* props, const char* key, vec3 value)
     SetString(props, key, str_value.value);
 }
 
+void SetColor(Props* props, const char* key, color_t value)
+{
+    text_t str_value;
+    text_format(&str_value, "rgba(%.0f,%.0f,%.0f,%.3f)", 
+                value.r * 255.0f, value.g * 255.0f, value.b * 255.0f, value.a);
+    SetString(props, key, str_value.value);
+}
+
 void AddToList(Props* props, const char* key, const char* value)
 {
     if (!props || !key || !value)
@@ -371,6 +375,19 @@ vec3 GetVec3(Props* props, const char* key, vec3 default_value)
 
     vec3 result;
     if (ParseVector(str_value, &result))
+        return result;
+
+    return default_value;
+}
+
+color_t GetColor(Props* props, const char* key, color_t default_value)
+{
+    const char* str_value = GetString(props, key, nullptr);
+    if (!str_value)
+        return default_value;
+
+    color_t result;
+    if (ParseColor(str_value, &result))
         return result;
 
     return default_value;
@@ -564,5 +581,15 @@ static bool ParseVector(const char* str, vec3* result)
     tokenizer_t tokenizer;
     tokenizer_init(&tokenizer, str);
     return tokenizer_read_vec3(&tokenizer, result);
+}
+
+static bool ParseColor(const char* str, color_t* result)
+{
+    assert(str);
+    assert(result);
+
+    tokenizer_t tokenizer;
+    tokenizer_init(&tokenizer, str);
+    return tokenizer_read_color(&tokenizer, result);
 }
 

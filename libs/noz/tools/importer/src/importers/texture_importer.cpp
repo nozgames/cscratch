@@ -2,6 +2,8 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
+#include <noz/asset.h>
+#include <noz/noz.h>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -20,8 +22,8 @@ static float SRGBToLinear(float srgb)
 {
     if (srgb <= 0.04045f)
         return srgb / 12.92f;
-    else
-        return std::pow((srgb + 0.055f) / 1.055f, 2.4f);
+
+    return std::pow((srgb + 0.055f) / 1.055f, 2.4f);
 }
 
 static void ConvertSRGBToLinear(uint8_t* pixels, int width, int height, int channels)
@@ -81,7 +83,7 @@ static void GenerateMipmap(
     }
 }
 
-static bool WriteTextureData(
+static void WriteTextureData(
     Stream* stream,
     const uint8_t* data,
     int width,
@@ -95,16 +97,12 @@ static bool WriteTextureData(
     bool has_mipmaps)
 {
     // Write asset header
-    asset_header_t header = {};
-    header.signature = NOZ_TEXTURE_SIG;
+    AssetHeader header = {};
+    header.signature = ASSET_SIGNATURE_TEXTURE;
     header.runtime_size = width * height * channels + 256; // Estimate
     header.version = 1;
     header.flags = 0;
     WriteAssetHeader(stream, &header);
-    
-    // Write TXTR signature for texture-specific data
-    WriteFileSignature(stream, "TXTR", 4);
-    WriteU32(stream, 1); // version
     
     // Convert string options to enum values
     uint8_t min_filter_value = (min_filter == "nearest" || min_filter == "point") ? 0 : 1;
@@ -146,11 +144,9 @@ static bool WriteTextureData(
     size_t data_size = width * height * channels;
     WriteU32(stream, data_size);
     WriteBytes(stream, (void*)data, data_size);
-    
-    return true;
 }
 
-static bool WriteTextureWithMipmaps(
+static void WriteTextureWithMipmaps(
     Stream* stream,
     const std::vector<std::vector<uint8_t>>& mip_levels,
     const std::vector<std::pair<int, int>>& mip_dimensions,
@@ -163,7 +159,7 @@ static bool WriteTextureWithMipmaps(
 {
     if (mip_levels.empty() || mip_dimensions.empty())
     {
-        return false;
+        throw std::runtime_error("Invalid mipmap data");
     }
     
     // Calculate total size for runtime
@@ -174,16 +170,12 @@ static bool WriteTextureWithMipmaps(
     }
     
     // Write asset header
-    asset_header_t header = {};
-    header.signature = NOZ_TEXTURE_SIG;
+    AssetHeader header = {};
+    header.signature = ASSET_SIGNATURE_TEXTURE;
     header.runtime_size = total_size + 256; // Add overhead
     header.version = 1;
     header.flags = 0;
     WriteAssetHeader(stream, &header);
-    
-    // Write TXTR signature
-    WriteFileSignature(stream, "TXTR", 4);
-    WriteU32(stream, 1); // version
     
     // Convert string options to enum values
     uint8_t min_filter_value = (min_filter == "nearest" || min_filter == "point") ? 0 : 1;
@@ -239,54 +231,11 @@ static bool WriteTextureWithMipmaps(
         WriteU32(stream, static_cast<uint32_t>(mip_levels[i].size()));
         WriteBytes(stream, (void*)mip_levels[i].data(), mip_levels[i].size());
     }
-    
-    return true;
 }
 
-void ImportTexture(const fs::path& source_path, const fs::path& output_path, Props* config)
+void ImportTexture(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta_props)
 {
     fs::path src_path = source_path;
-    fs::path out_path = output_path;
-    
-    // Get source directories from config
-    size_t source_count = GetListCount(config, "source");
-    std::vector<fs::path> source_dirs;
-    
-    for (size_t i = 0; i < source_count; i++)
-    {
-        const char* dir = GetListElement(config, "source", i, "");
-        if (dir && *dir)
-        {
-            source_dirs.push_back(fs::path(dir));
-        }
-    }
-    
-    // Find relative path from source directories
-    fs::path relative_path;
-    bool found_relative = false;
-    
-    for (const auto& base_dir : source_dirs)
-    {
-        try
-        {
-            if (src_path.string().find(base_dir.string()) == 0)
-            {
-                relative_path = fs::relative(src_path, base_dir);
-                found_relative = true;
-                break;
-            }
-        }
-        catch (...)
-        {
-            // Continue if relative path can't be computed
-        }
-    }
-    
-    if (!found_relative)
-    {
-        // If we couldn't find relative path, just use the filename
-        relative_path = src_path.filename();
-    }
     
     // Load image using stb_image
     int width, height, channels;
@@ -294,9 +243,17 @@ void ImportTexture(const fs::path& source_path, const fs::path& output_path, Pro
     
     if (!image_data)
     {
-        std::cerr << "Failed to load texture: " << src_path << std::endl;
-        return;
+        throw std::runtime_error("Failed to load texture file");
     }
+    
+    // Parse texture properties from meta props (with defaults)
+    std::string min_filter = GetString(meta_props, "min_filter", "linear");
+    std::string mag_filter = GetString(meta_props, "mag_filter", "linear");
+    std::string clamp_u = GetString(meta_props, "clamp_u", "clamp_to_edge");
+    std::string clamp_v = GetString(meta_props, "clamp_v", "clamp_to_edge");
+    std::string clamp_w = GetString(meta_props, "clamp_w", "clamp_to_edge");
+    bool generate_mipmaps = GetBool(meta_props, "mipmaps", false);
+    bool convert_from_srgb = GetBool(meta_props, "srgb", false);
     
     // Convert to RGBA if needed
     std::vector<uint8_t> rgba_data;
@@ -320,40 +277,10 @@ void ImportTexture(const fs::path& source_path, const fs::path& output_path, Pro
     
     stbi_image_free(image_data);
     
-    // Check for meta file to get texture import settings
-    fs::path meta_path = fs::path(src_path.string() + ".meta");
-    
-    // Default values
-    std::string min_filter = "linear";
-    std::string mag_filter = "linear";
-    std::string clamp_u = "clamp_to_edge";
-    std::string clamp_v = "clamp_to_edge";
-    std::string clamp_w = "clamp_to_edge";
-    bool generate_mipmaps = false;
-    bool convert_from_srgb = false;
-    
-    // Parse meta file if it exists (simplified - just use defaults for now)
-    if (fs::exists(meta_path))
-    {
-        // TODO: Parse meta file for settings
-        // For now, just use defaults
-    }
-    
     // Convert from sRGB to linear if requested
     if (convert_from_srgb)
-    {
         ConvertSRGBToLinear(rgba_data.data(), width, height, channels);
-    }
-    
-    // Create output stream
-    Stream* output_stream = CreateStream(nullptr, width * height * channels + 1024);
-    if (!output_stream)
-    {
-        return;
-    }
-    
-    bool success = false;
-    
+
     // Generate mipmaps if requested
     if (generate_mipmaps)
     {
@@ -389,7 +316,7 @@ void ImportTexture(const fs::path& source_path, const fs::path& output_path, Pro
             current_height = next_height;
         }
         
-        success = WriteTextureWithMipmaps(
+        WriteTextureWithMipmaps(
             output_stream,
             mip_levels,
             mip_dimensions,
@@ -403,7 +330,7 @@ void ImportTexture(const fs::path& source_path, const fs::path& output_path, Pro
     }
     else
     {
-        success = WriteTextureData(
+        WriteTextureData(
             output_stream,
             rgba_data.data(),
             width,
@@ -417,49 +344,7 @@ void ImportTexture(const fs::path& source_path, const fs::path& output_path, Pro
             false
         );
     }
-    
-    if (success)
-    {
-        // Build output file path preserving directory structure
-        fs::path final_path = out_path / relative_path;
-        
-        // Replace extension with .nztx
-        final_path.replace_extension(".nztx");
-        
-        // Ensure the output directory exists
-        fs::create_directories(final_path.parent_path());
-        
-        // Save the stream to file
-        // We need to convert to Path for SaveStream API
-        Path save_path;
-        std::string path_str = final_path.string();
-        strncpy(save_path.value, path_str.c_str(), sizeof(save_path.value) - 1);
-        save_path.value[sizeof(save_path.value) - 1] = '\0';
-        
-        if (!SaveStream(output_stream, &save_path))
-        {
-            std::cerr << "Failed to save texture: " << final_path << std::endl;
-        }
-        else
-        {
-            // Remove extension for clean output
-            fs::path clean_path = relative_path;
-            clean_path.replace_extension("");
-            std::cout << "Imported 'textures/" << clean_path.filename().string() << "'" << std::endl;
-        }
-    }
-    
-    Destroy(output_stream);
-}
 
-bool CanImportAsTexture(const fs::path& path)
-{
-    std::string ext = path.extension().string();
-    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-    
-    // Support common image formats
-    return ext == ".png" || ext == ".jpg" || ext == ".jpeg" || 
-           ext == ".bmp" || ext == ".tga" || ext == ".gif";
 }
 
 bool DoesTextureDependOn(const fs::path& source_path, const fs::path& dependency_path)
@@ -470,8 +355,21 @@ bool DoesTextureDependOn(const fs::path& source_path, const fs::path& dependency
     return meta_path == dependency_path;
 }
 
+static const char* g_texture_extensions[] = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".bmp",
+    ".tga",
+    ".gif",
+    nullptr
+};
+
 static AssetImporterTraits g_texture_importer_traits = {
-    .can_import = CanImportAsTexture,
+    .type_name = "Texture",
+    .type = TYPE_TEXTURE,
+    .signature = ASSET_SIGNATURE_TEXTURE,
+    .file_extensions = g_texture_extensions,
     .import_func = ImportTexture,
     .does_depend_on = DoesTextureDependOn
 };

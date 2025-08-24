@@ -14,14 +14,14 @@ struct ListImpl
     size_t capacity;
 };
 
-static ListImpl* Impl(List* l) { return (ListImpl*)Cast(l, type_list); }
+static ListImpl* Impl(List* l) { return (ListImpl*)Cast(l, TYPE_LIST); }
 
 List* CreateList(Allocator* allocator, size_t capacity)
 {   
     if (capacity == 0)
 		capacity = DEFAULT_CAPACITY;
     
-    ListImpl* list = Impl((List*)CreateObject(allocator, sizeof(ListImpl), type_list));
+    ListImpl* list = Impl((List*)CreateObject(allocator, sizeof(ListImpl), TYPE_LIST));
     if (!list)
         return nullptr;
     

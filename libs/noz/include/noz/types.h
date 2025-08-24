@@ -4,28 +4,28 @@
 
 #pragma once
 
-enum
-{
-	// all noz engine types are negative and user types are positive
-    type_unknown = -1000,
+typedef u16 type_t;
 
-    // @object
-    type_stream,
-    type_list,
-    type_map,
-    type_props,
-    type_file_watcher,
-    type_mesh_builder,
+constexpr type_t TYPE_INVALID = -1;
+constexpr type_t TYPE_UNKNOWN = -1000;
 
-    // @asset
-    type_texture,
-    type_material,
-    type_shader,
-    type_font,
-    type_mesh,
-    type_sound,
+// @object
+constexpr type_t TYPE_STREAM = -900;
+constexpr type_t TYPE_LIST = -901;
+constexpr type_t TYPE_MAP = -902;
+constexpr type_t TYPE_PROPS = -903;
+constexpr type_t TYPE_MESH_BUILDER = -904;
 
-    // @scene
-    type_entity,
-    type_camera
-};
+// @asset
+constexpr type_t TYPE_MATERIAL = -800;
+constexpr type_t TYPE_SHADER = -801;
+constexpr type_t TYPE_FONT = -802;
+constexpr type_t TYPE_MESH = -803;
+constexpr type_t TYPE_SOUND = -804;
+constexpr type_t TYPE_TEXTURE = -805;
+constexpr type_t TYPE_STYLESHEET = -806;
+
+// @scene
+constexpr type_t TYPE_ENTITY = -700;
+constexpr type_t TYPE_CAMERA = -701;
+

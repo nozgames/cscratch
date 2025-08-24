@@ -557,3 +557,185 @@ const char* token_type_name(token_type_t type)
         default:                    return "unknown";
     }
 }
+
+bool tokenizer_read_color(tokenizer_t* tok, color_t* result)
+{
+    if (!tok || !result)
+        return false;
+
+    tokenizer_skip_whitespace(tok);
+    
+    // Handle hex colors: #RRGGBB or #RRGGBBAA
+    if (tokenizer_peek(tok) == '#')
+    {
+        tokenizer_next(tok); // Skip #
+        
+        text_t hex_text;
+        text_init(&hex_text);
+        
+        // Read hex digits
+        while (tokenizer_has_more(tok))
+        {
+            char ch = tokenizer_peek(tok);
+            if (isxdigit(ch))
+            {
+                char hex_str[2] = {ch, '\0'};
+                text_append(&hex_text, hex_str);
+                tokenizer_next(tok);
+            }
+            else
+                break;
+        }
+        
+        if (hex_text.length == 6) // #RRGGBB
+        {
+            unsigned int hex = (unsigned int)strtoul(hex_text.value, NULL, 16);
+            result->r = ((hex >> 16) & 0xFF) / 255.0f;
+            result->g = ((hex >> 8) & 0xFF) / 255.0f;
+            result->b = (hex & 0xFF) / 255.0f;
+            result->a = 1.0f;
+            return true;
+        }
+        else if (hex_text.length == 8) // #RRGGBBAA
+        {
+            unsigned int hex = (unsigned int)strtoul(hex_text.value, NULL, 16);
+            result->r = ((hex >> 24) & 0xFF) / 255.0f;
+            result->g = ((hex >> 16) & 0xFF) / 255.0f;
+            result->b = ((hex >> 8) & 0xFF) / 255.0f;
+            result->a = (hex & 0xFF) / 255.0f;
+            return true;
+        }
+        else if (hex_text.length == 3) // #RGB shorthand
+        {
+            unsigned int hex = (unsigned int)strtoul(hex_text.value, NULL, 16);
+            result->r = ((hex >> 8) & 0xF) / 15.0f;
+            result->g = ((hex >> 4) & 0xF) / 15.0f;
+            result->b = (hex & 0xF) / 15.0f;
+            result->a = 1.0f;
+            return true;
+        }
+        return false;
+    }
+
+    // Handle rgba(r,g,b,a) format
+    text_t identifier;
+    text_init(&identifier);
+    if (tokenizer_read_identifier(tok, &identifier))
+    {
+        if (text_equals_cstr(&identifier, "rgba"))
+        {
+            tokenizer_skip_whitespace(tok);
+            if (tokenizer_peek(tok) != '(')
+                return false;
+            tokenizer_next(tok); // Skip (
+            
+            // Read r,g,b,a values
+            float r, g, b, a;
+            
+            tokenizer_skip_whitespace(tok);
+            if (!tokenizer_read_number_as_float(tok, &r)) return false;
+            
+            tokenizer_skip_whitespace(tok);
+            if (tokenizer_peek(tok) != ',') return false;
+            tokenizer_next(tok); // Skip ,
+            
+            tokenizer_skip_whitespace(tok);
+            if (!tokenizer_read_number_as_float(tok, &g)) return false;
+            
+            tokenizer_skip_whitespace(tok);
+            if (tokenizer_peek(tok) != ',') return false;
+            tokenizer_next(tok); // Skip ,
+            
+            tokenizer_skip_whitespace(tok);
+            if (!tokenizer_read_number_as_float(tok, &b)) return false;
+            
+            tokenizer_skip_whitespace(tok);
+            if (tokenizer_peek(tok) != ',') return false;
+            tokenizer_next(tok); // Skip ,
+            
+            tokenizer_skip_whitespace(tok);
+            if (!tokenizer_read_number_as_float(tok, &a)) return false;
+            
+            tokenizer_skip_whitespace(tok);
+            if (tokenizer_peek(tok) != ')') return false;
+            tokenizer_next(tok); // Skip )
+            
+            result->r = r / 255.0f;
+            result->g = g / 255.0f;
+            result->b = b / 255.0f;
+            result->a = a; // Alpha is typically 0-1 already
+            return true;
+        }
+        else if (text_equals_cstr(&identifier, "rgb"))
+        {
+            tokenizer_skip_whitespace(tok);
+            if (tokenizer_peek(tok) != '(')
+                return false;
+            tokenizer_next(tok); // Skip (
+            
+            // Read r,g,b values
+            float r, g, b;
+            
+            tokenizer_skip_whitespace(tok);
+            if (!tokenizer_read_number_as_float(tok, &r)) return false;
+            
+            tokenizer_skip_whitespace(tok);
+            if (tokenizer_peek(tok) != ',') return false;
+            tokenizer_next(tok); // Skip ,
+            
+            tokenizer_skip_whitespace(tok);
+            if (!tokenizer_read_number_as_float(tok, &g)) return false;
+            
+            tokenizer_skip_whitespace(tok);
+            if (tokenizer_peek(tok) != ',') return false;
+            tokenizer_next(tok); // Skip ,
+            
+            tokenizer_skip_whitespace(tok);
+            if (!tokenizer_read_number_as_float(tok, &b)) return false;
+            
+            tokenizer_skip_whitespace(tok);
+            if (tokenizer_peek(tok) != ')') return false;
+            tokenizer_next(tok); // Skip )
+            
+            result->r = r / 255.0f;
+            result->g = g / 255.0f;
+            result->b = b / 255.0f;
+            result->a = 1.0f;
+            return true;
+        }
+        else
+        {
+            // Handle predefined CSS colors
+            struct ColorName { const char* name; color_t color; };
+            static const ColorName predefined_colors[] = {
+                {"black", {0.0f, 0.0f, 0.0f, 1.0f}},
+                {"white", {1.0f, 1.0f, 1.0f, 1.0f}},
+                {"red", {1.0f, 0.0f, 0.0f, 1.0f}},
+                {"green", {0.0f, 0.5f, 0.0f, 1.0f}},
+                {"blue", {0.0f, 0.0f, 1.0f, 1.0f}},
+                {"yellow", {1.0f, 1.0f, 0.0f, 1.0f}},
+                {"cyan", {0.0f, 1.0f, 1.0f, 1.0f}},
+                {"magenta", {1.0f, 0.0f, 1.0f, 1.0f}},
+                {"gray", {0.5f, 0.5f, 0.5f, 1.0f}},
+                {"grey", {0.5f, 0.5f, 0.5f, 1.0f}},
+                {"orange", {1.0f, 0.65f, 0.0f, 1.0f}},
+                {"pink", {1.0f, 0.75f, 0.8f, 1.0f}},
+                {"purple", {0.5f, 0.0f, 0.5f, 1.0f}},
+                {"brown", {0.65f, 0.16f, 0.16f, 1.0f}},
+                {"transparent", {0.0f, 0.0f, 0.0f, 0.0f}},
+                {nullptr, {0.0f, 0.0f, 0.0f, 0.0f}}
+            };
+
+            for (const ColorName* color = predefined_colors; color->name != nullptr; color++)
+            {
+                if (text_equals_cstr(&identifier, color->name))
+                {
+                    *result = color->color;
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}

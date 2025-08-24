@@ -17,11 +17,11 @@ struct MeshBuilderImpl
     bool is_full;
 };
 
-static MeshBuilderImpl* Impl(MeshBuilder* b) { return (MeshBuilderImpl*)Cast(b, type_mesh_builder); }
+static MeshBuilderImpl* Impl(MeshBuilder* b) { return (MeshBuilderImpl*)Cast(b, TYPE_MESH_BUILDER); }
 
 MeshBuilderImpl* CreateMeshBuilderImpl(Allocator* allocator, int max_vertices, int max_indices)
 {
-    auto* impl = Impl((MeshBuilder*)CreateObject(allocator, sizeof(MeshBuilderImpl), type_mesh_builder));
+    auto* impl = Impl((MeshBuilder*)CreateObject(allocator, sizeof(MeshBuilderImpl), TYPE_MESH_BUILDER));
     if (!impl)
         return nullptr;
     

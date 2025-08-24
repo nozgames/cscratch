@@ -28,10 +28,10 @@ void ShutdownScene();
 
 // @entity
 Entity* CreateEntity(Allocator* allocator, size_t entity_size, type_t type_id);
-vec3 GetPosition(Entity* entity);
-mat4 GetWorldToLocal(Entity* entity);
-mat4 GetLocalToWorld(Entity* entity);
+const vec3& GetPosition(Entity* entity);
+const mat4& GetWorldToLocal(Entity* entity);
+const mat4& GetLocalToWorld(Entity* entity);
 
 // @camera
 Camera* CreateCamera();
-mat4 camera_projection(Camera* camera);
+const mat4& GetProjection(Camera* camera);

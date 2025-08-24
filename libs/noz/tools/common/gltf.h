@@ -1,8 +1,12 @@
 //
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
+// @STL
 
 #pragma once
+
+#include <filesystem>
+#include <string>
 
 // Forward declarations
 struct cgltf_data;
@@ -61,7 +65,7 @@ typedef struct gltf_bone_filter
 typedef struct gltf
 {
     struct cgltf_data* data;
-    Path path;
+    std::filesystem::path path;
 } gltf_t;
 
 // @init
@@ -69,13 +73,13 @@ gltf_t* gltf_alloc(Allocator* allocator);
 void gltf_free(gltf_t* gltf);
 
 // @file
-bool gltf_open(gltf_t* gltf, Path* path);
+bool gltf_open(gltf_t* gltf, const std::filesystem::path& path);
 void gltf_close(gltf_t* gltf);
 
 // @filter
 gltf_bone_filter_t* gltf_bone_filter_alloc(Allocator* allocator);
 void gltf_bone_filter_free(gltf_bone_filter_t* filter);
-gltf_bone_filter_t* gltf_bone_filter_from_meta_file(gltf_bone_filter_t* filter, Path* meta_path);
+gltf_bone_filter_t* gltf_bone_filter_from_meta_file(gltf_bone_filter_t* filter, const std::filesystem::path& meta_path);
 
 // @bones
 List* gltf_read_bones(gltf_t* gltf, gltf_bone_filter_t* filter, Allocator* allocator);

@@ -49,7 +49,8 @@ set(BOX2D_BUILD_SAMPLES OFF CACHE BOOL "Don't build Box2D samples" FORCE)
 
 FetchContent_MakeAvailable(SDL3 box2d glm)
 
-add_library(noz STATIC)
+add_library(noz STATIC
+        include/noz/noz_math.h)
 
 target_precompile_headers(noz PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/pch.h)
 

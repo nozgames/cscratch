@@ -1,16 +1,21 @@
-#include <noz/noz.h>
-#include <file_watcher.h>
-#include <noz/platform.h>
-#include <csignal>
-#include <filesystem>
-#include <string>
 #include <algorithm>
+#include <csignal>
+#include <file_watcher.h>
+#include <filesystem>
+#include <iostream>
+#include <noz/noz.h>
+#include <noz/platform.h>
+#include <string>
 #include <vector>
+#include "asset_manifest.h"
 
 namespace fs = std::filesystem;
 
 AssetImporterTraits* GetShaderImporterTraits();
 AssetImporterTraits* GetTextureImporterTraits();
+AssetImporterTraits* GetFontImporterTraits();
+AssetImporterTraits* GetMeshImporterTraits();
+AssetImporterTraits* GetStyleSheetImporterTraits();
 
 struct ImportJob
 {
@@ -26,7 +31,27 @@ static Props* g_config = nullptr;
 static volatile bool g_running = true;
 
 void ProcessFileChange(const fs::path& file_path, FileChangeType change_type, std::vector<AssetImporterTraits*>& importers);
-void ProcessImportQueue(std::vector<AssetImporterTraits*>& importers);
+bool ProcessImportQueue(std::vector<AssetImporterTraits*>& importers);
+
+// Helper function to derive file extension from asset signature
+std::string GetExtensionFromSignature(asset_signature_t signature)
+{
+    // Convert signature to 4 character string (little endian to big endian)
+    char sig_chars[5] = {};
+    sig_chars[0] = (signature >> 24) & 0xFF;
+    sig_chars[1] = (signature >> 16) & 0xFF;
+    sig_chars[2] = (signature >> 8) & 0xFF;
+    sig_chars[3] = signature & 0xFF;
+    
+    // Convert to lowercase extension
+    std::string ext = ".";
+    for (int i = 0; i < 4; i++)
+    {
+        ext += std::tolower(sig_chars[i]);
+    }
+    
+    return ext;
+}
 
 void signal_handler(int sig)
 {
@@ -39,25 +64,36 @@ void signal_handler(int sig)
 
 int main(int argc, char* argv[])
 {
-    // Initialize importers array - now including texture importer
+    // Initialize importers array - now including all asset importers
     std::vector importers = {
         GetShaderImporterTraits(), 
-        GetTextureImporterTraits()
+        GetTextureImporterTraits(),
+        GetFontImporterTraits(),
+        GetMeshImporterTraits(),
+        GetStyleSheetImporterTraits()
     };
 
     // Set up signal handler for Ctrl-C
     signal(SIGINT, signal_handler);
 
-    Path config_path;
-    path_set(&config_path, "./importer.cfg");
-    g_config = LoadProps(nullptr, &config_path);
+    std::filesystem::path config_path = "./importer.cfg";
+    Stream* config_stream = LoadStream(nullptr, config_path);
+    if (config_stream)
+    {
+        g_config = LoadProps(nullptr, config_stream);
+        Destroy(config_stream);
+    }
+    else
+    {
+        g_config = nullptr;
+    }
     if (!g_config)
     {
-        printf("missing configuration '%s'\n", config_path.value);
+        printf("missing configuration '%s'\n", config_path.string().c_str());
         return 1;
     }
 
-    printf("loaded configuration '%s'\n", config_path.value);
+    printf("loaded configuration '%s'\n", config_path.string().c_str());
 
     // Initialize file watcher
     InitFileWatcher(500);
@@ -97,7 +133,23 @@ int main(int argc, char* argv[])
         }
 
         // Process any queued imports
-        ProcessImportQueue(importers);
+        bool imports_processed = ProcessImportQueue(importers);
+        
+        // Generate asset manifest if any imports were processed
+        if (imports_processed)
+        {
+            const char* output_dir = GetString(g_config, "output.directory", "assets");
+            const char* manifest_path = GetString(g_config, "output.manifest", "src/assets.cpp");
+            
+            if (GenerateAssetManifest(fs::path(output_dir), fs::path(manifest_path), importers, g_config))
+            {
+                std::cout << "Generated asset manifest: " << manifest_path << std::endl;
+            }
+            else
+            {
+                std::cerr << "Failed to generate asset manifest" << std::endl;
+            }
+        }
 
         // Sleep briefly to avoid busy waiting
         thread_sleep_ms(100); // 100ms
@@ -133,15 +185,27 @@ void ProcessFileChange(const fs::path& file_path, FileChangeType change_type, st
         return;
     }
 
-    // Find an importer that can handle this file
+    // Find an importer that can handle this file based on extension
     AssetImporterTraits* selected_importer = nullptr;
+    
+    std::string file_ext = file_path.extension().string();
+    std::transform(file_ext.begin(), file_ext.end(), file_ext.begin(), ::tolower);
 
     for (auto* importer : importers)
     {
-        if (importer && importer->can_import && importer->can_import(file_path))
+        if (importer && importer->file_extensions)
         {
-            selected_importer = importer;
-            break;
+            // Check if this importer supports the file extension
+            for (const char** ext_ptr = importer->file_extensions; *ext_ptr != nullptr; ++ext_ptr)
+            {
+                if (file_ext == *ext_ptr)
+                {
+                    selected_importer = importer;
+                    break;
+                }
+            }
+            if (selected_importer)
+                break;
         }
     }
 
@@ -162,10 +226,10 @@ void ProcessFileChange(const fs::path& file_path, FileChangeType change_type, st
     g_import_queue.emplace_back(file_path, selected_importer);
 }
 
-void ProcessImportQueue(std::vector<AssetImporterTraits*>& importers)
+bool ProcessImportQueue(std::vector<AssetImporterTraits*>& importers)
 {
     if (g_import_queue.empty())
-        return;
+        return false;
 
     // Get output directory from config
     const char* output_dir = GetString(g_config, "output.directory", "assets");
@@ -178,6 +242,7 @@ void ProcessImportQueue(std::vector<AssetImporterTraits*>& importers)
 
     std::vector<ImportJob> remaining_jobs;
     bool made_progress = true;
+    bool any_imports_processed = false;
 
     // Keep processing until no more progress is made
     while (made_progress && !g_import_queue.empty())
@@ -211,9 +276,101 @@ void ProcessImportQueue(std::vector<AssetImporterTraits*>& importers)
                 // Import this file
                 if (job.importer->import_func)
                 {
-                    job.importer->import_func(job.source_path, output_path, g_config);
+                    try
+                    {
+                        // Create output stream
+                        Stream* output_stream = CreateStream(nullptr, 4096);
+                        if (!output_stream)
+                        {
+                            std::cout << job.source_path.string() << ": error: Failed to create output stream" << std::endl;
+                            continue;
+                        }
+                        
+                        // Load .meta file or create default props
+                        fs::path meta_path = fs::path(job.source_path.string() + ".meta");
+                        Props* meta_props = nullptr;
+                        
+                        if (fs::exists(meta_path))
+                        {
+                            Stream* meta_stream = LoadStream(nullptr, meta_path);
+                            if (meta_stream)
+                            {
+                                meta_props = LoadProps(nullptr, meta_stream);
+                                Destroy(meta_stream);
+                            }
+                        }
+                        
+                        // Create default props if meta file failed to load
+                        if (!meta_props)
+                        {
+                            meta_props = CreateProps(nullptr);
+                        }
+                        
+                        // Call the importer
+                        job.importer->import_func(job.source_path, output_stream, g_config, meta_props);
+                        
+                        // Clean up meta props
+                        Destroy(meta_props);
+                        
+                        // Build output file path with correct extension
+                        fs::path relative_path;
+                        bool found_relative = false;
+                        
+                        // Get source directories from config and find the relative path
+                        size_t source_count = GetListCount(g_config, "source");
+                        for (size_t i = 0; i < source_count; i++)
+                        {
+                            const char* source_dir_str = GetListElement(g_config, "source", i, "");
+                            if (source_dir_str[0] != '\0')
+                            {
+                                fs::path source_dir(source_dir_str);
+                                std::error_code ec;
+                                relative_path = fs::relative(job.source_path, source_dir, ec);
+                                if (!ec && !relative_path.empty() && relative_path.string().find("..") == std::string::npos)
+                                {
+                                    found_relative = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (!found_relative)
+                        {
+                            relative_path = job.source_path.filename();
+                        }
+                        
+                        // Build final output path with extension derived from signature
+                        fs::path final_path = output_path / relative_path;
+                        std::string derived_extension = GetExtensionFromSignature(job.importer->signature);
+                        final_path.replace_extension(derived_extension);
+                        
+                        // Ensure output directory exists
+                        fs::create_directories(final_path.parent_path());
+                        
+                        // Save the output stream
+                        if (!SaveStream(output_stream, final_path))
+                        {
+                            Destroy(output_stream);
+                            throw std::runtime_error("Failed to save output file");
+                        }
+                        
+                        Destroy(output_stream);
+                        
+                        // Print success message using the relative path we computed
+                        fs::path asset_path = relative_path;
+                        asset_path.replace_extension("");
+                        std::string asset_name = asset_path.string();
+                        std::replace(asset_name.begin(), asset_name.end(), '\\', '/');
+                        std::cout << "Imported '" << asset_name << "'" << std::endl;
+                    }
+                    catch (const std::exception& e)
+                    {
+                        std::cout << job.source_path.string() << ": error: " << e.what() << std::endl;
+                        continue; // Skip to next job
+                    }
                 }
                 made_progress = true;
+                any_imports_processed = true;
             }
             else
             {
@@ -225,4 +382,6 @@ void ProcessImportQueue(std::vector<AssetImporterTraits*>& importers)
         // Swap the queues - remaining_jobs becomes the new import queue
         g_import_queue = std::move(remaining_jobs);
     }
+    
+    return any_imports_processed;
 }

@@ -1,15 +1,13 @@
 //
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
+// @STL
 
-#include "gltf.h"
-#include "../../../src/internal.h"
+#include <gltf.h>
+#include "../../src/internal.h"
+#include <cassert>
+#include <cmath>
 #include <noz/allocator.h>
-#include <noz/object.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-#include <math.h>
 
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
@@ -68,9 +66,9 @@ void gltf_free(gltf_t* gltf)
 }
 
 // @file
-bool gltf_open(gltf_t* gltf, Path* path)
+bool gltf_open(gltf_t* gltf, const std::filesystem::path& path)
 {
-    if (!gltf || !path)
+    if (!gltf)
         return false;
     
     gltf_close(gltf);
@@ -78,11 +76,12 @@ bool gltf_open(gltf_t* gltf, Path* path)
     cgltf_options options = {};
     struct cgltf_data* data = NULL;
     
-    cgltf_result result = cgltf_parse_file(&options, path->value, &data);
+    std::string path_str = path.string();
+    cgltf_result result = cgltf_parse_file(&options, path_str.c_str(), &data);
     if (result != cgltf_result_success)
         return false;
     
-    result = cgltf_load_buffers(&options, data, path->value);
+    result = cgltf_load_buffers(&options, data, path_str.c_str());
     if (result != cgltf_result_success)
     {
         cgltf_free(data);
@@ -90,7 +89,7 @@ bool gltf_open(gltf_t* gltf, Path* path)
     }
     
     gltf->data = data;
-    path_copy(&gltf->path, path);
+    gltf->path = path;
     
     return true;
 }
@@ -102,7 +101,7 @@ void gltf_close(gltf_t* gltf)
     
     cgltf_free(gltf->data);
     gltf->data = NULL;
-    path_clear(&gltf->path);
+    gltf->path.clear();
 }
 
 // @filter
@@ -125,7 +124,7 @@ void gltf_bone_filter_free(gltf_bone_filter_t* filter)
     // The list and filter will be freed by the allocator
 }
 
-gltf_bone_filter_t* gltf_bone_filter_from_meta_file(gltf_bone_filter_t* filter, Path* meta_path)
+gltf_bone_filter_t* gltf_bone_filter_from_meta_file(gltf_bone_filter_t* filter, const std::filesystem::path& meta_path)
 {
     // TODO: Implement meta file parsing when the meta_file API is available in C
     // For now, return the filter unchanged

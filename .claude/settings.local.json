@@ -19,7 +19,9 @@
       "Bash(cat:*)",
       "Bash(cmake:*)",
       "Bash(sed:*)",
-      "Bash(make:*)"
+      "Bash(make:*)",
+      "Read(//mnt/d/git/**)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

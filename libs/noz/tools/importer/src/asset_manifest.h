@@ -8,6 +8,8 @@
 
 #include <noz/noz.h>
 #include <filesystem>
+#include <vector>
+#include "asset_importer.h"
 
 // Asset manifest generator function
 // Scans the given output directory for asset files and generates a C manifest file
@@ -15,5 +17,10 @@
 //
 // @param output_directory: Path to the directory containing imported assets
 // @param manifest_output_path: Path where to generate the manifest C file
+// @param importers: List of available importers to use for type lookups
 // @return: true on success, false on failure
-bool GenerateAssetManifest(const std::filesystem::path& output_directory, const std::filesystem::path& manifest_output_path);
+bool GenerateAssetManifest(
+    const std::filesystem::path& output_directory, 
+    const std::filesystem::path& manifest_output_path,
+    const std::vector<AssetImporterTraits*>& importers,
+    Props* config = nullptr);

@@ -5,12 +5,14 @@
 // @STL
 
 #include "asset_manifest.h"
+#include <noz/asset.h>
 #include <noz/platform.h>
 #include <filesystem>
 #include <vector>
 #include <string>
 #include <algorithm>
 #include <fstream>
+#include <map>
 
 namespace fs = std::filesystem;
 
@@ -23,22 +25,34 @@ struct AssetEntry
     std::string var_name;
 };
 
+struct PathNode 
+{
+    std::map<std::string, std::unique_ptr<PathNode>> children;
+    std::vector<AssetEntry> assets;
+};
+
 struct ManifestGenerator
 {
     std::vector<AssetEntry> asset_entries;
     size_t total_memory;
     fs::path output_dir;
     Stream* manifest_stream;
+    const std::vector<AssetImporterTraits*>* importers;
+    Props* config;
 };
 
-static void ScanAssetFile(Path* file_path, file_stat_t* stat, void* user_data);
 static bool ReadAssetHeader(const fs::path& file_path, uint32_t* signature, size_t* runtime_size);
 static void GenerateManifestCode(ManifestGenerator* generator);
+static void GenerateAssetsHeader(ManifestGenerator* generator, const fs::path& header_path);
 static std::string PathToVarName(const std::string& path);
-static void WriteAssetTypeStruct(Stream* stream, const std::vector<AssetEntry>& assets, type_t type);
+static void WriteAssetTypeStruct(Stream* stream, const std::vector<AssetEntry>& assets, const char* type_name);
 static void OrganizeAssetsByType(ManifestGenerator* generator);
+static void ScanAssetFile(const fs::path& file_path, ManifestGenerator* generator);
+static type_t ToTypeFromSignature(asset_signature_t signature, const std::vector<AssetImporterTraits*>& importers);
+static const char* ToStringFromSignature(asset_signature_t signature, const std::vector<AssetImporterTraits*>& importers);
+static void GenerateRendererSetupCalls(ManifestGenerator* generator, Stream* stream);
 
-bool GenerateAssetManifest(const fs::path& output_directory, const fs::path& manifest_output_path)
+bool GenerateAssetManifest(const fs::path& output_directory, const fs::path& manifest_output_path, const std::vector<AssetImporterTraits*>& importers, Props* config)
 {
     if (output_directory.empty() || manifest_output_path.empty())
     {
@@ -50,6 +64,8 @@ bool GenerateAssetManifest(const fs::path& output_directory, const fs::path& man
     ManifestGenerator generator = {};
     generator.output_dir = output_directory;
     generator.asset_entries.reserve(64);
+    generator.importers = &importers;
+    generator.config = config;
 
     generator.manifest_stream = CreateStream(nullptr, 1024);
     if (!generator.manifest_stream)
@@ -68,11 +84,7 @@ bool GenerateAssetManifest(const fs::path& output_directory, const fs::path& man
         GenerateManifestCode(&generator);
         
         // Save the manifest
-        Path manifest_path;
-        std::string path_str = manifest_output_path.string();
-        strncpy(manifest_path.value, path_str.c_str(), sizeof(manifest_path.value) - 1);
-        manifest_path.value[sizeof(manifest_path.value) - 1] = '\0';
-        bool success = SaveStream(generator.manifest_stream, &manifest_path);
+        bool success = SaveStream(generator.manifest_stream, manifest_output_path);
         
         // Clean up
         Destroy(generator.manifest_stream);
@@ -87,15 +99,21 @@ bool GenerateAssetManifest(const fs::path& output_directory, const fs::path& man
         return false;
     }
 
-    // Scan all files in the output directory recursively
-    Path output_path;
-    std::string output_str = generator.output_dir.string();
-    strncpy(output_path.value, output_str.c_str(), sizeof(output_path.value) - 1);
-    output_path.value[sizeof(output_path.value) - 1] = '\0';
-    
-    if (!directory_enum_files(&output_path, ScanAssetFile, &generator))
+    // Scan all files in the output directory recursively using std::filesystem
+    try
     {
-        printf("ERROR: Failed to enumerate files in directory: %s\n", generator.output_dir.string().c_str());
+        for (const auto& entry : fs::recursive_directory_iterator(generator.output_dir))
+        {
+            if (entry.is_regular_file())
+            {
+                ScanAssetFile(entry.path(), &generator);
+            }
+        }
+    }
+    catch (const std::exception& e)
+    {
+        printf("ERROR: Failed to enumerate files in directory: %s - %s\n", 
+               generator.output_dir.string().c_str(), e.what());
         Destroy(generator.manifest_stream);
         return false;
     }
@@ -104,12 +122,13 @@ bool GenerateAssetManifest(const fs::path& output_directory, const fs::path& man
     // Generate the manifest C code
     GenerateManifestCode(&generator);
 
+    // Generate header file (change .cpp to .h)
+    fs::path header_path = manifest_output_path;
+    header_path.replace_extension(".h");
+    GenerateAssetsHeader(&generator, header_path);
+
     // Save the manifest to file
-    Path manifest_path;
-    std::string manifest_str = manifest_output_path.string();
-    strncpy(manifest_path.value, manifest_str.c_str(), sizeof(manifest_path.value) - 1);
-    manifest_path.value[sizeof(manifest_path.value) - 1] = '\0';
-    bool success = SaveStream(generator.manifest_stream, &manifest_path);
+    bool success = SaveStream(generator.manifest_stream, manifest_output_path);
     if (!success)
     {
         printf("ERROR: Failed to save manifest to: %s\n", manifest_output_path.string().c_str());
@@ -121,17 +140,143 @@ bool GenerateAssetManifest(const fs::path& output_directory, const fs::path& man
     return success;
 }
 
-static void ScanAssetFile(Path* file_path, file_stat_t* stat, void* user_data)
+static void WriteHeaderNestedStructs(Stream* stream, const PathNode& node, const std::vector<AssetImporterTraits*>& importers, int indent_level = 1)
 {
-    auto* generator = (ManifestGenerator*)user_data;
+    std::string indent(indent_level * 4, ' ');
+    
+    // Write child directories as nested structs
+    for (const auto& [name, child] : node.children)
+    {
+        WriteCSTR(stream, "%sstruct\n%s{\n", indent.c_str(), indent.c_str());
+        WriteHeaderNestedStructs(stream, *child, importers, indent_level + 1);
+        WriteCSTR(stream, "%s} %s;\n", indent.c_str(), name.c_str());
+    }
+    
+    // Write assets as forward declarations
+    for (const auto& entry : node.assets)
+    {
+        const char* type_name = ToStringFromSignature(entry.signature, importers);
+        if (type_name)
+        {
+            std::string var_name = PathToVarName(fs::path(entry.path).filename().replace_extension("").string());
+            WriteCSTR(stream, "%s%s* %s;\n", indent.c_str(), type_name, var_name.c_str());
+        }
+    }
+}
 
-    // Skip directories
-    if (stat->is_directory)
+static void GenerateAssetsHeader(ManifestGenerator* generator, const fs::path& header_path)
+{
+    Stream* header_stream = CreateStream(nullptr, 1024);
+    if (!header_stream)
         return;
+        
+    WriteCSTR(header_stream,
+        "//\n"
+        "// Auto-generated asset header - DO NOT EDIT MANUALLY\n"
+        "// Generated by NoZ Game Engine Asset Importer\n"
+        "//\n\n");
+    
+    // Generate asset listing comment block
+    if (!generator->asset_entries.empty())
+    {
+        // Group assets by type
+        std::map<std::string, std::vector<std::string>> assets_by_type;
+        
+        for (const auto& entry : generator->asset_entries)
+        {
+            const char* type_name = ToStringFromSignature(entry.signature, *generator->importers);
+            if (type_name)
+            {
+                // Convert asset path to access path (e.g., "textures/icons/button" -> "Assets.textures.icons.button")
+                fs::path asset_path(entry.path);
+                std::string access_path = "Assets";
+                
+                auto parent_path = asset_path.parent_path();
+                for (const auto& part : parent_path)
+                {
+                    access_path += "." + part.string();
+                }
+                
+                std::string var_name = PathToVarName(asset_path.filename().string());
+                access_path += "." + var_name;
+                
+                // Add to the appropriate type group
+                std::string type_key = std::string(type_name) + "s";
+                std::transform(type_key.begin(), type_key.end(), type_key.begin(), ::tolower);
+                assets_by_type[type_key].push_back(access_path);
+            }
+        }
+        
+        // Write the comment block
+        for (const auto& [type_name, asset_list] : assets_by_type)
+        {
+            WriteCSTR(header_stream, "// @%s\n", type_name.c_str());
+            for (const auto& asset_path : asset_list)
+            {
+                WriteCSTR(header_stream, "// %s\n", asset_path.c_str());
+            }
+            WriteCSTR(header_stream, "//\n");
+        }
+        WriteCSTR(header_stream, "\n");
+    }
+    
+    WriteCSTR(header_stream,
+        "#pragma once\n\n"
+        "// Forward declarations\n"
+        "struct Shader;\n"
+        "struct Texture;\n"
+        "struct Mesh;\n"
+        "struct Font;\n"
+        "struct Material;\n"
+        "struct Sound;\n\n");
+    
+    // Build directory tree (same as in OrganizeAssetsByType)
+    PathNode root;
+    for (const auto& entry : generator->asset_entries)
+    {
+        fs::path asset_path(entry.path);
+        PathNode* current = &root;
+        
+        auto parent_path = asset_path.parent_path();
+        for (const auto& part : parent_path)
+        {
+            std::string part_str = part.string();
+            if (current->children.find(part_str) == current->children.end())
+            {
+                current->children[part_str] = std::make_unique<PathNode>();
+            }
+            current = current->children[part_str].get();
+        }
+        
+        AssetEntry modified_entry = entry;
+        current->assets.push_back(modified_entry);
+    }
+    
+    // Write Assets struct
+    WriteCSTR(header_stream, "struct Assets\n{\n");
+    if (generator->asset_entries.empty())
+    {
+        WriteCSTR(header_stream, "    void* _dummy;\n");
+    }
+    else
+    {
+        WriteHeaderNestedStructs(header_stream, root, *generator->importers);
+    }
+    WriteCSTR(header_stream, "};\n\n");
+    
+    WriteCSTR(header_stream, "extern Assets Assets;\n\n");
+    WriteCSTR(header_stream, "bool LoadAssets();\n");
+    WriteCSTR(header_stream, "void UnloadAssets();\n");
+    
+    // Save header file
+    SaveStream(header_stream, header_path);
+    Destroy(header_stream);
+}
 
+static void ScanAssetFile(const fs::path& file_path, ManifestGenerator* generator)
+{
     // Check for known asset extensions
-    fs::path asset_path(file_path->value);
-    std::string ext = asset_path.extension().string();
+    std::string ext = file_path.extension().string();
     std::ranges::transform(ext, ext.begin(), ::tolower);
     
     bool is_asset = ext == ".nzt" ||   // NoZ Texture
@@ -145,7 +290,7 @@ static void ScanAssetFile(Path* file_path, file_stat_t* stat, void* user_data)
         return;
 
     // Make path relative to output_dir first
-    fs::path relative_path = fs::relative(asset_path, generator->output_dir);
+    fs::path relative_path = fs::relative(file_path, generator->output_dir);
     
     // Remove extension for comparison and storage
     relative_path.replace_extension("");
@@ -166,17 +311,18 @@ static void ScanAssetFile(Path* file_path, file_stat_t* stat, void* user_data)
     // Copy the relative path we already computed (extension already removed)
     entry.path = relative_str;
     
-    entry.file_size = stat->size;
+    // Get file size using std::filesystem
+    entry.file_size = fs::file_size(file_path);
 
     // Generate variable name from path (without extension)
     entry.var_name = PathToVarName(entry.path);
 
     // Read asset header to get signature and runtime size
-    if (!ReadAssetHeader(asset_path, &entry.signature, &entry.runtime_size))
+    if (!ReadAssetHeader(file_path, &entry.signature, &entry.runtime_size))
     {
-        printf("WARNING: Failed to read asset header for: %s\n", asset_path.string().c_str());
+        printf("WARNING: Failed to read asset header for: %s\n", file_path.string().c_str());
         entry.signature = 0;
-        entry.runtime_size = stat->size; // Fallback to file size
+        entry.runtime_size = entry.file_size; // Fallback to file size
     }
 
     // Add to total memory requirement
@@ -188,11 +334,7 @@ static void ScanAssetFile(Path* file_path, file_stat_t* stat, void* user_data)
 
 static bool ReadAssetHeader(const fs::path& file_path, uint32_t* signature, size_t* runtime_size)
 {
-    Path asset_path;
-    std::string path_str = file_path.string();
-    strncpy(asset_path.value, path_str.c_str(), sizeof(asset_path.value) - 1);
-    asset_path.value[sizeof(asset_path.value) - 1] = '\0';
-    Stream* stream = LoadStream(nullptr, &asset_path);
+    Stream* stream = LoadStream(nullptr, file_path);
     if (!stream)
         return false;
 
@@ -214,31 +356,29 @@ static bool ReadAssetHeader(const fs::path& file_path, uint32_t* signature, size
 
 static void GenerateManifestCode(ManifestGenerator* generator)
 {
-    Stream* stream = generator->manifest_stream;
+    auto stream = generator->manifest_stream;
 
-    // Write header
     WriteCSTR(stream,
         "//\n"
         "// Auto-generated asset manifest - DO NOT EDIT MANUALLY\n"
         "// Generated by NoZ Game Engine Asset Importer\n"
         "//\n\n"
         "// @includes\n"
-        "#include <noz/noz.h>\n\n");
+        "#include <noz/noz.h>\n"
+        "#include \"assets.h\"\n\n");
 
-    // Write memory requirement constant and allocator pointer
     WriteCSTR(stream, "// @constants\n");
     WriteCSTR(stream, "#define ASSET_TOTAL_MEMORY %zu\n\n", generator->total_memory);
-    
     WriteCSTR(stream, "// @globals\n");
     WriteCSTR(stream, "static arena_allocator_t* g_asset_allocator = nullptr;\n\n");
+    WriteCSTR(stream, "// @assets\n");
+    WriteCSTR(stream, "Assets Assets = {};\n\n");
 
-    // Generate the g_assets structure
     OrganizeAssetsByType(generator);
 
-    // Write load all function
     WriteCSTR(stream,
         "// @init\n"
-        "bool assets_init(void)\n"
+        "bool LoadAssets()\n"
         "{\n"
         "    if (g_asset_allocator != nullptr)\n"
         "        return false; // Already initialized\n\n"
@@ -246,30 +386,46 @@ static void GenerateManifestCode(ManifestGenerator* generator)
         "    if (!g_asset_allocator)\n"
         "        return false;\n\n");
     
-    // Generate load calls for each asset
     for (const auto& entry : generator->asset_entries)
     {
-        type_t asset_type = ToType(entry.signature);
-        if (asset_type == type_invalid)
-			continue;
+        const char* type_name = ToStringFromSignature(entry.signature, *generator->importers);
+        if (!type_name)
+            continue;
 
-        const char* type_name = ToString(asset_type);
-        assert(type_name);
+        // Convert backslashes to forward slashes for the asset path
+        std::string normalized_path = entry.path;
+        std::replace(normalized_path.begin(), normalized_path.end(), '\\', '/');
+
+        // Build nested access path (e.g., assets.textures.icons.myicon)
+        fs::path asset_path(entry.path);
+        std::string access_path = "Assets";
+        
+        auto parent_path = asset_path.parent_path();
+        for (const auto& part : parent_path)
+        {
+            access_path += "." + part.string();
+        }
+        
+        std::string var_name = PathToVarName(asset_path.filename().replace_extension("").string());
+        access_path += "." + var_name;
+
         WriteCSTR(
             stream,
-            "    NOZ_ASSET_LOAD(%s, \"%s\", g_assets.%ss.%s);\n",
+            "    NOZ_ASSET_LOAD(%s, \"%s\", %s);\n",
             type_name,
-            entry.path.c_str(),
-            type_name,
-            entry.var_name.c_str());
+            normalized_path.c_str(),
+            access_path.c_str());
     }
+    
+    // Generate renderer setup calls if config is provided
+    GenerateRendererSetupCalls(generator, stream);
     
     WriteCSTR(stream, "\n    return true;\n}\n\n");
     
-    // Write assets_uninit function
+    // Write UnloadAssets function
     WriteCSTR(stream,
         "// @uninit\n"
-        "void assets_uninit(void)\n"
+        "void UnloadAssets()\n"
         "{\n"
         "    if (g_asset_allocator != nullptr)\n"
         "    {\n"
@@ -277,7 +433,7 @@ static void GenerateManifestCode(ManifestGenerator* generator)
         "        g_asset_allocator = nullptr;\n"
         "        \n"
         "        // Clear all asset pointers\n"
-        "        memset(&g_assets, 0, sizeof(g_assets));\n"
+        "        memset(&Assets, 0, sizeof(Assets));\n"
         "    }\n"
         "}\n");
 }
@@ -311,9 +467,13 @@ static void write_asset_structure(ManifestGenerator* generator)
     {
         char buffer[512];
 
+        // Convert backslashes to forward slashes for the asset path
+        std::string normalized_path = entry.path;
+        std::replace(normalized_path.begin(), normalized_path.end(), '\\', '/');
+
         snprintf(buffer, sizeof(buffer), 
             "    { \"%s\", 0x%08X, %zu, %zu },\n",
-            entry.path.c_str(),
+            normalized_path.c_str(),
             entry.signature,
             entry.runtime_size,
             entry.file_size);
@@ -331,20 +491,21 @@ static std::string PathToVarName(const std::string& path_str)
         return "unknown";
     }
     
-    // Convert to filesystem path and get filename without extension
+    // Convert full path to filesystem path and remove extension
     fs::path path(path_str);
-    std::string filename = path.filename().replace_extension("").string();
+    path.replace_extension("");
+    std::string full_path = path.string();
     
-    // If filename is empty, use "unknown"
-    if (filename.empty())
+    // If path is empty, use "unknown"
+    if (full_path.empty())
     {
         return "unknown";
     }
     
-    // Convert filename to valid C variable name
+    // Convert full path to valid C variable name
     std::string result;
     
-    for (char c : filename)
+    for (char c : full_path)
     {
         if (std::isalnum(c))
             result += std::tolower(c);
@@ -368,13 +529,9 @@ static std::string PathToVarName(const std::string& path_str)
     return result;
 }
 
-static void WriteAssetTypeStruct(Stream* stream, const std::vector<AssetEntry>& assets, type_t type)
+static void WriteAssetTypeStruct(Stream* stream, const std::vector<AssetEntry>& assets, const char* type_name)
 {
-    if (assets.empty())
-        return;
-    
-    const char* type_name = ToString(type);
-    if (type_name == nullptr)
+    if (assets.empty() || !type_name)
         return;
    
     // Write struct opening
@@ -382,77 +539,163 @@ static void WriteAssetTypeStruct(Stream* stream, const std::vector<AssetEntry>& 
     
     // Write each asset field
     for (const auto& entry : assets)
-        WriteCSTR(stream, "        %s_t* %s;\n", type_name, entry.var_name.c_str());
+        WriteCSTR(stream, "        %s* %s;\n", type_name, entry.var_name.c_str());
 
-    // Write struct closing with collection name (plural)
-    WriteCSTR(stream, "    } %ss;\n", type_name);
+    // Write struct closing with collection name (plural, lowercase)
+    std::string collection_name = std::string(type_name) + "s";
+    std::transform(collection_name.begin(), collection_name.end(), collection_name.begin(), ::tolower);
+    WriteCSTR(stream, "    } %s;\n", collection_name.c_str());
+}
+
+
+static void WriteNestedStructs(Stream* stream, const PathNode& node, const std::vector<AssetImporterTraits*>& importers, int indent_level = 1)
+{
+    std::string indent(indent_level * 4, ' ');
+    
+    // Write child directories as nested structs
+    for (const auto& [name, child] : node.children)
+    {
+        WriteCSTR(stream, "%sstruct\n%s{\n", indent.c_str(), indent.c_str());
+        WriteNestedStructs(stream, *child, importers, indent_level + 1);
+        WriteCSTR(stream, "%s} %s;\n", indent.c_str(), name.c_str());
+    }
+    
+    // Write assets as pointers
+    for (const auto& entry : node.assets)
+    {
+        const char* type_name = ToStringFromSignature(entry.signature, importers);
+        if (type_name)
+        {
+            WriteCSTR(stream, "%s%s* %s;\n", indent.c_str(), type_name, entry.var_name.c_str());
+        }
+    }
 }
 
 static void OrganizeAssetsByType(ManifestGenerator* generator)
 {
     auto* stream = generator->manifest_stream;
     
-    std::vector<AssetEntry> textures;
-    std::vector<AssetEntry> meshes;
-    std::vector<AssetEntry> sounds;
-    std::vector<AssetEntry> shaders;
-    std::vector<AssetEntry> materials;
-    std::vector<AssetEntry> fonts;
+    // Build directory tree
+    PathNode root;
     
     for (const auto& entry : generator->asset_entries)
     {
-        switch (ToType(entry.signature))
+        fs::path asset_path(entry.path);
+        PathNode* current = &root;
+        
+        // Navigate/create directory structure
+        auto parent_path = asset_path.parent_path();
+        for (const auto& part : parent_path)
         {
-            case type_texture:
-                textures.push_back(entry);
-                break;
-            case type_mesh:
-                meshes.push_back(entry);
-                break;
-            case type_sound:
-                sounds.push_back(entry);
-                break;
-            case type_shader:
-                shaders.push_back(entry);
-                break;
-            case type_material:
-                materials.push_back(entry);
-                break;
-            case type_font:
-                fonts.push_back(entry);
-                break;
-            default:
-                // Unknown type, skip
-                break;
+            std::string part_str = part.string();
+            if (current->children.find(part_str) == current->children.end())
+            {
+                current->children[part_str] = std::make_unique<PathNode>();
+            }
+            current = current->children[part_str].get();
+        }
+        
+        // Update var_name to just be the filename
+        AssetEntry modified_entry = entry;
+        modified_entry.var_name = PathToVarName(asset_path.filename().replace_extension("").string());
+        
+        // Add asset to the final directory
+        current->assets.push_back(modified_entry);
+    }
+    
+    // Struct definition is now in the header file
+}
+
+static type_t ToTypeFromSignature(asset_signature_t signature, const std::vector<AssetImporterTraits*>& importers)
+{
+    for (const auto* importer : importers)
+    {
+        if (importer && importer->signature == signature)
+        {
+            return importer->type;
         }
     }
-    
-    WriteCSTR(stream, "// @assets\n");
-    WriteCSTR(stream, "struct\n{\n");
-    
-    bool has_any_assets =
-        !textures.empty() ||
-        !meshes.empty() ||
-        !sounds.empty() ||
-        !shaders.empty() ||
-        !materials.empty() ||
-        !fonts.empty();
-    
-    if (has_any_assets)
+    return TYPE_UNKNOWN;
+}
+
+static const char* ToStringFromSignature(asset_signature_t signature, const std::vector<AssetImporterTraits*>& importers)
+{
+    for (const auto* importer : importers)
     {
-        // Generate structures for each asset type
-        WriteAssetTypeStruct(stream, textures, type_texture);
-        WriteAssetTypeStruct(stream, meshes, type_mesh);
-        WriteAssetTypeStruct(stream, sounds, type_sound);
-        WriteAssetTypeStruct(stream, shaders, type_shader);
-        WriteAssetTypeStruct(stream, materials, type_material);
-        WriteAssetTypeStruct(stream, fonts, type_font);
+        if (importer && importer->signature == signature)
+        {
+            return importer->type_name;
+        }
     }
-    else
-    {
-        // Add dummy member to avoid empty struct error
-        WriteCSTR(stream, "    void* _dummy; // Placeholder for empty asset structure\n");
-    }
+    return nullptr;
+}
+
+static void GenerateRendererSetupCalls(ManifestGenerator* generator, Stream* stream)
+{
+    if (!generator->config)
+        return;
     
-    WriteCSTR(stream, "} g_assets;\n\n");
+    // Check if [noz] section exists
+    if (!HasKey(generator->config, "noz"))
+        return;
+        
+    WriteCSTR(stream, "\n    // Setup renderer globals from config\n");
+    
+    // Parse [noz] section
+    // Look for specific renderer globals we support
+    const char* shader_keys[] = {
+        "shadow_shader",
+        "lit_shader", 
+        "default_shader",
+        "ui_shader",
+        "text_shader",
+        "gizmo_shader",
+        nullptr
+    };
+    
+    for (const char** key_ptr = shader_keys; *key_ptr != nullptr; ++key_ptr)
+    {
+        const char* key = *key_ptr;
+        std::string full_key = "noz." + std::string(key);
+        
+        if (HasKey(generator->config, full_key.c_str()))
+        {
+            const char* asset_path = GetString(generator->config, full_key.c_str(), "");
+            if (asset_path && asset_path[0] != '\0')
+            {
+                // Convert asset path to access path (e.g., "shaders/shadow" -> "Assets.shaders.shadow")
+                fs::path path(asset_path);
+                std::string access_path = "Assets";
+                
+                auto parent_path = path.parent_path();
+                for (const auto& part : parent_path)
+                {
+                    access_path += "." + part.string();
+                }
+                
+                std::string var_name = PathToVarName(path.filename().string());
+                access_path += "." + var_name;
+                
+                // Generate appropriate function call based on the key
+                std::string function_name;
+                if (strcmp(key, "shadow_shader") == 0)
+                    function_name = "SetShadowShader";
+                else if (strcmp(key, "lit_shader") == 0)
+                    function_name = "SetLitShader";
+                else if (strcmp(key, "default_shader") == 0)
+                    function_name = "SetDefaultShader";
+                else if (strcmp(key, "ui_shader") == 0)
+                    function_name = "SetUIShader";
+                else if (strcmp(key, "text_shader") == 0)
+                    function_name = "SetTextShader";
+                else if (strcmp(key, "gizmo_shader") == 0)
+                    function_name = "SetGizmoShader";
+                
+                if (!function_name.empty())
+                {
+                    WriteCSTR(stream, "    %s(%s);\n", function_name.c_str(), access_path.c_str());
+                }
+            }
+        }
+    }
 }

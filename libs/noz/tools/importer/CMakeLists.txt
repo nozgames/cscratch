@@ -84,6 +84,8 @@ file(GLOB_RECURSE SOURCE_FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/../common/*.cpp")
 
+# TTF files have been updated to use Stream API and are now included
+
 # Add main importer executable
 add_executable(importer ${SOURCE_FILES})
 

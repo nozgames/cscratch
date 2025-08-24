@@ -4,15 +4,23 @@
 
 #pragma once
 
+namespace std 
+{
+    namespace filesystem 
+    {
+        class path;
+    }
+}
+
 struct Stream : Object {};
 
 // @alloc
 Stream* CreateStream(Allocator* allocator, size_t capacity);
 Stream* LoadStream(Allocator* allocator, uint8_t* data, size_t size);
-Stream* LoadStream(Allocator* allocator, Path* path);
+Stream* LoadStream(Allocator* allocator, const std::filesystem::path& path);
 
 // @file
-bool SaveStream(Stream* stream, Path* path);
+bool SaveStream(Stream* stream, const std::filesystem::path& path);
 
 // @data
 uint8_t* GetData(Stream* stream);

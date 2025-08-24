@@ -15,6 +15,8 @@
 
 using namespace glm;
 
+#include "noz_math.h"
+
 #define VEC3_FORWARD vec3(0, 0, 1)
 #define VEC3_BACKWARD vec3(0, 0, -1)
 #define VEC3_UP vec3(0, 1, 0)

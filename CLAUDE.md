@@ -98,3 +98,9 @@ This allows quick searching with grep/search for specific sections of code.
 - **EXCEPTION**: Files with `// @STL` at the top are allowed to use STL
 - The main engine library uses custom containers and types for better control and performance
 - Tools (like the importer) can freely use STL since they're not part of the runtime engine
+
+## Asset System Migration Notes
+- **Asset signatures** have been converted from `#define NOZ_*_SIG` to `constexpr ASSET_SIGNATURE_*`
+- **No legacy compatibility** - old defines were removed to force clean migration
+- **Fix compiler errors** by updating code to use new `ASSET_SIGNATURE_*` constants
+- **DO NOT add back legacy defines** - update calling code instead

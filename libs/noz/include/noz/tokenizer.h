@@ -55,6 +55,7 @@ bool tokenizer_read_identifier(tokenizer_t* tok, text_t* result);
 bool tokenizer_read_number(tokenizer_t* tok, text_t* result);
 bool tokenizer_read_number_as_float(tokenizer_t* tok, float* result);
 bool tokenizer_read_vec3(tokenizer_t* tok, vec3* result);
+bool tokenizer_read_color(tokenizer_t* tok, color_t* result);
 void tokenizer_skip_line_comment(tokenizer_t* tok);
 bool tokenizer_skip_block_comment(tokenizer_t* tok);
 size_t tokenizer_get_line_number(tokenizer_t* tok);

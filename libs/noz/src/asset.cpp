@@ -6,7 +6,7 @@
 #include "noz/stream.h"
 #include <string.h>
 
-bool ReadAssetHeader(Stream* stream, asset_header_t* header)
+bool ReadAssetHeader(Stream* stream, AssetHeader* header)
 {
     if (!stream || !header) return false;
     
@@ -19,7 +19,7 @@ bool ReadAssetHeader(Stream* stream, asset_header_t* header)
     return !IsEOS(stream);
 }
 
-bool WriteAssetHeader(Stream* stream, asset_header_t* header)
+bool WriteAssetHeader(Stream* stream, AssetHeader* header)
 {
     if (!stream || !header) return false;
     
@@ -32,48 +32,26 @@ bool WriteAssetHeader(Stream* stream, asset_header_t* header)
     return true;
 }
 
-bool ValidateAssetHeader(asset_header_t* header, uint32_t expected_signature)
+bool ValidateAssetHeader(AssetHeader* header, uint32_t expected_signature)
 {
     if (!header) return false;
     return header->signature == expected_signature;
 }
 
-const char* asset_signature_to_string(uint32_t signature)
+type_t ToType(asset_signature_t signature)
 {
-    static char sig_str[5];
-    sig_str[0] = (signature >> 24) & 0xFF;
-    sig_str[1] = (signature >> 16) & 0xFF;
-    sig_str[2] = (signature >> 8) & 0xFF;
-    sig_str[3] = signature & 0xFF;
-    sig_str[4] = '\0';
-    return sig_str;
-}
-
-type_t ToType(uint32_t signature)
-{
-    switch (signature) {
-        case NOZ_TEXTURE_SIG:  return type_texture;
-        case NOZ_MESH_SIG:     return type_mesh;
-        case NOZ_SOUND_SIG:    return type_sound;
-        case NOZ_SHADER_SIG:   return type_shader;
-        case NOZ_MATERIAL_SIG: return type_material;
-        case NOZ_FONT_SIG:     return type_font;
-        default:               return type_unknown;
+    switch (signature)
+    {
+        case ASSET_SIGNATURE_TEXTURE:  return TYPE_TEXTURE;
+        case ASSET_SIGNATURE_MESH:     return TYPE_MESH;
+        case ASSET_SIGNATURE_SOUND:    return TYPE_SOUND;
+        case ASSET_SIGNATURE_SHADER:   return TYPE_SHADER;
+        case ASSET_SIGNATURE_MATERIAL: return TYPE_MATERIAL;
+        case ASSET_SIGNATURE_FONT:     return TYPE_FONT;
+        default:                       return TYPE_UNKNOWN;
     }
 }
 
-const char* ToString(type_t type)
-{
-    switch (type) {
-        case type_texture:  return "texture";
-        case type_mesh:     return "mesh";
-        case type_sound:    return "sound";
-        case type_shader:   return "shader";
-        case type_material: return "material";
-        case type_font:     return "font";
-        default:            return NULL;
-    }
-}
 
 void SetAssetPath(Path* dst, const name_t* name, const char* ext)
 {
@@ -96,4 +74,27 @@ void SetAssetPath(Path* dst, const name_t* name, const char* ext)
     // Append the name and extension
     path_append(dst, name->value);
     path_set_extension(dst, ext);
+}
+
+Stream* LoadAssetStream(Allocator* allocator, const char* asset_name)
+{
+    if (!asset_name)
+        return nullptr;
+    
+    const char* base_path = SDL_GetBasePath();
+    std::filesystem::path asset_path;
+    
+    if (!base_path)
+    {
+        asset_path = "assets";
+    }
+    else
+    {
+        asset_path = base_path;
+        asset_path /= "assets";
+    }
+    
+    asset_path /= asset_name;
+    
+    return LoadStream(allocator, asset_path);
 }

@@ -5,63 +5,54 @@
 
 // @includes
 #include <noz/noz.h>
-#include <memory.h>
+#include "assets.h"
 
 // @constants
-#define ASSET_TOTAL_MEMORY 45708
+#define ASSET_TOTAL_MEMORY 5312332
 
 // @globals
-static arena_allocator_t* g_asset_allocator = NULL;
+static arena_allocator_t* g_asset_allocator = nullptr;
 
 // @assets
-struct
-{
-    struct
-    {
-        Shader* border_effect;
-        Shader* _default;
-        Shader* gamma;
-        Shader* gizmo;
-        Shader* lit;
-        Shader* shadow;
-        Shader* text;
-        Shader* ui;
-        Shader* vignette;
-    } shaders;
-} g_assets;
+Assets Assets = {};
 
 // @init
-bool assets_init(void)
+bool LoadAssets()
 {
-    if (g_asset_allocator != NULL)
+    if (g_asset_allocator != nullptr)
         return false; // Already initialized
 
     g_asset_allocator = arena_allocator_create(ASSET_TOTAL_MEMORY);
     if (!g_asset_allocator)
         return false;
 
-    NOZ_ASSET_LOAD(Shader, "shaders/border_effect", g_assets.shaders.border_effect);
-    NOZ_ASSET_LOAD(Shader, "shaders/default", g_assets.shaders._default);
-    NOZ_ASSET_LOAD(Shader, "shaders/gamma", g_assets.shaders.gamma);
-    NOZ_ASSET_LOAD(Shader, "shaders/gizmo", g_assets.shaders.gizmo);
-    NOZ_ASSET_LOAD(Shader, "shaders/lit", g_assets.shaders.lit);
-    NOZ_ASSET_LOAD(Shader, "shaders/shadow", g_assets.shaders.shadow);
-    NOZ_ASSET_LOAD(Shader, "shaders/text", g_assets.shaders.text);
-    NOZ_ASSET_LOAD(Shader, "shaders/ui", g_assets.shaders.ui);
-    NOZ_ASSET_LOAD(Shader, "shaders/vignette", g_assets.shaders.vignette);
+    NOZ_ASSET_LOAD(Font, "fonts/Roboto-Black", Assets.fonts.roboto_black);
+    NOZ_ASSET_LOAD(Shader, "shaders/border_effect", Assets.shaders.border_effect);
+    NOZ_ASSET_LOAD(Shader, "shaders/default", Assets.shaders._default);
+    NOZ_ASSET_LOAD(Shader, "shaders/gamma", Assets.shaders.gamma);
+    NOZ_ASSET_LOAD(Shader, "shaders/gizmo", Assets.shaders.gizmo);
+    NOZ_ASSET_LOAD(Shader, "shaders/lit", Assets.shaders.lit);
+    NOZ_ASSET_LOAD(Shader, "shaders/shadow", Assets.shaders.shadow);
+    NOZ_ASSET_LOAD(Shader, "shaders/text", Assets.shaders.text);
+    NOZ_ASSET_LOAD(Shader, "shaders/ui", Assets.shaders.ui);
+    NOZ_ASSET_LOAD(Shader, "shaders/vignette", Assets.shaders.vignette);
+    NOZ_ASSET_LOAD(Texture, "textures/grid", Assets.textures.grid);
+    NOZ_ASSET_LOAD(Texture, "textures/icons/meshes/buildings/extractor", Assets.textures.icons.meshes.buildings.extractor);
+    NOZ_ASSET_LOAD(Texture, "textures/icons/meshes/buildings/Stone", Assets.textures.icons.meshes.buildings.stone);
+    NOZ_ASSET_LOAD(Texture, "textures/palette", Assets.textures.palette);
 
     return true;
 }
 
 // @uninit
-void assets_uninit(void)
+void UnloadAssets()
 {
-    if (g_asset_allocator != NULL)
+    if (g_asset_allocator != nullptr)
     {
         arena_allocator_destroy(g_asset_allocator);
-        g_asset_allocator = NULL;
+        g_asset_allocator = nullptr;
         
         // Clear all asset pointers
-        memset(&g_assets, 0, sizeof(g_assets));
+        memset(&Assets, 0, sizeof(Assets));
     }
 }

@@ -14,7 +14,7 @@ struct EntityImpl
 
 static_assert(ENTITY_BASE_SIZE == sizeof(EntityImpl));
 
-static EntityImpl* Impl(Entity* e) { return (EntityImpl*)CastToBase(e, type_entity); }
+static EntityImpl* Impl(Entity* e) { return (EntityImpl*)CastToBase(e, TYPE_ENTITY); }
 
 static void MarkDirty(Entity* entity)
 {
@@ -25,11 +25,11 @@ static void MarkDirty(Entity* entity)
 
 Entity* CreateEntity(Allocator* allocator, size_t entity_size, type_t type_id)
 {
-    EntityImpl* impl = Impl((Entity*)CreateObject(allocator, entity_size, type_id, type_entity));
+    EntityImpl* impl = Impl((Entity*)CreateObject(allocator, entity_size, type_id, TYPE_ENTITY));
     return (Entity*)impl;
 }
 
-vec3 GetPosition(Entity* entity)
+const vec3& GetPosition(Entity* entity)
 {
     GetAllocator(entity);
 
@@ -43,12 +43,12 @@ void entity_set_position(Entity* e, float x, float y, float z)
     MarkDirty(e);
 }
 
-mat4 GetWorldToLocal(Entity* e)
+const mat4& GetWorldToLocal(Entity* e)
 {
-	return Impl(e)->world_to_local;
+    return Impl(e)->world_to_local;
 }
 
-mat4 GetLocalToWorld(Entity* e)
+const mat4& GetLocalToWorld(Entity* e)
 {
     return Impl(e)->local_to_world;
 }

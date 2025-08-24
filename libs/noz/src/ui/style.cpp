@@ -4,174 +4,174 @@
 
 #include <noz/ui.h>
 
-static style_t g_default_style = {
-    .flex_direction = { style_keyword_inherit, flex_direction_row },
-    .width = { style_keyword_inherit, style_length_unit_auto, 0.0f },
-    .height = { style_keyword_inherit, style_length_unit_auto, 0.0f },
-    .background_color = { style_keyword_inherit, {0,0,0,0} },
-    .color = { style_keyword_inherit, {255,255,255,255} },
-    .font_size = { style_keyword_inherit, 16 },
-    .margin_top = { style_keyword_inherit, style_length_unit_fixed, 0.0f },
-    .margin_left = { style_keyword_inherit, style_length_unit_fixed, 0.0f },
-    .margin_bottom = { style_keyword_inherit, style_length_unit_fixed, 0.0f },
-    .margin_right = { style_keyword_inherit, style_length_unit_fixed, 0.0f },
-    .padding_top = { style_keyword_inherit, style_length_unit_fixed, 0.0f },
-    .padding_left = { style_keyword_inherit, style_length_unit_fixed, 0.0f },
-    .padding_bottom = { style_keyword_inherit, style_length_unit_fixed, 0.0f },
-    .padding_right = { style_keyword_inherit, style_length_unit_fixed, 0.0f }
+static Style g_default_style = {
+    .flex_direction = { STYLE_KEYWORD_INHERIT, FLEX_DIRECTION_ROW },
+    .width = { STYLE_KEYWORD_INHERIT, STYLE_LENGTH_UNIT_AUTO, 0.0f },
+    .height = { STYLE_KEYWORD_INHERIT, STYLE_LENGTH_UNIT_AUTO, 0.0f },
+    .background_color = { STYLE_KEYWORD_INHERIT, {0,0,0,0} },
+    .color = { STYLE_KEYWORD_INHERIT, {255,255,255,255} },
+    .font_size = { STYLE_KEYWORD_INHERIT, 16 },
+    .margin_top = { STYLE_KEYWORD_INHERIT, STYLE_LENGTH_UNIT_FIXED, 0.0f },
+    .margin_left = { STYLE_KEYWORD_INHERIT, STYLE_LENGTH_UNIT_FIXED, 0.0f },
+    .margin_bottom = { STYLE_KEYWORD_INHERIT, STYLE_LENGTH_UNIT_FIXED, 0.0f },
+    .margin_right = { STYLE_KEYWORD_INHERIT, STYLE_LENGTH_UNIT_FIXED, 0.0f },
+    .padding_top = { STYLE_KEYWORD_INHERIT, STYLE_LENGTH_UNIT_FIXED, 0.0f },
+    .padding_left = { STYLE_KEYWORD_INHERIT, STYLE_LENGTH_UNIT_FIXED, 0.0f },
+    .padding_bottom = { STYLE_KEYWORD_INHERIT, STYLE_LENGTH_UNIT_FIXED, 0.0f },
+    .padding_right = { STYLE_KEYWORD_INHERIT, STYLE_LENGTH_UNIT_FIXED, 0.0f }
 };
  
 
-static bool style_deserialize_parameter(Stream* stream, style_parameter_t* value)
+static bool DeserializeStyleParameter(Stream* stream, StyleParameter* value)
 {
-    value->keyword = (style_keyword_t)ReadU8(stream);
-    return value->keyword == style_keyword_overwrite;
+    value->keyword = (StyleKeyword)ReadU8(stream);
+    return value->keyword == STYLE_KEYWORD_OVERWRITE;
 }
 
 #if 0 // not used yet
-static void style_deserialize_bool(Stream* stream, style_bool_t* value)
+static void style_deserialize_bool(Stream* stream, StyleBool* value)
 {
-    if (!style_deserialize_parameter(stream, (style_parameter_t*)value))
+    if (!DeserializeStyleParameter(stream, (StyleParameter*)value))
         return;
 
     value->value = ReadBool(stream);
 }
-static void style_deserialize_float(Stream* stream, style_float_t* value)
+static void style_deserialize_float(Stream* stream, StyleFloat* value)
 {
-    if (!style_deserialize_parameter(stream, (style_parameter_t*)value))
+    if (!DeserializeStyleParameter(stream, (StyleParameter*)value))
         return;
     value->value = ReadFloat(stream);
 }
 #endif
 
-static void style_deserialize_int(Stream* stream, style_int_t* value)
+static void DeserializeParameter(Stream* stream, StyleInt* value)
 {
-    if (!style_deserialize_parameter(stream, (style_parameter_t*)value))
+    if (!DeserializeStyleParameter(stream, (StyleParameter*)value))
         return;
     value->value = ReadI32(stream);
 }
 
-static void style_deserialize_color(Stream* stream, style_color_t* value)
+static void DeserializeParameter(Stream* stream, StyleColor* value)
 {
-    if (!style_deserialize_parameter(stream, (style_parameter_t*)value))
+    if (!DeserializeStyleParameter(stream, (StyleParameter*)value))
         return;
     value->value = ReadColor(stream);
 }
 
-static void style_deserialize_flex_direction(Stream* stream, style_flex_direction_t* value)
+static void DeserializeParameter(Stream* stream, StyleFlexDirection* value)
 {
-    if (!style_deserialize_parameter(stream, (style_parameter_t*)value))
+    if (!DeserializeStyleParameter(stream, (StyleParameter*)value))
         return;
-    value->value = (flex_direction_t)ReadU8(stream);
+    value->value = (FlexDirection)ReadU8(stream);
 }
 
-static void style_deserialize_length(Stream* stream, style_length_t* value)
+static void DeserializeParameter(Stream* stream, StyleLength* value)
 {
-    if (!style_deserialize_parameter(stream, (style_parameter_t*)value))
+    if (!DeserializeStyleParameter(stream, (StyleParameter*)value))
         return;
 
-    value->unit = (style_length_unit_t)ReadU8(stream);
+    value->unit = (StyleLengthUnit)ReadU8(stream);
     value->value = ReadFloat(stream);
 }
 
-void style_deserialize_into(Stream* stream, style_t* style)
+void DeserializeStyle(Stream* stream, Style* style)
 {
-    style_deserialize_flex_direction(stream, &style->flex_direction);
-    style_deserialize_length(stream, &style->width);
-    style_deserialize_length(stream, &style->height);
-    style_deserialize_color(stream, &style->background_color);
-    style_deserialize_color(stream, &style->color);
-    style_deserialize_int(stream, &style->font_size);
-    style_deserialize_length(stream, &style->margin_top);
-    style_deserialize_length(stream, &style->margin_left);
-    style_deserialize_length(stream, &style->margin_bottom);
-    style_deserialize_length(stream, &style->margin_right);
-    style_deserialize_length(stream, &style->padding_top);
-    style_deserialize_length(stream, &style->padding_left);
-    style_deserialize_length(stream, &style->padding_bottom);
-    style_deserialize_length(stream, &style->padding_right);
+    DeserializeParameter(stream, &style->flex_direction);
+    DeserializeParameter(stream, &style->width);
+    DeserializeParameter(stream, &style->height);
+    DeserializeParameter(stream, &style->background_color);
+    DeserializeParameter(stream, &style->color);
+    DeserializeParameter(stream, &style->font_size);
+    DeserializeParameter(stream, &style->margin_top);
+    DeserializeParameter(stream, &style->margin_left);
+    DeserializeParameter(stream, &style->margin_bottom);
+    DeserializeParameter(stream, &style->margin_right);
+    DeserializeParameter(stream, &style->padding_top);
+    DeserializeParameter(stream, &style->padding_left);
+    DeserializeParameter(stream, &style->padding_bottom);
+    DeserializeParameter(stream, &style->padding_right);
 }
 
-style_t style_deserialize(Stream* stream)
+Style DeserializeStyle(Stream* stream)
 {
-    style_t style = {};
-    style_deserialize_into(stream, &style);
+    Style style = {};
+    DeserializeStyle(stream, &style);
     return style;
 }
 
-static bool style_serialize_parameter(Stream* stream, style_parameter_t* value)
+static bool SerializeParameter(Stream* stream, StyleParameter* value)
 {
     WriteU8(stream, value->keyword);
-    return value->keyword == style_keyword_overwrite;
+    return value->keyword == STYLE_KEYWORD_OVERWRITE;
 }
 
-static void style_serialize_int(Stream* stream, const style_int_t* value)
+static void SerializeParameter(Stream* stream, const StyleInt* value)
 {
-    if (!style_serialize_parameter(stream, (style_parameter_t*)value))
+    if (!SerializeParameter(stream, (StyleParameter*)value))
         return;
     WriteI32(stream, value->value);
 }
 
 #if 0
 
-static void style_serialize_bool(Stream* stream, const style_bool_t* value)
+static void style_serialize_bool(Stream* stream, const StyleBool* value)
 {
-    if (!style_serialize_parameter(stream, (style_parameter_t*)value))
+    if (!SerializeParameter(stream, (StyleParameter*)value))
         return;
     WriteBool(stream, value->value);
 }
 
-static void style_serialize_float(Stream* stream, const style_float_t* value)
+static void style_serialize_float(Stream* stream, const StyleFloat* value)
 {
-    if (!style_serialize_parameter(stream, (style_parameter_t*)value))
+    if (!SerializeParameter(stream, (StyleParameter*)value))
         return;
     WriteFloat(stream, value->value);
 }
 
 #endif
 
-static void style_serialize_color(Stream* stream, const style_color_t* value)
+static void SerializeParameter(Stream* stream, const StyleColor* value)
 {
-    if (!style_serialize_parameter(stream, (style_parameter_t*)value))
+    if (!SerializeParameter(stream, (StyleParameter*)value))
         return;
     WriteColor(stream, value->value);
 }
 
-static void style_serialize_flex_direction(Stream* stream, const style_flex_direction_t* value)
+static void SerializeParameter(Stream* stream, const StyleFlexDirection* value)
 {
-    if (!style_serialize_parameter(stream, (style_parameter_t*)value))
+    if (!SerializeParameter(stream, (StyleParameter*)value))
         return;
     WriteU8(stream, (uint8_t)value->value);
 }
 
-static void style_serialize_length(Stream* stream, const style_length_t* value)
+static void SerializeParameter(Stream* stream, const StyleLength* value)
 {
-    if (!style_serialize_parameter(stream, (style_parameter_t*)value))
+    if (!SerializeParameter(stream, (StyleParameter*)value))
         return;
 
     WriteU8(stream, (uint8_t)value->unit);
     WriteFloat(stream, value->value);
 }
 
-void style_serialize(const style_t* style, Stream* stream)
+void SerializeStyle(const Style* style, Stream* stream)
 {
-    style_serialize_flex_direction(stream, &style->flex_direction);
-    style_serialize_length(stream, &style->width);
-    style_serialize_length(stream, &style->height);
-    style_serialize_color(stream, &style->background_color);
-    style_serialize_color(stream, &style->color);
-    style_serialize_int(stream, &style->font_size);
-    style_serialize_length(stream, &style->margin_top);
-    style_serialize_length(stream, &style->margin_left);
-    style_serialize_length(stream, &style->margin_bottom);
-    style_serialize_length(stream, &style->margin_right);
-    style_serialize_length(stream, &style->padding_top);
-    style_serialize_length(stream, &style->padding_left);
-    style_serialize_length(stream, &style->padding_bottom);
-    style_serialize_length(stream, &style->padding_right);
+    SerializeParameter(stream, &style->flex_direction);
+    SerializeParameter(stream, &style->width);
+    SerializeParameter(stream, &style->height);
+    SerializeParameter(stream, &style->background_color);
+    SerializeParameter(stream, &style->color);
+    SerializeParameter(stream, &style->font_size);
+    SerializeParameter(stream, &style->margin_top);
+    SerializeParameter(stream, &style->margin_left);
+    SerializeParameter(stream, &style->margin_bottom);
+    SerializeParameter(stream, &style->margin_right);
+    SerializeParameter(stream, &style->padding_top);
+    SerializeParameter(stream, &style->padding_left);
+    SerializeParameter(stream, &style->padding_bottom);
+    SerializeParameter(stream, &style->padding_right);
 }
 
-void style_merge(style_t* dst, const style_t* src)
+void MergeStyles(Style* dst, const Style* src)
 {
 #define STYLE_MERGE(n) if (src->n.parameter.keyword >= dst->n.parameter.keyword) dst->n = src->n
     STYLE_MERGE(flex_direction);

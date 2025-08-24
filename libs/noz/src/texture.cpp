@@ -29,7 +29,7 @@ int GetBytesPerPixel(TextureFormat format);
 
 static TextureImpl* Impl(Texture* t)
 {
-    return (TextureImpl*)Cast((Object*)t, type_texture);
+    return (TextureImpl*)Cast((Object*)t, TYPE_TEXTURE);
 }
 
 SDL_GPUTextureFormat ToSDL(const TextureFormat format)
@@ -60,7 +60,7 @@ Texture* LoadTexture(Allocator* allocator, const name_t* name)
         return texture;
 
     // Create new texture
-    texture = (Texture*)CreateObject(allocator, sizeof(TextureImpl), type_texture);
+    texture = (Texture*)CreateObject(allocator, sizeof(TextureImpl), TYPE_TEXTURE);
     if (!texture)
         return nullptr;
 
@@ -97,7 +97,7 @@ Texture* CreateTexture(Allocator* allocator, int width, int height, TextureForma
     assert(name);
     assert(g_device);
 
-    auto* texture = (Texture*)CreateObject(allocator, sizeof(TextureImpl), type_texture);
+    auto* texture = (Texture*)CreateObject(allocator, sizeof(TextureImpl), TYPE_TEXTURE);
     if (!texture)
         return nullptr;
 
@@ -135,7 +135,7 @@ Texture* CreateTexture(
     assert(data);
     assert(name);
 
-    auto* texture = (Texture*)CreateObject(allocator, sizeof(TextureImpl), type_texture);
+    auto* texture = (Texture*)CreateObject(allocator, sizeof(TextureImpl), TYPE_TEXTURE);
     if (!texture)
         return nullptr;
 
@@ -321,9 +321,8 @@ static void CreateTexture(TextureImpl* impl, void* data, size_t width, size_t he
 
 static void LoadTexture(Allocator* allocator, TextureImpl* impl)
 {
-    Path texture_path;
-    SetAssetPath(&texture_path, &impl->name, "texture");
-    Stream* stream = LoadStream(allocator, &texture_path);
+    std::string asset_name = std::string(impl->name.value) + ".texture";
+    Stream* stream = LoadAssetStream(allocator, asset_name.c_str());
     if (!stream)
         return;
 

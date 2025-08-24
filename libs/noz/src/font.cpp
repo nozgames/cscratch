@@ -37,7 +37,7 @@ struct FontImpl
 static Map* g_font_cache = nullptr;
 static SDL_GPUDevice* g_device = nullptr;
 
-inline FontImpl* Impl(Font* f) { return (FontImpl*)Cast(f, type_font); }
+inline FontImpl* Impl(Font* f) { return (FontImpl*)Cast(f, TYPE_FONT); }
 
 #if 0
 static void font_destroy_impl(FontImpl* impl)
@@ -67,7 +67,7 @@ Font* LoadFont(Allocator* allocator, Stream* stream, name_t* name)
         return nullptr;
     }
 
-    auto* impl = (FontImpl*)CreateObject(allocator, sizeof(FontImpl), type_font);
+    auto* impl = (FontImpl*)CreateObject(allocator, sizeof(FontImpl), TYPE_FONT);
     if (!impl)
         return nullptr;
 
@@ -183,9 +183,9 @@ Font* LoadFont(Allocator* allocator, name_t* name)
     if (font)
         return font;
 
-    Path font_path;
-    SetAssetPath(&font_path, name, "font");
-    Stream* stream = LoadStream(nullptr, &font_path);
+    // Build asset name with extension
+    std::string asset_name = std::string(name->value) + ".font";
+    Stream* stream = LoadAssetStream(allocator, asset_name.c_str());
     if (!stream)
         return nullptr;
 

@@ -24,31 +24,18 @@ struct MapImpl
 
 static MapImpl* Impl(const void* m)
 {
-    return (MapImpl*)Cast((Object*)m, type_map);
+    return (MapImpl*)Cast((Object*)m, TYPE_MAP);
 }
 
-static size_t map_next_power_of_2(size_t n)
-{
-    if (n <= 1)
-        return 2;
-    n--;
-    n |= n >> 1;
-    n |= n >> 2;
-    n |= n >> 4;
-    n |= n >> 8;
-    n |= n >> 16;
-    n |= n >> 32;
-    return n + 1;
-}
 
 Map* CreateMap(Allocator* allocator, size_t capacity)
 {
     if (capacity == 0)
         capacity = 16;
-    capacity = map_next_power_of_2(capacity);
+    capacity = noz::NextPowerOf2(capacity);
 
     size_t total_size = sizeof(MapImpl) + sizeof(MapEntry) * capacity;
-    MapImpl* impl = Impl(CreateObject(allocator, total_size, type_map));
+    MapImpl* impl = Impl(CreateObject(allocator, total_size, TYPE_MAP));
     if (!impl)
         return NULL;
 

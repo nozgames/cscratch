@@ -22,7 +22,7 @@ static SDL_GPUDevice* g_device = nullptr;
 
 static void UploadMesh(MeshImpl* impl);
 static void mesh_destroy_impl(MeshImpl* impl);
-static MeshImpl* Impl(void* s) { return (MeshImpl*)Cast((Object*)s, type_mesh); }
+static MeshImpl* Impl(void* s) { return (MeshImpl*)Cast((Object*)s, TYPE_MESH); }
 
 inline size_t GetMeshImplSize(size_t vertex_count, size_t index_count)
 {
@@ -34,7 +34,7 @@ inline size_t GetMeshImplSize(size_t vertex_count, size_t index_count)
 
 static Mesh* CreateMesh(Allocator* allocator, name_t* name, size_t vertex_count, size_t index_count)
 {
-    MeshImpl* impl = Impl(CreateObject(allocator, GetMeshImplSize(vertex_count, index_count), type_mesh));
+    MeshImpl* impl = Impl(CreateObject(allocator, GetMeshImplSize(vertex_count, index_count), TYPE_MESH));
     if (!impl)
         return nullptr;
 
@@ -121,9 +121,8 @@ Mesh* mesh_load(Allocator* allocator, name_t* name)
 {
     assert(name);
     
-    Path mesh_path;
-    SetAssetPath(&mesh_path, name, "mesh");
-    auto stream = LoadStream(allocator, &mesh_path);
+    std::string asset_name = std::string(name->value) + ".mesh";
+    auto stream = LoadAssetStream(allocator, asset_name.c_str());
     if (!stream)
         return nullptr;
 
