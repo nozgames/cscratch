@@ -5,7 +5,7 @@
 struct MeshImpl 
 {
     OBJECT_BASE;
-	name_t name;
+    name_t name;
     size_t vertex_count;
     size_t index_count;
     SDL_GPUBuffer* vertex_buffer;
@@ -32,7 +32,7 @@ inline size_t GetMeshImplSize(size_t vertex_count, size_t index_count)
         sizeof(uint16_t) * index_count;
 }
 
-static Mesh* AllocMesh(Allocator* allocator, name_t* name, size_t vertex_count, size_t index_count)
+static Mesh* CreateMesh(Allocator* allocator, name_t* name, size_t vertex_count, size_t index_count)
 {
     MeshImpl* impl = Impl(Alloc(allocator, GetMeshImplSize(vertex_count, index_count), type_mesh));
     if (!impl)
@@ -46,15 +46,15 @@ static Mesh* AllocMesh(Allocator* allocator, name_t* name, size_t vertex_count, 
     return (Mesh*)impl;
 }
 
-Mesh* AllocMesh(
+Mesh* CreateMesh(
     Allocator* allocator,
     size_t vertex_count,
     vec3* positions,
     vec3* normals,
     vec2* uvs,
-    uint8_t* bone_indices,
+    u8* bone_indices,
     size_t index_count,
-    uint16_t* indices,
+    u16* indices,
     name_t* name)
 {
     assert(positions);
@@ -62,7 +62,7 @@ Mesh* AllocMesh(
     assert(uvs);
     assert(indices);
 
-    auto mesh = AllocMesh(allocator, name, vertex_count, index_count);
+    auto mesh = CreateMesh(allocator, name, vertex_count, index_count);
     auto impl = Impl(mesh);
     impl->bounds = to_bounds(positions, vertex_count);
 
@@ -105,7 +105,7 @@ static Mesh* LoadMesh(Allocator* allocator, name_t* name, Stream* stream)
     auto vertex_count = ReadU32(stream);
     auto index_count = ReadU32(stream);
 
-    auto mesh = AllocMesh(allocator, name, vertex_count, index_count);
+    auto mesh = CreateMesh(allocator, name, vertex_count, index_count);
     if (!mesh)
         return nullptr;
 
@@ -128,7 +128,7 @@ Mesh* mesh_load(Allocator* allocator, name_t* name)
         return nullptr;
 
     auto mesh = LoadMesh(allocator, name, stream);
-    Free(stream);
+    FreeObject(stream);
 
     if (!mesh)
         return nullptr;
@@ -261,13 +261,13 @@ void InitMesh(RendererTraits* traits, SDL_GPUDevice* device)
 {
     assert(!g_mesh_cache);
     g_device = device;
-    g_mesh_cache = AllocMap(nullptr, traits->max_meshes);
+    g_mesh_cache = CreateMap(nullptr, traits->max_meshes);
 }
 
 void ShutdownMesh()
 {
     assert(g_mesh_cache);
-    Free(g_mesh_cache);
+    FreeObject(g_mesh_cache);
     g_mesh_cache = nullptr;
     g_device = nullptr;
 }

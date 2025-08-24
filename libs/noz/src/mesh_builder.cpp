@@ -19,7 +19,7 @@ typedef struct mesh_builder_impl
     bool is_full;
 } mesh_builder_impl_t;
 
-MeshBuilder* AllocMeshBuilder(Allocator* allocator, int max_vertices, int max_indices)
+MeshBuilder* CreateMeshBuilder(Allocator* allocator, int max_vertices, int max_indices)
 {
 	mesh_builder_impl_t* impl = to_impl(Alloc(allocator, sizeof(mesh_builder_impl_t), type_mesh_builder));
     if (!impl)
@@ -31,11 +31,11 @@ MeshBuilder* AllocMeshBuilder(Allocator* allocator, int max_vertices, int max_in
     impl->index_count = 0;
     
     // Allocate arrays
-    impl->positions = (vec3*)allocator_alloc(allocator, sizeof(vec3) * max_vertices);
-    impl->normals = (vec3*)allocator_alloc(allocator, sizeof(vec3) * max_vertices);
-    impl->uv0 = (vec2*)allocator_alloc(allocator, sizeof(vec2) * max_vertices);
-    impl->bones = (uint8_t*)allocator_alloc(allocator, sizeof(uint8_t) * max_vertices);
-    impl->indices = (uint16_t*)allocator_alloc(allocator, sizeof(uint16_t) * max_indices);
+    impl->positions = (vec3*)Alloc(allocator, sizeof(vec3) * max_vertices);
+    impl->normals = (vec3*)Alloc(allocator, sizeof(vec3) * max_vertices);
+    impl->uv0 = (vec2*)Alloc(allocator, sizeof(vec2) * max_vertices);
+    impl->bones = (uint8_t*)Alloc(allocator, sizeof(uint8_t) * max_vertices);
+    impl->indices = (uint16_t*)Alloc(allocator, sizeof(uint16_t) * max_indices);
     
     if (!impl->positions || !impl->normals || !impl->uv0 || !impl->bones || !impl->indices) {
         free(impl->positions);
@@ -43,7 +43,7 @@ MeshBuilder* AllocMeshBuilder(Allocator* allocator, int max_vertices, int max_in
         free(impl->uv0);
         free(impl->bones);
         free(impl->indices);
-        Free((MeshBuilder*)impl);
+        FreeObject((MeshBuilder*)impl);
         return NULL;
     }
     
@@ -67,7 +67,7 @@ void mesh_builder_destroy(MeshBuilder* builder)
 }
 #endif
 
-void mesh_builder_clear(MeshBuilder* builder)
+void Clear(MeshBuilder* builder)
 {
     if (!builder) return;
     
@@ -76,37 +76,37 @@ void mesh_builder_clear(MeshBuilder* builder)
     impl->index_count = 0;
 }
 
-vec3* mesh_builder_positions(MeshBuilder* builder)
+vec3* GetPositions(MeshBuilder* builder)
 {
     return to_impl(builder)->positions;
 }
 
-vec3* mesh_builder_normals(MeshBuilder* builder)
+vec3* GetNormals(MeshBuilder* builder)
 {
     return to_impl(builder)->normals;
 }
 
-vec2* mesh_builder_uv0(MeshBuilder* builder)
+vec2* GetUvs(MeshBuilder* builder)
 {
     return to_impl(builder)->uv0;
 }
 
-uint8_t* mesh_builder_bones(MeshBuilder* builder)
+uint8_t* GetBoneIndices(MeshBuilder* builder)
 {
     return to_impl(builder)->bones;
 }
 
-uint16_t* mesh_builder_indices(MeshBuilder* builder)
+uint16_t* GetIndices(MeshBuilder* builder)
 {
     return to_impl(builder)->indices;
 }
 
-size_t mesh_builder_vertex_count(MeshBuilder* builder)
+size_t GetVertexCount(MeshBuilder* builder)
 {
     return to_impl(builder)->vertex_count;
 }
 
-size_t mesh_builder_index_count(MeshBuilder* builder)
+size_t GetIndexCount(MeshBuilder* builder)
 {
     return to_impl(builder)->index_count;
 }
@@ -131,7 +131,7 @@ void mesh_builder_add_vertex(
 	impl->bones[index] = bone_index;
 }
 
-void mesh_builder_add_index(MeshBuilder* builder, uint16_t index)
+void AddIndex(MeshBuilder* builder, uint16_t index)
 {
     mesh_builder_impl_t* impl = to_impl(builder);
     impl->is_full = impl->is_full && impl->index_count + 1 >= impl->index_max;
@@ -142,7 +142,7 @@ void mesh_builder_add_index(MeshBuilder* builder, uint16_t index)
     impl->index_count++;    
 }
 
-void mesh_builder_add_triangle_indices(MeshBuilder* builder, uint16_t a, uint16_t b, uint16_t c)
+void AddTriangle(MeshBuilder* builder, uint16_t a, uint16_t b, uint16_t c)
 {
     mesh_builder_impl_t* impl = to_impl(builder);
     impl->is_full = impl->is_full && impl->index_count + 3 >= impl->index_max;
@@ -155,7 +155,7 @@ void mesh_builder_add_triangle_indices(MeshBuilder* builder, uint16_t a, uint16_
     impl->index_count+=3;
 }
 
-void mesh_builder_add_triangle(
+void AddTriangle(
     MeshBuilder* builder,
     vec3 a,
     vec3 b,
@@ -172,10 +172,10 @@ void mesh_builder_add_triangle(
     mesh_builder_add_vertex(builder, a, normal, { 0.0f, 0.0f }, bone_index);
     mesh_builder_add_vertex(builder, a, normal, { 1.0f, 0.0f }, bone_index);
     mesh_builder_add_vertex(builder, a, normal, { 0.5f, 1.0f }, bone_index);
-    mesh_builder_add_triangle_indices(builder, vertex_index, vertex_index + 1, vertex_index + 2);
+    AddTriangle(builder, vertex_index, vertex_index + 1, vertex_index + 2);
 }
 
-void mesh_builder_add_quad(
+void AddQuad(
     MeshBuilder* builder,
     vec3 forward,
     vec3 right,
@@ -192,10 +192,10 @@ void mesh_builder_add_quad(
     vec3 b = forward - right;
     vec3 c = right - forward;
     vec3 d = (right * -1.0f) - forward;
-    mesh_builder_add_quad_points(builder, a, b, c, d, color_uv, normal, 0);
+    AddQuad(builder, a, b, c, d, color_uv, normal, 0);
 }
 
-void mesh_builder_add_quad_points(
+void AddQuad(
     MeshBuilder* builder,
     vec3 a,
     vec3 b,
@@ -214,12 +214,12 @@ void mesh_builder_add_quad_points(
     mesh_builder_add_vertex(builder, d, normal, uv_color, bone_index);
 
     // Add triangles
-    mesh_builder_add_triangle_indices(builder, base_index, base_index + 1, base_index + 2);
-    mesh_builder_add_triangle_indices(builder, base_index, base_index + 2, base_index + 3);
+    AddTriangle(builder, base_index, base_index + 1, base_index + 2);
+    AddTriangle(builder, base_index, base_index + 2, base_index + 3);
 }
 
 
-void mesh_builder_add_pyramid(MeshBuilder* builder, vec3 start, vec3 end, float size, uint8_t bone_index)
+void AddPyramid(MeshBuilder* builder, vec3 start, vec3 end, float size, uint8_t bone_index)
 {
 #if 0
     // Calculate direction and create base
@@ -241,28 +241,28 @@ void mesh_builder_add_pyramid(MeshBuilder* builder, vec3 start, vec3 end, float 
 	vec3 right_sub_up = vec3_sub(right, up);
 	vec3 right_add_up = vec3_add(right, up);
 
-    mesh_builder_add_triangle(
+    AddTriangle(
         builder,
         vec3_add(start, right_add_up),
         vec3_add(start, right_sub_up),
         end,
         bone_index);
 
-    mesh_builder_add_triangle(
+    AddTriangle(
         builder,
         vec3_sub(start, right_add_up),
         vec3_add(start, right_add_up),
         end,
         bone_index);
 
-    mesh_builder_add_triangle(
+    AddTriangle(
         builder,
         vec3_sub(start, right_sub_up),
         vec3_sub(start, right_add_up),
         end,
         bone_index);
 
-    mesh_builder_add_triangle(
+    AddTriangle(
         builder,
         vec3_add(start, right_sub_up),
         vec3_sub(start, right_sub_up),
@@ -271,7 +271,7 @@ void mesh_builder_add_pyramid(MeshBuilder* builder, vec3 start, vec3 end, float 
 #endif
 }
 
-void mesh_builder_add_raw(
+void AddRaw(
     MeshBuilder* builder,
     size_t vertex_count,
     vec3* positions,
@@ -301,7 +301,7 @@ void mesh_builder_add_raw(
 	}
 }
 
-void mesh_builder_add_cube(MeshBuilder* builder, vec3 center, vec3 size, uint8_t bone_index)
+void AddCube(MeshBuilder* builder, vec3 center, vec3 size, uint8_t bone_index)
 {
 #if 0
 	mesh_builder_impl_t* impl = to_impl(builder);
@@ -663,11 +663,11 @@ void mesh_builder::add_cone(
 }
 #endif
 
-Mesh* AllocMesh(Allocator* allocator, MeshBuilder* builder, name_t* name)
+Mesh* CreateMesh(Allocator* allocator, MeshBuilder* builder, name_t* name)
 {
     assert(builder);
 	mesh_builder_impl_t* impl = to_impl(builder);
-    return AllocMesh(
+    return CreateMesh(
         allocator,
 		impl->vertex_count,
         impl->positions,

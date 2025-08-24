@@ -4,33 +4,33 @@
 #pragma once
 
 // @allocator
-typedef struct allocator
+struct Allocator
 {
-	void* (*alloc)(struct allocator*, size_t size);
-	void (*free)(struct allocator*, void* ptr);
-	void* (*realloc)(struct allocator*, void* ptr, size_t new_size);
-} Allocator;
+    void* (*alloc)(Allocator*, size_t size);
+    void (*free)(Allocator*, void* ptr);
+    void* (*realloc)(Allocator*, void* ptr, size_t new_size);
+};
 
 // @allocator
 extern Allocator* g_default_allocator;
 
-inline void* allocator_alloc(Allocator* a, size_t size)
+inline void* Alloc(Allocator* a, size_t size)
 {
-	return (a == NULL ? g_default_allocator : a)->alloc(a, size);
+    return (a == nullptr ? g_default_allocator : a)->alloc(a, size);
 }
 
-inline void allocator_free(Allocator* a, void* ptr)
+inline void Free(Allocator* a, void* ptr)
 {
-	(a == NULL ? g_default_allocator : a)->free(a, ptr);
+    (a == nullptr ? g_default_allocator : a)->free(a, ptr);
 }
 
-inline void* allocator_realloc(Allocator* a, void* ptr, size_t new_size)
+inline void* Realloc(Allocator* a, void* ptr, size_t new_size)
 {
-	return (a == NULL ? g_default_allocator : a)->realloc(a, ptr, new_size);
+    return (a == nullptr ? g_default_allocator : a)->realloc(a, ptr, new_size);
 }
 
 // @arena
-typedef struct allocator arena_allocator_t;
+typedef Allocator arena_allocator_t;
 
 arena_allocator_t* arena_allocator_create(size_t size);
 void* arena_allocator_alloc(arena_allocator_t* a, size_t size);

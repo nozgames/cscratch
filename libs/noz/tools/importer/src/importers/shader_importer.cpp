@@ -2,63 +2,63 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-static char* PreprocessStageDirectives(char* source, char* stage)
-{
-    size_t len = strlen(source);
-    char* result = (char*)malloc(len + 1);
-    if (!result) return NULL;
-    
-    strcpy(result, source);
-    return result;
-}
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <iostream>
+#include <cstring>
+
+namespace fs = std::filesystem;
 
 static bool CompileAndWriteShader(
-    const char* vertex_source,
-    const char* fragment_source,
+    const std::string& vertex_source,
+    const std::string& fragment_source,
     Stream* output_stream,
-    Path* include_dir)
+    const fs::path& include_dir)
 {
     // Make sure include directory is absolute
-    Path absolute_include_dir;
-    path_make_absolute(&absolute_include_dir, include_dir);
+    fs::path absolute_include_dir = fs::absolute(include_dir);
+    std::string include_dir_str = absolute_include_dir.string();
     
     // Setup HLSL info for vertex shader
-    SDL_ShaderCross_HLSL_Info vertex_info = {
-        .source = vertex_source,
-        .entrypoint = "vs",  // Vertex shader entry point
-        .include_dir = absolute_include_dir.value,
-        .shader_stage = SDL_SHADERCROSS_SHADERSTAGE_VERTEX,
-        .enable_debug = false
-    };
+    SDL_ShaderCross_HLSL_Info vertex_info = {};
+    vertex_info.source = vertex_source.c_str();
+    vertex_info.entrypoint = "vs";  // Vertex shader entry point
+    vertex_info.include_dir = include_dir_str.c_str();
+    vertex_info.shader_stage = SDL_SHADERCROSS_SHADERSTAGE_VERTEX;
+    vertex_info.enable_debug = false;
     
     // Compile vertex shader to SPIRV
     size_t vertex_spirv_size = 0;
     void* vertex_spirv = SDL_ShaderCross_CompileSPIRVFromHLSL(&vertex_info, &vertex_spirv_size);
-    if (!vertex_spirv) {
-        printf("Failed to compile vertex shader: %s\n", SDL_GetError());
+    if (!vertex_spirv)
+    {
+        std::cerr << "Failed to compile vertex shader: " << SDL_GetError() << std::endl;
         return false;
     }
     
     // Setup HLSL info for fragment shader
-    SDL_ShaderCross_HLSL_Info fragment_info = {
-        .source = fragment_source,
-        .entrypoint = "ps",  // Pixel/fragment shader entry point
-        .include_dir = absolute_include_dir.value,  // Set include directory for shader includes
-        .shader_stage = SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT,
-        .enable_debug = false
-    };
+    SDL_ShaderCross_HLSL_Info fragment_info = {};
+    fragment_info.source = fragment_source.c_str();
+    fragment_info.entrypoint = "ps";  // Pixel/fragment shader entry point
+    fragment_info.include_dir = include_dir_str.c_str();
+    fragment_info.shader_stage = SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT;
+    fragment_info.enable_debug = false;
     
     // Compile fragment shader to SPIRV
     size_t fragment_spirv_size = 0;
     void* fragment_spirv = SDL_ShaderCross_CompileSPIRVFromHLSL(&fragment_info, &fragment_spirv_size);
-    if (!fragment_spirv) {
-        printf("Failed to compile fragment shader: %s\n", SDL_GetError());
+    if (!fragment_spirv)
+    {
+        std::cerr << "Failed to compile fragment shader: " << SDL_GetError() << std::endl;
         SDL_free(vertex_spirv);
         return false;
     }
     
     // For now, we'll just use the SPIRV bytecode directly
-    // In a real implementation, we'd compile to the target platform (DXBC, DXIL, MSL, etc.)
     size_t vertex_size = vertex_spirv_size;
     size_t fragment_size = fragment_spirv_size;
     void* vertex_bytecode = vertex_spirv;
@@ -68,12 +68,11 @@ static bool CompileAndWriteShader(
     uint32_t runtime_size = (uint32_t)(vertex_size + fragment_size + 64); // Add overhead
     
     // Write asset header
-    asset_header_t header = {
-        .signature = NOZ_SHADER_SIG,
-        .runtime_size = runtime_size,
-        .version = 1,
-        .flags = 0
-    };
+    asset_header_t header = {};
+    header.signature = NOZ_SHADER_SIG;
+    header.runtime_size = runtime_size;
+    header.version = 1;
+    header.flags = 0;
     WriteAssetHeader(output_stream, &header);
     
     // Write SHDR signature for shader-specific data
@@ -82,9 +81,9 @@ static bool CompileAndWriteShader(
     
     // Write bytecode sizes and data
     WriteU32(output_stream, (uint32_t)vertex_size);
-    WriteBytes(output_stream, (uint8_t*)vertex_bytecode, vertex_size);
+    WriteBytes(output_stream, vertex_bytecode, vertex_size);
     WriteU32(output_stream, (uint32_t)fragment_size);
-    WriteBytes(output_stream, (uint8_t*)fragment_bytecode, fragment_size);
+    WriteBytes(output_stream, fragment_bytecode, fragment_size);
     
     // Write resource counts (simplified - would need parsing to get actual counts)
     WriteI32(output_stream, 1); // vertex_uniform_count
@@ -104,420 +103,130 @@ static bool CompileAndWriteShader(
     return true;
 }
 
-void ImportShader(Path* source_path, Path* output_path, Props* config)
+void ImportShader(const fs::path& source_path, const fs::path& output_path, Props* config)
 {
-    // Get source directories
+    fs::path src_path = source_path;
+    fs::path out_path = output_path;
+    
+    // Get source directories from config
     size_t source_count = GetListCount(config, "source");
-    const char* source_dirs[32];  // Max 32 source directories
-    if (source_count > 32) source_count = 32;
+    std::vector<fs::path> source_dirs;
     
     for (size_t i = 0; i < source_count; i++)
-        source_dirs[i] = GetListElement(config, "source", i, "");
+    {
+        const char* dir = GetListElement(config, "source", i, "");
+        if (dir && *dir)
+        {
+            source_dirs.push_back(fs::path(dir));
+        }
+    }
     
     // Find relative path from source directories
-    Path relative_path;
-    if (!path_find_relative_to_bases(&relative_path, source_path, source_dirs, source_count))
+    fs::path relative_path;
+    bool found_relative = false;
+    
+    for (const auto& base_dir : source_dirs)
+    {
+        try
+        {
+            if (src_path.string().find(base_dir.string()) == 0)
+            {
+                relative_path = fs::relative(src_path, base_dir);
+                found_relative = true;
+                break;
+            }
+        }
+        catch (...)
+        {
+            // Continue if relative path can't be computed
+        }
+    }
+    
+    if (!found_relative)
     {
         // If we couldn't find relative path, just use the filename
-        const char* filename = path_basename(source_path);
-        path_set(&relative_path, filename);
+        relative_path = src_path.filename();
     }
-
+    
     // Read source file
-    Stream* source_stream = LoadStream(NULL, source_path);
-    if (!source_stream)
+    std::ifstream file(src_path, std::ios::binary);
+    if (!file.is_open())
     {
-        printf("Failed to open shader source: %s\n", source_path->value);
+        std::cerr << "Failed to open shader source: " << src_path << std::endl;
         return;
     }
     
-    size_t size = GetSize(source_stream);
-    char* source = (char*)malloc(size + 1);
-    if (!source) {
-        Free(source_stream);
-        return;
-    }
-    
-    ReadBytes(source_stream, (uint8_t*)source, size);
-    source[size] = '\0';
-    Free(source_stream);
-    
-    // For now, compile the same source for both vertex and fragment
-    // Later we can add stage-specific preprocessing
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    std::string source = buffer.str();
+    file.close();
     
     // Create output stream
-    Stream* output_stream = CreateStream(NULL, 4096);
-    if (!output_stream) {
-        free(source);
+    Stream* output_stream = CreateStream(nullptr, 4096);
+    if (!output_stream)
+    {
         return;
     }
     
     // Get the directory of the source file for includes
-    Path include_path;
-    path_dir(source_path, &include_path);
+    fs::path include_dir = src_path.parent_path();
     
     // Compile and write shader
-    if (CompileAndWriteShader(source, source, output_stream, &include_path)) 
+    if (CompileAndWriteShader(source, source, output_stream, include_dir))
     {
         // Build output file path preserving directory structure
-        Path final_path;
-        path_copy(&final_path, output_path);
-        
-        // Append the relative path (with directory structure preserved)
-        path_append(&final_path, relative_path.value);
+        fs::path final_path = out_path / relative_path;
         
         // Replace extension with .nzsh
-        path_set_extension(&final_path, "nzsh");
+        final_path.replace_extension(".nzsh");
         
         // Ensure the output directory exists
-        Path output_dir;
-        path_dir(&final_path, &output_dir);
-        directory_create_recursive(&output_dir);
+        fs::create_directories(final_path.parent_path());
         
-        if (!SaveStream(output_stream, &final_path)) 
+        // Save the stream to file
+        // We need to convert to Path for SaveStream API
+        Path save_path;
+        std::string path_str = final_path.string();
+        strncpy(save_path.value, path_str.c_str(), sizeof(save_path.value) - 1);
+        save_path.value[sizeof(save_path.value) - 1] = '\0';
+        
+        if (!SaveStream(output_stream, &save_path))
         {
-            printf("Failed to save shader: %s\n", final_path.value);
+            std::cerr << "Failed to save shader: " << final_path << std::endl;
         }
-        else 
+        else
         {
             // Remove extension for clean output
-            Path clean_path;
-            path_copy(&clean_path, &relative_path);
-            path_set_extension(&clean_path, "");
-            printf("Imported 'shaders/%s'\n", path_basename(&clean_path));
+            fs::path clean_path = relative_path;
+            clean_path.replace_extension("");
+            std::cout << "Imported 'shaders/" << clean_path.filename().string() << "'" << std::endl;
         }
     }
     
-    Free(output_stream);
-    free(source);
+    FreeObject(output_stream);
 }
 
-bool CanImportAsShader(Path* path)
+bool CanImportAsShader(const fs::path& path)
 {
-    // path_has_extension expects extension without the dot
-    return path_has_extension(path, "hlsl");
+    std::string ext = path.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    return ext == ".hlsl";
 }
 
-bool DoesShaderDependOn(Path* source_path, Path* dependency_path)
+bool DoesShaderDependOn(const fs::path& source_path, const fs::path& dependency_path)
 {
     // For now, shader files don't have dependencies
     // This could be extended to check for #include files
     return false;
 }
 
-static asset_importer_traits_t g_shader_importer_traits = {
+static AssetImporterTraits g_shader_importer_traits = {
     .can_import = CanImportAsShader,
     .import_func = ImportShader,
     .does_depend_on = DoesShaderDependOn
 };
 
-asset_importer_traits_t* GetShaderImporterTraits()
+AssetImporterTraits* GetShaderImporterTraits()
 {
     return &g_shader_importer_traits;
 }
-
-
-#if 0
-    bool ShaderImporter::can_import(string& filePath) const
-    {
-        filesystem::path path(filePath);
-        string extension = path.extension().string();
-        std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) { return tolower(c); });
-        return extension == ".hlsl";
-    }
-
-    void ShaderImporter::import(string& source_filename, string& output_dir)
-    {
-        filesystem::path source_path(source_filename);
-        auto output_name = source_path.stem().string() + ".shader";
-        auto output_path = filesystem::path(output_dir) / output_name;
-        auto meta = meta_file::parse(source_filename + ".meta");
-
-        // Read source shader file
-        ifstream source_file(source_path);
-        if (!source_file.is_open())
-            throw runtime_error("failed to open source file");
-
-        stringstream source_stream;
-        source_stream << source_file.rdbuf();
-        auto source = source_stream.str();
-        source_file.close();
-
-        // Parse vertex shader
-        auto vertex_shader = parse_shader(source, source_path, "VERTEX_SHADER");
-        validate_vertex_shader(vertex_shader);
-
-        // Parse fragment shader
-        auto fragment_shader = parse_shader(source, source_path, "FRAGMENT_SHADER");
-        validate_fragment_shader(fragment_shader);
-
-        // Write the shader
-        auto includeDir = filesystem::path(source_path).parent_path().string();
-        binary_stream stream;
-        write_shader(source_path.string(), vertex_shader, fragment_shader, meta, includeDir, stream);
-        stream.save(output_path.string());
-    }
-
-    ShaderImporter::shader_info ShaderImporter::parse_shader(string& source, filesystem::path& source_path, string& stage)
-    {
-        shader_info info = {};
-        info.source = preprocess_includes(PreprocessStageDirectives(source, stage), source_path);
-
-        // Convert to lowercase for case-insensitive matching
-        string code = info.source;
-        std::transform(code.begin(), code.end(), code.begin(), [](unsigned char c) { return tolower(c); });
-
-        // Regex patterns for different resource types
-        static regex cbufferPattern(R"(cbuffer.*?register\s*\(\s*b(\d+))");
-        static regex samplerPattern(R"(sampler.*?register\s*\(\s*s(\d+))");
-
-        // Count cbuffers and categorize by binding type
-        sregex_iterator cbufferIter(code.begin(), code.end(), cbufferPattern);
-        sregex_iterator cbufferEnd;
-        for (; cbufferIter != cbufferEnd; ++cbufferIter)
-        {
-            auto index = stoi((*cbufferIter)[1].str());
-            if (index > 15)
-                throw runtime_error("Invalid vertex uniform buffer index: " + to_string(index));
-
-            info.uniforms[index] = true;
-        }
-
-        // Count samplers
-        sregex_iterator samplerIter(code.begin(), code.end(), samplerPattern);
-        sregex_iterator samplerEnd;
-        for (; samplerIter != samplerEnd; ++samplerIter)
-        {
-            auto index = stoi((*samplerIter)[1].str());
-            if (index > 15)
-                throw runtime_error("Invalid sampler buffer index: " + to_string(index));
-
-            info.samplers[index] = true;
-        }
-
-        return info;
-    }
-
-    string ShaderImporter::preprocess_includes(string& source, filesystem::path& source_path)
-    {
-        string result = source;
-        regex include_pattern("#include\\s*[\"<]([^\">]+)[\">]");
-
-        sregex_iterator iter(result.begin(), result.end(), include_pattern);
-        sregex_iterator end;
-
-        // Process includes in reverse order to maintain line numbers
-        vector<pair<string, string>> includes;
-        for (; iter != end; ++iter)
-        {
-            auto include_path = (*iter)[1].str();
-            auto full_include_path = resolve_include_path(include_path, source_path);
-            includes.push_back({ (*iter)[0].str(), full_include_path });
-        }
-
-        // Replace includes with their content
-        for (auto& include : includes)
-        {
-            string includeContent = load_include_file(include.second);
-            if (!includeContent.empty())
-            {
-                // Replace the include directive with the content
-                size_t pos = result.find(include.first);
-                if (pos != string::npos)
-                {
-                    result.replace(pos, include.first.length(), includeContent);
-                }
-            }
-        }
-
-        return result;
-    }
-
-    string ShaderImporter::PreprocessStageDirectives(string& source, string& stage)
-    {
-        string result = source;
-
-        // Convert custom stage directives to #ifdef blocks based on current stage
-        // Format: //@ VERTEX ... //@ END and //@ FRAGMENT ... //@ END
-
-        // Use [\s\S] instead of . to match newlines (equivalent to dotall)
-        regex vertexPattern(R"(//@ VERTEX\s*\n([\s\S]*?)//@ END)");
-        regex fragmentPattern(R"(//@ FRAGMENT\s*\n([\s\S]*?)//@ END)");
-
-        if (stage == "VERTEX_SHADER")
-        {
-            // Keep vertex shader blocks, remove fragment shader blocks
-            result = regex_replace(result, vertexPattern, "$1");
-            result = regex_replace(result, fragmentPattern, "");
-        }
-        else if (stage == "FRAGMENT_SHADER")
-        {
-            // Keep fragment shader blocks, remove vertex shader blocks
-            result = regex_replace(result, fragmentPattern, "$1");
-            result = regex_replace(result, vertexPattern, "");
-        }
-
-        return result;
-    }
-
-    string ShaderImporter::resolve_include_path(string& include_path, filesystem::path& source_path)
-    {
-        auto source_dir = filesystem::path(source_path).parent_path();
-        auto relative_path = source_dir / include_path;
-
-        if (filesystem::exists(relative_path))
-            return relative_path.string();
-
-        for (auto& includeDir : _config.includePaths)
-        {
-            filesystem::path configPath = filesystem::path(includeDir) / include_path;
-            if (filesystem::exists(configPath))
-            {
-                return configPath.string();
-            }
-        }
-
-        return include_path;
-    }
-
-    string ShaderImporter::load_include_file(filesystem::path& include_path)
-    {
-        ifstream include_file(include_path);
-        if (!include_file.is_open())
-            throw std::runtime_error("Failed to open include file: " + include_path.string());
-
-        stringstream content;
-        content << include_file.rdbuf();
-        include_file.close();
-        return content.str();
-    }
-
-    void ShaderImporter::validate_vertex_shader(shader_info& shader) const
-    {
-        auto code = shader.source;
-        std::transform(code.begin(), code.end(), code.begin(), [](unsigned char c) { return tolower(c); });
-
-        if (code.find("vs(") == string::npos)
-            throw runtime_error("Vertex shader must contain a 'vs' entry point");
-    }
-
-    void ShaderImporter::validate_fragment_shader(shader_info& shader) const
-    {
-        auto code = shader.source;
-        std::transform(code.begin(), code.end(), code.begin(), [](unsigned char c) { return tolower(c); });
-
-        if (code.find("ps(") == string::npos)
-            throw runtime_error("Fragment shader must contain a 'ps' entry point");
-    }
-
-    void ShaderImporter::write_shader(
-        string& source_path,
-        shader_info& vs,
-        shader_info& fs,
-        meta_file& meta,
-        string& includeDir,
-        binary_stream& stream)
-    {
-        auto flags = shader_flags::none;
-
-        if (meta.get_bool("shader", "depth_test", true))
-            flags = static_cast<shader_flags>(static_cast<uint8_t>(flags) | static_cast<uint8_t>(shader_flags::depth_test));
-
-        if (meta.get_bool("shader", "depth_write", true))
-            flags = static_cast<shader_flags>(static_cast<uint8_t>(flags) | static_cast<uint8_t>(shader_flags::depth_write));
-
-        if (meta.get_bool("shader", "blend_enabled", true))
-            flags = static_cast<shader_flags>(static_cast<uint8_t>(flags) | static_cast<uint8_t>(shader_flags::blend));
-
-        // src_blend_factor
-        auto srcBlend = meta.get_string("shader", "src_blend_factor", "one");
-        SDL_GPUBlendFactor srcBlendFactor = SDL_GPU_BLENDFACTOR_ONE;
-        if (srcBlend == "one") srcBlendFactor = SDL_GPU_BLENDFACTOR_ONE;
-        else if (srcBlend == "zero") srcBlendFactor = SDL_GPU_BLENDFACTOR_ZERO;
-        else if (srcBlend == "src_alpha") srcBlendFactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA;
-        else if (srcBlend == "one_minus_src_alpha") srcBlendFactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
-
-        // dst_blend_factor
-        auto dstBlend = meta.get_string("shader", "dst_blend_factor", "zero");
-        SDL_GPUBlendFactor dstBlendFactor = SDL_GPU_BLENDFACTOR_ZERO;
-        if (dstBlend == "one") dstBlendFactor = SDL_GPU_BLENDFACTOR_ONE;
-        else if (dstBlend == "zero") dstBlendFactor = SDL_GPU_BLENDFACTOR_ZERO;
-        else if (dstBlend == "src_alpha") dstBlendFactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA;
-        else if (dstBlend == "one_minus_src_alpha") dstBlendFactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
-
-        // cull_mode
-        auto cullMode = meta.get_string("shader", "cull", "none");
-        SDL_GPUCullMode cullModeValue = SDL_GPU_CULLMODE_NONE;
-        if (cullMode == "none") cullModeValue = SDL_GPU_CULLMODE_NONE;
-        else if (cullMode == "front") cullModeValue = SDL_GPU_CULLMODE_FRONT;
-        else if (cullMode == "back") cullModeValue = SDL_GPU_CULLMODE_BACK;
-
-        // Compile shaders to SPIR-V
-        void* vertexBytecode = nullptr;
-        size_t vertexBytecodeSize = 0;
-        void* fragmentBytecode = nullptr;
-        size_t fragmentBytecodeSize = 0;
-
-        // Compile vertex shader
-        SDL_ShaderCross_HLSL_Info vertex_info = {};
-        vertex_info.source = vs.source.c_str();
-        vertex_info.name = source_path.c_str();
-        vertex_info.entrypoint = "vs";
-        vertex_info.include_dir = includeDir.c_str();
-        vertex_info.shader_stage = SDL_SHADERCROSS_SHADERSTAGE_VERTEX;
-
-        vertexBytecode = SDL_ShaderCross_CompileSPIRVFromHLSL(&vertex_info, &vertexBytecodeSize);
-        if (!vertexBytecode)
-            throw runtime_error(SDL_GetError());
-
-        // Compile fragment shader
-        SDL_ShaderCross_HLSL_Info fragment_info = {};
-        fragment_info.source = fs.source.c_str();
-        fragment_info.name = source_path.c_str();
-        fragment_info.entrypoint = "ps";
-        fragment_info.include_dir = includeDir.c_str();
-        fragment_info.shader_stage = SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT;
-
-        fragmentBytecode = SDL_ShaderCross_CompileSPIRVFromHLSL(&fragment_info, &fragmentBytecodeSize);
-        if (!fragmentBytecode)
-            throw runtime_error(SDL_GetError());
-
-        stream.write_signature("SHDR");
-        stream.write_uint32(1);
-        stream.write_bytes((uint8_t*)vertexBytecode, (uint16_t)vertexBytecodeSize);
-        stream.write_bytes((uint8_t*)fragmentBytecode, (uint16_t)fragmentBytecodeSize);
-
-        // Write resource counts
-        stream.write_int32(
-            vs.uniforms[static_cast<int>(vertex_register::user0)] +
-            vs.uniforms[static_cast<int>(vertex_register::user1)] +
-            vs.uniforms[static_cast<int>(vertex_register::user2)]);
-        stream.write_int32(
-            fs.uniforms[static_cast<int>(fragment_register::user0)] +
-            fs.uniforms[static_cast<int>(fragment_register::user1)] +
-            fs.uniforms[static_cast<int>(fragment_register::user2)]);
-        stream.write_int32(
-            fs.samplers[static_cast<int>(sampler_register::user0)] +
-            fs.samplers[static_cast<int>(sampler_register::user1)] +
-            fs.samplers[static_cast<int>(sampler_register::user2)]);
-
-        // Write pipeline properties
-        stream.write_uint8(static_cast<uint8_t>(flags));
-        stream.write_uint32(srcBlendFactor);
-        stream.write_uint32(dstBlendFactor);
-        stream.write_uint32(cullModeValue);
-
-        SDL_free(vertexBytecode);
-        SDL_free(fragmentBytecode);
-    }
-
-    vector<string> ShaderImporter::get_supported_extensions() const
-    {
-        return { ".hlsl" };
-    }
-
-    string ShaderImporter::get_name() const
-    {
-        return "ShaderImporter";
-    }
-#endif

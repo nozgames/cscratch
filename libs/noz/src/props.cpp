@@ -51,12 +51,12 @@ static inline props_impl_t* Impl(void* p) { return (props_impl_t*)to_object((Obj
 
 Props* CreateProps(Allocator* allocator)
 {
-    Props* props = (Props*)Alloc(allocator, sizeof(props_impl_t), type_props);
+    auto* props = (Props*)Alloc(allocator, sizeof(props_impl_t), type_props);
     if (!props)
-        return NULL;
+        return nullptr;
     
     props_impl_t* impl = Impl(props);
-    impl->property_map = AllocMap(allocator, HASH_SIZE);
+    impl->property_map = CreateMap(allocator, HASH_SIZE);
     impl->pool_size = HASH_SIZE;
     impl->pool = (prop_value_t*)calloc(impl->pool_size, sizeof(prop_value_t));
     impl->pool_used = 0;
@@ -75,7 +75,7 @@ void props_destroy(Props* props)
     props_impl_t* impl = Impl(props);
     
     if (impl->property_map)
-        Free(impl->property_map);
+        FreeObject(impl->property_map);
     
     if (impl->pool)
     {
@@ -104,7 +104,7 @@ Props* LoadProps(Allocator* allocator, Path* file_path)
     
     Props* result = LoadProps(allocator, (const char*)GetData(stream), GetSize(stream) - 1);
 
-    Free(stream);
+    FreeObject(stream);
     
     return result;
 }
@@ -117,7 +117,7 @@ Props* LoadProps(Allocator* allocator, const char* content, size_t content_lengt
     
     Props* props = (Props*)CreateProps(allocator);
     if (!props)
-        return NULL;
+        return nullptr;
 
     props_impl_t* impl = Impl(props);
 
@@ -156,7 +156,7 @@ Props* LoadProps(Allocator* allocator, const char* content, size_t content_lengt
         }
         
         // Parse line content
-        if (strchr(line.value, '=') != NULL)
+        if (strchr(line.value, '=') != nullptr)
         {
             // Key=value format - use current section as prefix
             if (!parse_ini_line_with_section(impl, line.value, current_section.value))
@@ -188,7 +188,7 @@ void Clear(Props* props)
     props_impl_t* impl = Impl(props);
     
     // Clear the map (this doesn't free the property values)
-    map_clear(impl->property_map);
+    Clear(impl->property_map);
     
     // Reset pool
     impl->pool_used = 0;
@@ -210,7 +210,7 @@ void SetString(Props* props, const char* key, const char* value)
     name_set(&key_name, key);
     
     uint64_t hash_key = Hash(key);
-    prop_value_t* prop = (prop_value_t*)MapGet(impl->property_map, hash_key);
+    prop_value_t* prop = (prop_value_t*)GetValue(impl->property_map, hash_key);
     
     if (!prop)
     {
@@ -219,7 +219,7 @@ void SetString(Props* props, const char* key, const char* value)
         {
             return;
         }
-        MapSet(impl->property_map, hash_key, prop);
+        SetValue(impl->property_map, hash_key, prop);
         impl->key_cache_dirty = true;
     }
     
@@ -258,7 +258,7 @@ void AddToList(Props* props, const char* key, const char* value)
     
     props_impl_t* impl = Impl(props);
     uint64_t hash_key = Hash(key);
-    prop_value_t* prop = (prop_value_t*)MapGet(impl->property_map, hash_key);
+    prop_value_t* prop = (prop_value_t*)GetValue(impl->property_map, hash_key);
     
     if (!prop)
     {
@@ -270,7 +270,7 @@ void AddToList(Props* props, const char* key, const char* value)
         prop->type = PROP_TYPE_LIST;
         text_set(&prop->key, key);
         prop->list.count = 0;
-        MapSet(impl->property_map, hash_key, prop);
+        SetValue(impl->property_map, hash_key, prop);
         impl->key_cache_dirty = true;
     }
     
@@ -300,7 +300,7 @@ bool HasKey(Props* props, const char* key)
     
     props_impl_t* impl = Impl(props);
     uint64_t hash_key = Hash(key);
-    return MapGet(impl->property_map, hash_key) != NULL;
+    return GetValue(impl->property_map, hash_key) != nullptr;
 }
 
 bool IsList(Props* props, const char* key)
@@ -312,7 +312,7 @@ bool IsList(Props* props, const char* key)
     
     props_impl_t* impl = Impl(props);
     uint64_t hash_key = Hash(key);
-    prop_value_t* prop = (prop_value_t*)MapGet(impl->property_map, hash_key);
+    prop_value_t* prop = (prop_value_t*)GetValue(impl->property_map, hash_key);
     
     return prop && prop->type == PROP_TYPE_LIST;
 }
@@ -326,7 +326,7 @@ PropType GetPropertyType(Props* props, const char* key)
     
     props_impl_t* impl = Impl(props);
     uint64_t hash_key = Hash(key);
-    prop_value_t* prop = (prop_value_t*)MapGet(impl->property_map, hash_key);
+    prop_value_t* prop = (prop_value_t*)GetValue(impl->property_map, hash_key);
     
     return prop ? prop->type : PROP_TYPE_VALUE;
 }
@@ -340,7 +340,7 @@ const char* GetString(Props* props, const char* key, const char* default_value)
     
     props_impl_t* impl = Impl(props);
     uint64_t hash_key = Hash(key);
-    prop_value_t* prop = (prop_value_t*)MapGet(impl->property_map, hash_key);
+    prop_value_t* prop = (prop_value_t*)GetValue(impl->property_map, hash_key);
     
     if (!prop || prop->type != PROP_TYPE_VALUE)
     {
@@ -352,7 +352,7 @@ const char* GetString(Props* props, const char* key, const char* default_value)
 
 int GetInt(Props* props, const char* key, int default_value)
 {
-    const char* str_value = GetString(props, key, NULL);
+    const char* str_value = GetString(props, key, nullptr);
     if (!str_value)
     {
         // For lists, return count
@@ -368,7 +368,7 @@ int GetInt(Props* props, const char* key, int default_value)
 
 float GetFloat(Props* props, const char* key, float default_value)
 {
-    const char* str_value = GetString(props, key, NULL);
+    const char* str_value = GetString(props, key, nullptr);
     if (!str_value)
     {
         return default_value;
@@ -379,7 +379,7 @@ float GetFloat(Props* props, const char* key, float default_value)
 
 bool GetBool(Props* props, const char* key, bool default_value)
 {
-    const char* str_value = GetString(props, key, NULL);
+    const char* str_value = GetString(props, key, nullptr);
     if (!str_value)
     {
         return default_value;
@@ -402,7 +402,7 @@ bool GetBool(Props* props, const char* key, bool default_value)
 
 vec3 GetVec3(Props* props, const char* key, vec3 default_value)
 {
-    const char* str_value = GetString(props, key, NULL);
+    const char* str_value = GetString(props, key, nullptr);
     if (!str_value)
     {
         return default_value;
@@ -426,7 +426,7 @@ size_t GetListCount(Props* props, const char* key)
     
     props_impl_t* impl = Impl(props);
     uint64_t hash_key = Hash(key);
-    prop_value_t* prop = (prop_value_t*)MapGet(impl->property_map, hash_key);
+    prop_value_t* prop = (prop_value_t*)GetValue(impl->property_map, hash_key);
     
     if (!prop)
     {
@@ -445,7 +445,7 @@ const char* GetListElement(Props* props, const char* key, size_t index, const ch
     
     props_impl_t* impl = Impl(props);
     uint64_t hash_key = Hash(key);
-    prop_value_t* prop = (prop_value_t*)MapGet(impl->property_map, hash_key);
+    prop_value_t* prop = (prop_value_t*)GetValue(impl->property_map, hash_key);
     
     if (!prop)
     {
@@ -485,7 +485,7 @@ const char* GetKeyAt(Props* props, size_t index)
 {
     if (!props)
     {
-        return NULL;
+        return nullptr;
     }
     
     props_impl_t* impl = Impl(props);
@@ -496,7 +496,7 @@ const char* GetKeyAt(Props* props, size_t index)
     
     if (index >= impl->key_count)
     {
-        return NULL;
+        return nullptr;
     }
     
     return impl->key_cache[index].value;
@@ -540,7 +540,7 @@ static prop_value_t* alloc_prop_value(props_impl_t* impl)
 {
     if (impl->pool_used >= impl->pool_size)
     {
-        return NULL;  // Pool exhausted
+        return nullptr;  // Pool exhausted
     }
     
     return &impl->pool[impl->pool_used++];
@@ -644,7 +644,7 @@ static bool parse_ini_line_with_section(props_impl_t* impl, const char* line, co
     text_copy(&prop->key, &full_key);
     text_copy(&prop->single, &value);
     
-    MapSet(impl->property_map, hash_key, prop);
+    SetValue(impl->property_map, hash_key, prop);
     impl->key_cache_dirty = true;
     
     return true;

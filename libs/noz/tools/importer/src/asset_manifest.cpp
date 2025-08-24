@@ -54,7 +54,7 @@ bool GenerateAssetManifest(char* output_directory, char* manifest_output_path)
     if (!generator.manifest_stream)
     {
         printf("ERROR: Failed to create manifest stream\n");
-        Free(generator.asset_entries);
+        FreeObject(generator.asset_entries);
         return false;
     }
 
@@ -74,8 +74,8 @@ bool GenerateAssetManifest(char* output_directory, char* manifest_output_path)
         bool success = SaveStream(generator.manifest_stream, &manifest_path);
         
         // Clean up
-        Free(generator.manifest_stream);
-        Free(generator.asset_entries);
+        FreeObject(generator.manifest_stream);
+        FreeObject(generator.asset_entries);
         
         return success;
     }
@@ -83,8 +83,8 @@ bool GenerateAssetManifest(char* output_directory, char* manifest_output_path)
     if (!dir_stat.is_directory)
     {
         printf("ERROR: '%s' is not a directory\n", output_directory);
-        Free(generator.manifest_stream);
-        Free(generator.asset_entries);
+        FreeObject(generator.manifest_stream);
+        FreeObject(generator.asset_entries);
         return false;
     }
 
@@ -92,8 +92,8 @@ bool GenerateAssetManifest(char* output_directory, char* manifest_output_path)
     if (!directory_enum_files(&generator.output_dir, scan_asset_file, &generator))
     {
         printf("ERROR: Failed to enumerate files in directory: %s\n", output_directory);
-        Free(generator.manifest_stream);
-        Free(generator.asset_entries);
+        FreeObject(generator.manifest_stream);
+        FreeObject(generator.asset_entries);
         return false;
     }
 
@@ -111,8 +111,8 @@ bool GenerateAssetManifest(char* output_directory, char* manifest_output_path)
     }
 
     // Clean up
-    Free(generator.manifest_stream);
-    Free(generator.asset_entries);
+    FreeObject(generator.manifest_stream);
+    FreeObject(generator.asset_entries);
 
     return success;
 }
@@ -194,7 +194,7 @@ static bool read_asset_header(char* file_path, uint32_t* signature, size_t* runt
     // Read asset header (16 bytes)
     if (GetSize(stream) < 16)
     {
-        Free(stream);
+        FreeObject(stream);
         return false;
     }
 
@@ -203,7 +203,7 @@ static bool read_asset_header(char* file_path, uint32_t* signature, size_t* runt
     *runtime_size = ReadU32(stream);
     // Skip version and flags for manifest generation
     
-    Free(stream);
+    FreeObject(stream);
     return true;
 }
 
@@ -534,10 +534,10 @@ static void organize_assets_by_type(ManifestGenerator* generator)
     WriteCSTR(stream, "} g_assets;\n\n");
     
     // Clean up
-    Free(textures);
-    Free(meshes);
-    Free(sounds);
-    Free(shaders);
-    Free(materials);
-    Free(fonts);
+    FreeObject(textures);
+    FreeObject(meshes);
+    FreeObject(sounds);
+    FreeObject(shaders);
+    FreeObject(materials);
+    FreeObject(fonts);
 }

@@ -20,13 +20,13 @@ struct Object {};
 #define type_invalid (-1)
 
 // @object
-Object* Alloc(Allocator* allocator, size_t object_size, type_t object_type, type_t base_type);
+Object* CreateObject(Allocator* allocator, size_t object_size, type_t object_type, type_t base_type);
 inline Object* Alloc(Allocator* allocator, size_t object_size, type_t object_type)
 {
-    return Alloc(allocator, object_size, object_type, -1);
+    return CreateObject(allocator, object_size, object_type, -1);
 }
 
-void Free(Object* object);
+void FreeObject(Object* object);
 
 inline type_t GetType(Object* object) { return *((type_t*)((char*)object + OBJECT_OFFSET_TYPE)); }
 inline type_t GetBaseType(Object* object) { return *((type_t*)((char*)object + OBJECT_OFFSET_BASE)); }

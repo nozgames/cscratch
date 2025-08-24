@@ -6,14 +6,14 @@
 
 struct Map : Object {};
 
-Map* AllocMap(Allocator* allocator, size_t capacity);
-void* map_get_string(Map* map, char* key);
-void* MapGet(Map* map, uint64_t key);
-void map_set_string(Map* map, char* key, void* value);
-void MapSet(Map* map, uint64_t key, void* value);
-void map_remove_string(Map* map, char* key);
-void map_remove(Map* map, uint64_t key);
-void map_clear(Map* map);
+typedef void (*MapEnumeratePredicate)(u64 key, void* value, void* user_data);
 
-typedef void (*map_iterate_fn)(uint64_t key, void* value, void* user_data);
-void map_iterate(Map* map, map_iterate_fn callback, void* user_data);
+Map* CreateMap(Allocator* allocator, size_t capacity);
+void* GetValue(Map* map, const char* key);
+void* GetValue(Map* map, u64 key);
+void SetValue(Map* map, const char* key, void* value);
+void SetValue(Map* map, u64 key, void* value);
+void Remove(Map* map, const char* key);
+void Remove(Map* map, u64 key);
+void Clear(Map* map);
+void Enumerate(Map* map, MapEnumeratePredicate callback, void* user_data);

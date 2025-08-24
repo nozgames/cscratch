@@ -51,8 +51,8 @@ enum TextureFormat
 };
 
 Texture* LoadTexture(Allocator* allocator, name_t* path);
-Texture* AllocTexture(Allocator* allocator, void* data, size_t width, size_t height, TextureFormat format, const name_t* name);
-Texture* AllocTexture(Allocator* allocator, int width, int height, TextureFormat format, const name_t* name);
+Texture* CreateTexture(Allocator* allocator, void* data, size_t width, size_t height, TextureFormat format, const name_t* name);
+Texture* CreateTexture(Allocator* allocator, int width, int height, TextureFormat format, const name_t* name);
 int GetBytesPerPixel(TextureFormat format);
 ivec2 GetSize(Texture* texture);
 
@@ -66,38 +66,38 @@ const name_t* GetName(Shader* shader);
 // @material
 Material* CreateMaterial(Allocator* allocator, Shader* shader, name_t* name);
 name_t* GetName(Material* material);
-Shader* material_shader(Material* material);
-void material_set_texture(Material* material, Texture* texture, size_t index);
+Shader* GetShader(Material* material);
+void SetTexture(Material* material, Texture* texture, size_t index);
 
 // @mesh
-Mesh* AllocMesh(
+Mesh* CreateMesh(
     Allocator* allocator,
     size_t vertex_count,
     vec3* positions,
     vec3* normals,
     vec2* uvs,
-    uint8_t* bone_indices,
+    u8* bone_indices,
     size_t index_count,
-    uint16_t* indices,
+    u16* indices,
     name_t* name);
-Mesh* AllocMesh(Allocator* allocator, MeshBuilder* builder, name_t* name);
+Mesh* CreateMesh(Allocator* allocator, MeshBuilder* builder, name_t* name);
 
 // @mesh_builder
-MeshBuilder* AllocMeshBuilder(Allocator* allocator, int max_vertices, int max_indices);
-void mesh_builder_clear(MeshBuilder* builder);
-vec3* mesh_builder_positions(MeshBuilder* builder);
-vec3* mesh_builder_normals(MeshBuilder* builder);
-vec2* mesh_builder_uv0(MeshBuilder* builder);
-uint8_t* mesh_builder_bones(MeshBuilder* builder);
-uint16_t* mesh_builder_indices(MeshBuilder* builder);
-size_t mesh_builder_vertex_count(MeshBuilder* builder);
-size_t mesh_builder_index_count(MeshBuilder* builder);
-void mesh_builder_add_index(MeshBuilder* builder, uint16_t index);
-void mesh_builder_add_triangle_indices(MeshBuilder* builder, uint16_t a, uint16_t b, uint16_t c);
-void mesh_builder_add_triangle(MeshBuilder* builder, vec3 a, vec3 b, vec3 c, uint8_t bone_index);
-void mesh_builder_add_pyramid(MeshBuilder* builder, vec3 start, vec3 end, float size, uint8_t bone_index);
-void mesh_builder_add_cube(MeshBuilder* builder, vec3 center, vec3 size, uint8_t bone_index);
-void mesh_builder_add_raw(
+MeshBuilder* CreateMeshBuilder(Allocator* allocator, int max_vertices, int max_indices);
+void Clear(MeshBuilder* builder);
+vec3* GetPositions(MeshBuilder* builder);
+vec3* GetNormals(MeshBuilder* builder);
+vec2* GetUvs(MeshBuilder* builder);
+u8* GetBoneIndices(MeshBuilder* builder);
+u16* GetIndices(MeshBuilder* builder);
+size_t GetVertexCount(MeshBuilder* builder);
+size_t GetIndexCount(MeshBuilder* builder);
+void AddIndex(MeshBuilder* builder, uint16_t index);
+void AddTriangle(MeshBuilder* builder, uint16_t a, uint16_t b, uint16_t c);
+void AddTriangle(MeshBuilder* builder, vec3 a, vec3 b, vec3 c, uint8_t bone_index);
+void AddPyramid(MeshBuilder* builder, vec3 start, vec3 end, float size, uint8_t bone_index);
+void AddCube(MeshBuilder* builder, vec3 center, vec3 size, uint8_t bone_index);
+void AddRaw(
     MeshBuilder* builder,
     size_t vertex_count,
     vec3* positions,
@@ -106,14 +106,14 @@ void mesh_builder_add_raw(
     uint8_t bone_index,
     size_t index_count,
     uint16_t* indices);
-void mesh_builder_add_quad(
+void AddQuad(
     MeshBuilder* builder,
     vec3 forward,
     vec3 right,
     float width,
     float height,
     vec2 color_uv);
-void mesh_builder_add_quad_points(
+void AddQuad(
     MeshBuilder* builder,
     vec3 a,
     vec3 b,

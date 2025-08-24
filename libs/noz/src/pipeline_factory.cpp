@@ -181,7 +181,7 @@ SDL_GPUGraphicsPipeline* GetGPUPipeline(Shader* shader, bool msaa, bool shadow)
     uint64_t key = pipeline_key(shader, msaa, shadow);
 
     // Check if pipeline exists in cache
-	pipeline_impl_t* impl = (pipeline_impl_t*)MapGet(g_pipeline_cache, key);
+	pipeline_impl_t* impl = (pipeline_impl_t*)GetValue(g_pipeline_cache, key);
     if (impl != NULL)
 		return impl->pipeline;
 
@@ -204,7 +204,7 @@ SDL_GPUGraphicsPipeline* GetGPUPipeline(Shader* shader, bool msaa, bool shadow)
         return NULL;
 
 	impl->pipeline = pipeline;
-    MapSet(g_pipeline_cache, key, impl);
+    SetValue(g_pipeline_cache, key, impl);
     return pipeline;
 }
 
@@ -214,13 +214,13 @@ void InitPipelineFactory(SDL_Window* win, SDL_GPUDevice* dev)
 
     g_window = win;
     g_device = dev;
-    g_pipeline_cache = AllocMap(NULL, INITIAL_CACHE_SIZE);
+    g_pipeline_cache = CreateMap(NULL, INITIAL_CACHE_SIZE);
 }
 
 void ShutdownPipelineFactory()
 {
     assert(g_pipeline_cache);
-    Free(g_pipeline_cache);
+    FreeObject(g_pipeline_cache);
     g_pipeline_cache = NULL;
     g_window = NULL;
     g_device = NULL;

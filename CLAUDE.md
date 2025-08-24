@@ -85,3 +85,16 @@ This allows quick searching with grep/search for specific sections of code.
 ## Build Commands
 - Lint: `npm run lint` (if available)
 - Type check: `npm run typecheck` (if available)
+
+## Build System
+- **IMPORTANT**: Do NOT run cmake, make, or ninja commands directly
+- Development is done in CLion on Windows
+- The environment is WSL/Ubuntu but builds are managed through CLion
+- Do not attempt to reconfigure or rebuild the project from command line
+
+## STL Usage Policy
+- **IMPORTANT**: Do NOT use STL in the main libs/noz library code
+- STL is ONLY allowed in the tools directory (libs/noz/tools/*)
+- **EXCEPTION**: Files with `// @STL` at the top are allowed to use STL
+- The main engine library uses custom containers and types for better control and performance
+- Tools (like the importer) can freely use STL since they're not part of the runtime engine

@@ -27,10 +27,10 @@ List* CreateList(Allocator* allocator, size_t capacity)
     
     list->count = 0;
     list->capacity = capacity;
-	list->values = (void**)allocator_alloc(allocator, sizeof(void*) * capacity);
+	list->values = (void**)Alloc(allocator, sizeof(void*) * capacity);
     if (!list->values)
     {
-        Free((List*)list);
+        FreeObject((List*)list);
         return NULL;
     }
     
@@ -66,7 +66,7 @@ void Add(List* list, void* value)
     if (impl->count >= impl->capacity)
     {
         impl->capacity *= 2;
-		impl->values = (void**)allocator_realloc(GetAllocator(list), impl->values, sizeof(void*) * impl->capacity);
+		impl->values = (void**)Realloc(GetAllocator(list), impl->values, sizeof(void*) * impl->capacity);
         if (!impl->values)
             return;
     }

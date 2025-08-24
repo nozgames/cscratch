@@ -16,7 +16,7 @@ struct TextureImpl
 static SDL_GPUDevice* g_device = nullptr;
 static Map* g_texture_cache = nullptr;
 
-static void AllocTexture(
+static void CreateTexture(
     TextureImpl* impl,
     void* data,
     size_t width,
@@ -55,7 +55,7 @@ Texture* LoadTexture(Allocator* allocator, const name_t* name)
     const u64 key = Hash(name);
 
     // cached?
-    auto* texture = (Texture*)MapGet(g_texture_cache, key);
+    auto* texture = (Texture*)GetValue(g_texture_cache, key);
     if (texture)
         return texture;
 
@@ -65,7 +65,7 @@ Texture* LoadTexture(Allocator* allocator, const name_t* name)
         return nullptr;
 
     TextureImpl* impl = Impl(texture);
-    MapSet(g_texture_cache, key, texture);
+    SetValue(g_texture_cache, key, texture);
 
     impl->handle = nullptr;
     impl->size.x = 0;
@@ -82,7 +82,7 @@ Texture* LoadTexture(Allocator* allocator, const name_t* name)
     if (name_eq_cstr(name, "white"))
     {
         uint8_t white_pixel[4] = {255, 255, 255, 255};
-        AllocTexture(impl, white_pixel, 1, 1, 4, false);
+        CreateTexture(impl, white_pixel, 1, 1, 4, false);
         return (Texture*)impl;
     }
 
@@ -90,7 +90,7 @@ Texture* LoadTexture(Allocator* allocator, const name_t* name)
     return (Texture*)impl;
 }
 
-Texture* AllocTexture(Allocator* allocator, int width, int height, TextureFormat format, const name_t* name)
+Texture* CreateTexture(Allocator* allocator, int width, int height, TextureFormat format, const name_t* name)
 {
     assert(width > 0);
     assert(height > 0);
@@ -124,7 +124,7 @@ Texture* AllocTexture(Allocator* allocator, int width, int height, TextureFormat
     return texture;
 }
 
-Texture* AllocTexture(
+Texture* CreateTexture(
     Allocator* allocator,
     void* data,
     size_t width,
@@ -139,7 +139,7 @@ Texture* AllocTexture(
     if (!texture)
         return nullptr;
 
-    AllocTexture(Impl(texture), data, width, height, GetBytesPerPixel(format), false);
+    CreateTexture(Impl(texture), data, width, height, GetBytesPerPixel(format), false);
     return texture;
 }
 
@@ -184,7 +184,7 @@ SamplerOptions GetSamplerOptions(Texture* texture)
     return Impl(texture)->sampler_options;
 }
 
-static void AllocTexture(TextureImpl* impl, void* data, size_t width, size_t height, int channels,
+static void CreateTexture(TextureImpl* impl, void* data, size_t width, size_t height, int channels,
                                             bool generate_mipmaps)
 {
     assert(impl);
@@ -330,7 +330,7 @@ static void LoadTexture(Allocator* allocator, TextureImpl* impl)
     // Validate file signature
     if (!ReadFileSignature(stream, "NZXT", 4))
     {
-        Free(stream);
+        FreeObject(stream);
         return;
     }
 
@@ -338,7 +338,7 @@ static void LoadTexture(Allocator* allocator, TextureImpl* impl)
     uint32_t version = ReadU32(stream);
     if (version != 1)
     {
-        Free(stream);
+        FreeObject(stream);
         return;
     }
 
@@ -350,7 +350,7 @@ static void LoadTexture(Allocator* allocator, TextureImpl* impl)
     // Validate format
     if (format > 1)
     {
-        Free(stream);
+        FreeObject(stream);
         return;
     }
 
@@ -382,7 +382,7 @@ static void LoadTexture(Allocator* allocator, TextureImpl* impl)
                 if (mip_data)
                 {
                     ReadBytes(stream, mip_data, mip_data_size);
-                    AllocTexture(impl, mip_data, width, height, (format == 1) ? 4 : 3, true);
+                    CreateTexture(impl, mip_data, width, height, (format == 1) ? 4 : 3, true);
                     free(mip_data);
                 }
                 else
@@ -405,12 +405,12 @@ static void LoadTexture(Allocator* allocator, TextureImpl* impl)
         if (const auto texture_data = (u8*)malloc(data_size))
         {
             ReadBytes(stream, texture_data, data_size);
-            AllocTexture(impl, texture_data, width, height, channels, false);
+            CreateTexture(impl, texture_data, width, height, channels, false);
             free(texture_data);
         }
     }
 
-    Free(stream);
+    FreeObject(stream);
 }
 
 int GetBytesPerPixel(TextureFormat format)
@@ -431,7 +431,7 @@ int GetBytesPerPixel(TextureFormat format)
 void InitTexture(RendererTraits* traits, SDL_GPUDevice* dev)
 {
     g_device = dev;
-    g_texture_cache = AllocMap(nullptr, traits->max_textures);
+    g_texture_cache = CreateMap(nullptr, traits->max_textures);
 }
 
 void ShutdownTexture()

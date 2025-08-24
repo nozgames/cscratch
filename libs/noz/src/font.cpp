@@ -56,14 +56,14 @@ Font* font_load_from_stream(Allocator* allocator, Stream* stream, name_t* name)
     // Read header
     if (!ReadFileSignature(stream, "FONT", 4))
     {
-        Free(stream);
+        FreeObject(stream);
         return nullptr;
     }
 
     uint32_t version = ReadU32(stream);
     if (version != 1)
     {
-        Free(stream);
+        FreeObject(stream);
         return nullptr;
     }
 
@@ -138,19 +138,19 @@ Font* font_load_from_stream(Allocator* allocator, Stream* stream, name_t* name)
     uint8_t* atlas_data = (uint8_t*)malloc(atlas_data_size);
     if (!atlas_data)
     {
-        Free((Font*)impl);
+        FreeObject((Font*)impl);
         return nullptr;
     }
 
     ReadBytes(stream, atlas_data, atlas_data_size);
-    Free(stream);
+    FreeObject(stream);
 
-    impl->texture = AllocTexture(allocator, atlas_data, impl->atlas_width, impl->atlas_height, TEXTURE_FORMAT_R8, name);
+    impl->texture = CreateTexture(allocator, atlas_data, impl->atlas_width, impl->atlas_height, TEXTURE_FORMAT_R8, name);
     free(atlas_data);
 
     if (!impl->texture)
     {
-        Free((Font*)impl);
+        FreeObject((Font*)impl);
         return nullptr;
     }
 
@@ -161,11 +161,11 @@ Font* font_load_from_stream(Allocator* allocator, Stream* stream, name_t* name)
     impl->material = CreateMaterial(allocator, LoadShader(allocator, &shader_name), &material_name);
     if (!impl->material)
     {
-        Free((Font*)impl);
+        FreeObject((Font*)impl);
         return nullptr;
     }
 
-    material_set_texture(impl->material, impl->texture, 0);
+    SetTexture(impl->material, impl->texture, 0);
 
     return (Font*)impl;
 }
@@ -179,7 +179,7 @@ Font* font_load(Allocator* allocator, name_t* name)
     uint64_t key = Hash(name);
 
     // Check if font exists in cache
-    auto font = (Font*)MapGet(g_font_cache, key);
+    auto font = (Font*)GetValue(g_font_cache, key);
     if (font)
         return font;
 
@@ -192,9 +192,9 @@ Font* font_load(Allocator* allocator, name_t* name)
     font = font_load_from_stream(allocator, stream, name);
 
     if (font)
-        MapSet(g_font_cache, key, font);
+        SetValue(g_font_cache, key, font);
 
-    Free(stream);
+    FreeObject(stream);
 
     return font;
 }
@@ -259,13 +259,13 @@ Material* font_material(Font* font)
 
 void InitFont(RendererTraits* traits, SDL_GPUDevice* device)
 {
-    g_font_cache = AllocMap(nullptr, traits->max_fonts);
+    g_font_cache = CreateMap(nullptr, traits->max_fonts);
     g_device = device;
 }
 
 void ShutdownFont()
 {
-    Free(g_font_cache);
+    FreeObject(g_font_cache);
     g_font_cache = nullptr;
     g_device = nullptr;
 }

@@ -75,12 +75,12 @@ name_t* GetName(Material* material)
     return &Impl(material)->name;
 }
 
-Shader* material_shader(Material* material)
+Shader* GetShader(Material* material)
 {
     return Impl(material)->shader;
 }
 
-void material_set_texture(Material* material, Texture* texture, size_t index)
+void SetTexture(Material* material, Texture* texture, size_t index)
 {
     auto impl = Impl(material);
     assert(index < impl->texture_count);

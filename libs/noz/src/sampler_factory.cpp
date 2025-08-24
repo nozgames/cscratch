@@ -33,7 +33,7 @@ SDL_GPUSampler* GetGPUSampler(Texture* texture)
     SamplerOptions options = GetSamplerOptions(texture);
     uint64_t key = sampler_options_hash(&options);
 
-    sampler_impl_t* impl = (sampler_impl_t*)MapGet(g_sampler_cache, key);
+    sampler_impl_t* impl = (sampler_impl_t*)GetValue(g_sampler_cache, key);
     if (impl)
         return impl->sampler;
 
@@ -61,7 +61,7 @@ SDL_GPUSampler* GetGPUSampler(Texture* texture)
         return NULL;
 
     impl->sampler = gpu_sampler;
-    MapSet(g_sampler_cache, key, impl);
+    SetValue(g_sampler_cache, key, impl);
     return impl->sampler;
 }
 
@@ -96,12 +96,12 @@ SDL_GPUSamplerAddressMode to_sdl_clamp(TextureClamp mode)
 void InitSamplerFactory(RendererTraits* traits, SDL_GPUDevice* dev)
 {
     g_device = dev;
-    g_sampler_cache = AllocMap(NULL, traits->max_samplers);
+    g_sampler_cache = CreateMap(NULL, traits->max_samplers);
 }
 
 void ShutdownSamplerFactory()
 {
-    Free(g_sampler_cache);
+    FreeObject(g_sampler_cache);
     g_sampler_cache = NULL;
     g_device = NULL;
 }

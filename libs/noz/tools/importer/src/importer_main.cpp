@@ -1,30 +1,32 @@
-
-#include "asset_manifest.h"
-#include <noz/file_watcher.h>
 #include <noz/noz.h>
+#include <file_watcher.h>
 #include <noz/platform.h>
-#include <signal.h>
+#include <csignal>
+#include <filesystem>
+#include <string>
+#include <algorithm>
+#include <vector>
 
-asset_importer_traits_t* GetShaderImporterTraits();
+namespace fs = std::filesystem;
 
-typedef struct import_job
+AssetImporterTraits* GetShaderImporterTraits();
+AssetImporterTraits* GetTextureImporterTraits();
+
+struct ImportJob
 {
-    OBJECT_BASE;
-    Path source_path;
-    asset_importer_traits_t* importer;
-} import_job_t;
+    fs::path source_path;
+    AssetImporterTraits* importer;
+    
+    ImportJob(const fs::path& path, AssetImporterTraits* imp)
+        : source_path(path), importer(imp) {}
+};
 
-static List* g_import_queue = NULL;
-static Props* g_config = NULL;
-
-void process_file_change(Path* file_path, file_change_type_t change_type, asset_importer_traits_t** importers);
-void process_import_queue(asset_importer_traits_t** importers);
-import_job_t* to_import_job_impl(void* job)
-{
-    return (import_job_t*)to_object((Object*)job, type_unknown);
-}
-
+static std::vector<ImportJob> g_import_queue;
+static Props* g_config = nullptr;
 static volatile bool g_running = true;
+
+void ProcessFileChange(const fs::path& file_path, FileChangeType change_type, std::vector<AssetImporterTraits*>& importers);
+void ProcessImportQueue(std::vector<AssetImporterTraits*>& importers);
 
 void signal_handler(int sig)
 {
@@ -37,57 +39,49 @@ void signal_handler(int sig)
 
 int main(int argc, char* argv[])
 {
-    // Initialize importers array
-    asset_importer_traits_t* importers[] = {GetShaderImporterTraits(), NULL};
+    // Initialize importers array - now including texture importer
+    std::vector importers = {
+        GetShaderImporterTraits(), 
+        GetTextureImporterTraits()
+    };
 
     // Set up signal handler for Ctrl-C
     signal(SIGINT, signal_handler);
 
-    g_import_queue = CreateList(NULL, 1024);
-
-    Path path;
-    path_set(&path, "./importer.cfg");
-    g_config = LoadProps(NULL, &path);
+    Path config_path;
+    path_set(&config_path, "./importer.cfg");
+    g_config = LoadProps(nullptr, &config_path);
     if (!g_config)
     {
-        printf("missing configuration '%s'\n", path.value);
+        printf("missing configuration '%s'\n", config_path.value);
         return 1;
     }
 
-    printf("loaded configuration '%s'\n", path.value);
+    printf("loaded configuration '%s'\n", config_path.value);
 
     // Initialize file watcher
-    file_watcher_init(500);
+    InitFileWatcher(500);
 
     // Get source directories from config
     if (!HasKey(g_config, "source"))
     {
         printf("No [source] section found in config\n");
-        Free(g_config);
-        file_watcher_shutdown();
+        FreeObject(g_config);
+        ShutdownFileWatcher();
         return 1;
     }
 
-    // Add directories to watch
+    // Add directories to watch (file watcher will auto-start when first directory is added)
     printf("Adding directories to watch:\n");
     size_t source_count = GetListCount(g_config, "source");
     for (size_t i = 0; i < source_count; i++)
     {
         const char* dir = GetListElement(g_config, "source", i, "");
         printf("  - %s\n", dir);
-        if (!file_watcher_add_directory(dir))
+        if (!WatchDirectory(fs::path(dir)))
         {
             printf("    WARNING: Failed to add directory '%s'\n", dir);
         }
-    }
-
-    // Start watching
-    if (!file_watcher_start())
-    {
-        printf("Failed to start file watcher\n");
-        Free(g_config);
-        file_watcher_shutdown();
-        return 1;
     }
 
     printf("\nWatching for file changes... Press Ctrl-C to exit\n\n");
@@ -95,79 +89,58 @@ int main(int argc, char* argv[])
     // Main loop - watch for file changes
     while (g_running)
     {
-        file_change_event_t event;
-        while (file_watcher_poll(&event))
+        FileChangeEvent event;
+        while (GetFileChangeEvent(&event))
         {
             // Process file changes for import (silently)
-            process_file_change(&event.path, event.type, importers);
+            ProcessFileChange(event.path, event.type, importers);
         }
 
         // Process any queued imports
-        process_import_queue(importers);
+        ProcessImportQueue(importers);
 
         // Sleep briefly to avoid busy waiting
         thread_sleep_ms(100); // 100ms
     }
 
     // Clean up
-    file_watcher_stop();
-    file_watcher_shutdown();
-    Free(g_config);
-    Free(g_import_queue);
+    ShutdownFileWatcher();
+    FreeObject(g_config);
+    g_import_queue.clear();
     return 0;
 }
 
-static bool import_job_path_predicate(void* o, void* data)
+void ProcessFileChange(const fs::path& file_path, FileChangeType change_type, std::vector<AssetImporterTraits*>& importers)
 {
-    Path* path = (Path*)data;
-    import_job_t* job = to_import_job_impl(o);
-    return path_eq(&job->source_path, path);
-}
-
-void process_file_change(Path* file_path, file_change_type_t change_type, asset_importer_traits_t** importers)
-{
-    if (change_type == file_change_type_deleted)
+    if (change_type == FILE_CHANGE_TYPE_DELETED)
         return; // Don't process deleted files
 
     // Check if this is a .meta file
-    if (path_has_extension(file_path, "meta"))
+    std::string ext = file_path.extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    
+    if (ext == ".meta")
     {
         // Remove .meta extension to get the asset file path
-        Path asset_path;
-        path_copy(&asset_path, file_path);
-
-        // Remove the .meta extension
-        const char* ext = path_extension(&asset_path);
-        if (ext && strcmp(ext, "meta") == 0)
+        fs::path asset_path = file_path;
+        asset_path.replace_extension("");
+        
+        // Check if the associated asset file exists
+        if (fs::exists(asset_path) && fs::is_regular_file(asset_path))
         {
-            // Find the last dot and truncate there
-            char* last_dot = strrchr(asset_path.value, '.');
-            if (last_dot)
-            {
-                *last_dot = '\0';
-                asset_path.length = strlen(asset_path.value);
-
-                // Process the associated asset file
-                file_stat_t stat;
-                if (file_stat(&asset_path, &stat) && stat.is_regular_file)
-                {
-                    process_file_change(&asset_path, change_type, importers);
-                }
-            }
+            ProcessFileChange(asset_path, change_type, importers);
         }
         return;
     }
 
     // Find an importer that can handle this file
-    Path source_path;
-    path_copy(&source_path, file_path);
-    asset_importer_traits_t* selected_importer = NULL;
+    AssetImporterTraits* selected_importer = nullptr;
 
-    for (int i = 0; importers[i] != NULL; i++)
+    for (auto* importer : importers)
     {
-        if (importers[i]->can_import && importers[i]->can_import(&source_path))
+        if (importer && importer->can_import && importer->can_import(file_path))
         {
-            selected_importer = importers[i];
+            selected_importer = importer;
             break;
         }
     }
@@ -176,61 +149,56 @@ void process_file_change(Path* file_path, file_change_type_t change_type, asset_
     if (!selected_importer)
         return;
 
-    // is in the list already?
-    if (Find(g_import_queue, import_job_path_predicate, &source_path) >= 0)
-        return;
+    // Check if already in the queue
+    auto it = std::find_if(g_import_queue.begin(), g_import_queue.end(),
+        [&file_path](const ImportJob& job) {
+            return job.source_path == file_path;
+        });
+    
+    if (it != g_import_queue.end())
+        return; // Already in queue
 
-    import_job_t* new_job = (import_job_t*)Alloc(NULL, sizeof(import_job_t), type_unknown);
-    if (!new_job)
-        return;
-
-    new_job->source_path = source_path;
-    new_job->importer = selected_importer;
-    Add(g_import_queue, (Object*)new_job);
+    // Add new job to queue
+    g_import_queue.emplace_back(file_path, selected_importer);
 }
 
-void process_import_queue(asset_importer_traits_t** importers)
+void ProcessImportQueue(std::vector<AssetImporterTraits*>& importers)
 {
-    if (!g_import_queue || IsEmpty(g_import_queue))
+    if (g_import_queue.empty())
         return;
 
     // Get output directory from config
     const char* output_dir = GetString(g_config, "output.directory", "assets");
+    
+    // Convert to filesystem::path
+    fs::path output_path = fs::absolute(fs::path(output_dir));
 
-    // Ensure output directory exists (make it absolute)
-    Path output_path, output_path_rel;
-    path_set(&output_path_rel, output_dir);
-    path_make_absolute(&output_path, &output_path_rel);
+    // Ensure output directory exists
+    fs::create_directories(output_path);
 
-    if (!directory_create_recursive(&output_path))
-    {
-        printf("Failed to create directory: %s\n", output_path.value);
-    }
-    List* remaining_jobs = CreateList(NULL, GetCount(g_import_queue));
+    std::vector<ImportJob> remaining_jobs;
     bool made_progress = true;
 
     // Keep processing until no more progress is made
-    while (made_progress && !IsEmpty(g_import_queue))
+    while (made_progress && !g_import_queue.empty())
     {
         made_progress = false;
-        Clear(remaining_jobs);
+        remaining_jobs.clear();
 
-        for (size_t i = 0; i < GetCount(g_import_queue); i++)
+        for (const auto& job : g_import_queue)
         {
-            import_job_t* job = (import_job_t*)GetAt(g_import_queue, i);
             bool can_import_now = true;
 
             // Check dependencies if the importer supports it
-            if (job->importer->does_depend_on)
+            if (job.importer->does_depend_on)
             {
                 // Check if any files this one depends on are still in the queue
-                for (size_t j = 0; j < GetCount(g_import_queue); j++)
+                for (const auto& other_job : g_import_queue)
                 {
-                    if (i == j)
+                    if (&job == &other_job)
                         continue; // Don't check against self
 
-                    import_job_t* other_job = (import_job_t*)GetAt(g_import_queue, j);
-                    if (job->importer->does_depend_on(&job->source_path, &other_job->source_path))
+                    if (job.importer->does_depend_on(job.source_path, other_job.source_path))
                     {
                         can_import_now = false;
                         break;
@@ -241,56 +209,20 @@ void process_import_queue(asset_importer_traits_t** importers)
             if (can_import_now)
             {
                 // Import this file
-                if (job->importer->import_func)
-                    job->importer->import_func(&job->source_path, &output_path, g_config);
+                if (job.importer->import_func)
+                {
+                    job.importer->import_func(job.source_path, output_path, g_config);
+                }
                 made_progress = true;
             }
             else
             {
                 // Keep this job for next iteration
-                Add(remaining_jobs, (Object*)job);
+                remaining_jobs.push_back(job);
             }
         }
 
-        // Swap lists
-        List* temp = g_import_queue;
-        g_import_queue = remaining_jobs;
-        remaining_jobs = temp;
-        Clear(remaining_jobs);
-    }
-
-    // Clean up any remaining jobs (circular dependencies or errors)
-    for (size_t i = 0; i < GetCount(g_import_queue); i++)
-    {
-        import_job_t* job = (import_job_t*)GetAt(g_import_queue, i);
-        printf("WARNING: Could not import %s (possible circular dependency)\n", job->source_path.value);
-    }
-
-    Clear(g_import_queue);
-    Free(remaining_jobs);
-
-    // Generate asset manifest after processing imports if enabled
-    bool manifest_enabled = GetBool(g_config, "manifest.enabled", false);
-    if (manifest_enabled)
-    {
-        const char* manifest_path = GetString(g_config, "manifest.output_file", "./src/assets.c");
-
-        // Create absolute path for manifest
-        Path manifest_abs_path, manifest_rel_path;
-        path_set(&manifest_rel_path, manifest_path);
-        path_make_absolute(&manifest_abs_path, &manifest_rel_path);
-
-        // Ensure the manifest directory exists
-        Path manifest_dir;
-        path_dir(&manifest_abs_path, &manifest_dir);
-        if (!directory_create_recursive(&manifest_dir))
-        {
-            printf("WARNING: Failed to create manifest directory: %s\n", manifest_dir.value);
-        }
-
-        if (!GenerateAssetManifest(output_path.value, manifest_abs_path.value))
-        {
-            printf("WARNING: Failed to generate asset manifest\n");
-        }
+        // Swap the queues - remaining_jobs becomes the new import queue
+        g_import_queue = std::move(remaining_jobs);
     }
 }

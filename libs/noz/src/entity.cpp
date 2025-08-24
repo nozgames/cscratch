@@ -25,7 +25,7 @@ static void MarkDirty(Entity* entity)
 
 Entity* CreateEntity(Allocator* allocator, size_t entity_size, int16_t type_id)
 {
-    EntityImpl* impl = Impl((Entity*)Alloc(allocator, entity_size, type_id, type_entity));
+    EntityImpl* impl = Impl((Entity*)CreateObject(allocator, entity_size, type_id, type_entity));
     return (Entity*)impl;
 }
 

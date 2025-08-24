@@ -80,13 +80,18 @@ FetchContent_MakeAvailable(cgltf)
 add_library(cgltf_lib INTERFACE)
 target_include_directories(cgltf_lib INTERFACE ${cgltf_SOURCE_DIR})
 
-file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+file(GLOB_RECURSE SOURCE_FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../common/*.cpp")
 
 # Add main importer executable
 add_executable(importer ${SOURCE_FILES})
 
 # Include directories
-target_include_directories(importer PRIVATE ${CMAKE_SOURCE_DIR}/libs/noz/external ${CMAKE_SOURCE_DIR}/libs/noz/include)
+target_include_directories(importer PRIVATE
+        ${CMAKE_SOURCE_DIR}/libs/noz/external
+        ${CMAKE_SOURCE_DIR}/libs/noz/include
+        ${CMAKE_SOURCE_DIR}/libs/noz/tools/common)
 
 # Link libraries
 target_link_libraries(importer PRIVATE

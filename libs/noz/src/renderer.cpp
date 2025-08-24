@@ -411,7 +411,7 @@ static void UpdateBackBuffer()
     name_t name;
 	name_set(&name, "linear");
     g_renderer.linear_back_buffer =
-        AllocTexture(nullptr, size.x, size.y, TEXTURE_FORMAT_RGBA16F, &name);
+        CreateTexture(nullptr, size.x, size.y, TEXTURE_FORMAT_RGBA16F, &name);
 }
 
 static void InitGammaPass()
@@ -421,10 +421,10 @@ static void InitGammaPass()
     name_set(&gamma_name, "gamma");
     name_set(&shader_name, "shaders/gamma");
 
-    MeshBuilder* builder = AllocMeshBuilder(nullptr, 4, 6);
-    mesh_builder_add_quad(builder, VEC3_FORWARD, VEC3_RIGHT, 1, 1, VEC3_ZERO);
-	Mesh* mesh =  AllocMesh(nullptr, builder, &gamma_name);
-	Free(builder);
+    MeshBuilder* builder = CreateMeshBuilder(nullptr, 4, 6);
+    AddQuad(builder, VEC3_FORWARD, VEC3_RIGHT, 1, 1, VEC3_ZERO);
+	Mesh* mesh =  CreateMesh(nullptr, builder, &gamma_name);
+	FreeObject(builder);
     g_renderer.gamma_mesh = mesh;
 
     g_renderer.gamma_material = CreateMaterial(nullptr, LoadShader(nullptr, &shader_name), &gamma_name);
@@ -442,7 +442,7 @@ static void RenderGammaPass()
 {
     static mat4 ident = identity<mat4>();
 
-    material_set_texture(g_renderer.gamma_material, g_renderer.linear_back_buffer, 0);
+    SetTexture(g_renderer.gamma_material, g_renderer.linear_back_buffer, 0);
 
     BeginGammaPass();
     BindCamera(ident, ident);

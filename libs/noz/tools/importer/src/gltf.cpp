@@ -50,7 +50,7 @@ static quat convert_quaternion(float* quaternion);
 // @init
 gltf_t* gltf_alloc(Allocator* allocator)
 {
-    gltf_t* gltf = (gltf_t*)allocator_alloc(allocator, sizeof(gltf_t));
+    gltf_t* gltf = (gltf_t*)Alloc(allocator, sizeof(gltf_t));
     if (!gltf)
         return NULL;
     
@@ -108,7 +108,7 @@ void gltf_close(gltf_t* gltf)
 // @filter
 gltf_bone_filter_t* gltf_bone_filter_alloc(Allocator* allocator)
 {
-    gltf_bone_filter_t* filter = (gltf_bone_filter_t*)allocator_alloc(allocator, sizeof(gltf_bone_filter_t));
+    gltf_bone_filter_t* filter = (gltf_bone_filter_t*)Alloc(allocator, sizeof(gltf_bone_filter_t));
     if (!filter)
         return NULL;
     
@@ -214,7 +214,7 @@ static bool read_bone(
     
     assert(node);
     
-    gltf_bone_t* bone = (gltf_bone_t*)allocator_alloc(allocator, sizeof(gltf_bone_t));
+    gltf_bone_t* bone = (gltf_bone_t*)Alloc(allocator, sizeof(gltf_bone_t));
     if (!bone)
         return false;
     
@@ -294,7 +294,7 @@ gltf_animation_t* gltf_read_animation(gltf_t* gltf, List* bones, name_t* animati
     // For now, just read the first animation
     struct cgltf_animation* cgltf_anim = &data->animations[0];
     
-    gltf_animation_t* animation = (gltf_animation_t*)allocator_alloc(allocator, sizeof(gltf_animation_t));
+    gltf_animation_t* animation = (gltf_animation_t*)Alloc(allocator, sizeof(gltf_animation_t));
     if (!animation)
         return NULL;
     
@@ -341,7 +341,7 @@ gltf_animation_t* gltf_read_animation(gltf_t* gltf, List* bones, name_t* animati
             continue;
         
         // Create track
-        animation_track_t* track = (animation_track_t*)allocator_alloc(allocator, sizeof(animation_track_t));
+        animation_track_t* track = (animation_track_t*)Alloc(allocator, sizeof(animation_track_t));
         if (!track)
         {
             gltf_animation_free(animation);
@@ -359,7 +359,7 @@ gltf_animation_t* gltf_read_animation(gltf_t* gltf, List* bones, name_t* animati
     
     animation->frame_stride = (int)data_offset;
     animation->data_size = data_offset * animation->frame_count;
-    animation->data = (float*)allocator_alloc(allocator, animation->data_size * sizeof(float));
+    animation->data = (float*)Alloc(allocator, animation->data_size * sizeof(float));
     
     if (!animation->data)
     {
@@ -421,7 +421,7 @@ gltf_mesh_t* gltf_read_mesh(gltf_t* gltf, List* bones, Allocator* allocator)
     struct cgltf_mesh* cgltf_mesh = &data->meshes[0];
     struct cgltf_skin* skin = data->skins_count > 0 ? &data->skins[0] : NULL;
     
-    gltf_mesh_t* mesh = (gltf_mesh_t*)allocator_alloc(allocator, sizeof(gltf_mesh_t));
+    gltf_mesh_t* mesh = (gltf_mesh_t*)Alloc(allocator, sizeof(gltf_mesh_t));
     if (!mesh)
         return NULL;
     
@@ -431,7 +431,7 @@ gltf_mesh_t* gltf_read_mesh(gltf_t* gltf, List* bones, Allocator* allocator)
     int* joint_to_bone_index = NULL;
     if (skin && bones && GetCount(bones) > 0)
     {
-        joint_to_bone_index = (int*)allocator_alloc(allocator, skin->joints_count * sizeof(int));
+        joint_to_bone_index = (int*)Alloc(allocator, skin->joints_count * sizeof(int));
         if (joint_to_bone_index)
         {
             for (size_t i = 0; i < skin->joints_count; ++i)
@@ -469,7 +469,7 @@ gltf_mesh_t* gltf_read_mesh(gltf_t* gltf, List* bones, Allocator* allocator)
         {
             struct cgltf_accessor* accessor = attr->data;
             mesh->position_count = accessor->count;
-            mesh->positions = (vec3*)allocator_alloc(allocator, mesh->position_count * sizeof(vec3));
+            mesh->positions = (vec3*)Alloc(allocator, mesh->position_count * sizeof(vec3));
             
             if (mesh->positions)
             {
@@ -487,7 +487,7 @@ gltf_mesh_t* gltf_read_mesh(gltf_t* gltf, List* bones, Allocator* allocator)
         {
             struct cgltf_accessor* accessor = attr->data;
             mesh->normal_count = accessor->count;
-            mesh->normals = (vec3*)allocator_alloc(allocator, mesh->normal_count * sizeof(vec3));
+            mesh->normals = (vec3*)Alloc(allocator, mesh->normal_count * sizeof(vec3));
             
             if (mesh->normals)
             {
@@ -505,7 +505,7 @@ gltf_mesh_t* gltf_read_mesh(gltf_t* gltf, List* bones, Allocator* allocator)
         {
             struct cgltf_accessor* accessor = attr->data;
             mesh->uv_count = accessor->count;
-            mesh->uvs = (vec2*)allocator_alloc(allocator, mesh->uv_count * sizeof(vec2));
+            mesh->uvs = (vec2*)Alloc(allocator, mesh->uv_count * sizeof(vec2));
             
             if (mesh->uvs)
             {
@@ -523,7 +523,7 @@ gltf_mesh_t* gltf_read_mesh(gltf_t* gltf, List* bones, Allocator* allocator)
         {
             struct cgltf_accessor* accessor = attr->data;
             mesh->bone_index_count = accessor->count;
-            mesh->bone_indices = (uint32_t*)allocator_alloc(allocator, mesh->bone_index_count * sizeof(uint32_t));
+            mesh->bone_indices = (uint32_t*)Alloc(allocator, mesh->bone_index_count * sizeof(uint32_t));
             
             if (mesh->bone_indices)
             {
@@ -570,7 +570,7 @@ gltf_mesh_t* gltf_read_mesh(gltf_t* gltf, List* bones, Allocator* allocator)
     {
         struct cgltf_accessor* accessor = primitive->indices;
         mesh->index_count = accessor->count;
-        mesh->indices = (uint16_t*)allocator_alloc(allocator, mesh->index_count * sizeof(uint16_t));
+        mesh->indices = (uint16_t*)Alloc(allocator, mesh->index_count * sizeof(uint16_t));
         
         if (mesh->indices)
         {

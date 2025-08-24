@@ -31,7 +31,7 @@ Stream* CreateStream(Allocator* allocator, size_t capacity)
     impl->data = (u8*)malloc(capacity);
     if (!impl->data) 
     {
-        Free((Object*)impl);
+        FreeObject((Object*)impl);
         return nullptr;
     }
     
@@ -99,7 +99,7 @@ Stream* LoadStream(Allocator* allocator, Path* path)
 void stream_destroy(Stream* stream) 
 {
 	StreamImpl* impl = Impl(stream);
-    Free((Object*)stream);
+    FreeObject((Object*)stream);
 }
 #endif
 

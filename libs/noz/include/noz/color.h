@@ -15,18 +15,18 @@ typedef struct color color_t;
 // 32-bit RGBA color (0-255 per component)
 typedef struct color32
 {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-    uint8_t a;
+    u8 r;
+    u8 g;
+    u8 b;
+    u8 a;
 } color32_t;
 
 // 24-bit RGB color (0-255 per component)
 typedef struct color24
 {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
+    u8 r;
+    u8 g;
+    u8 b;
 } color24_t;
 
 // Floating point RGBA color (0.0-1.0 per component)
@@ -39,15 +39,15 @@ typedef struct color
 } color_t;
 
 // Color32 functions
-color32_t color32_create(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+color32_t color32_create(u8 r, u8 g, u8 b, u8 a);
 color32_t color32_from_color(color_t* color);
-color32_t color32_from_color24(color24_t* color, uint8_t alpha);
+color32_t color32_from_color24(color24_t* color, u8 alpha);
 bool color32_is_transparent(color32_t* color);
 bool color32_is_opaque(color32_t* color);
 bool color32_equals(color32_t* a, color32_t* b);
 
 // Color24 functions
-color24_t color24_create(uint8_t r, uint8_t g, uint8_t b);
+color24_t color24_create(u8 r, u8 g, u8 b);
 color24_t color24_from_color(color_t* color);
 color24_t color24_from_color32(color32_t* color);
 bool color24_equals(color24_t* a, color24_t* b);

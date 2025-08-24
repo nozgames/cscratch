@@ -1,5 +1,6 @@
 
 ## do
+- convert color to a proper type like vec3_t
 - destructor support for objects
 	- type_set_destructor(type_t type, void (*)(object_t* o))
 	- void texture_init() { type_set_destructor(type_texture, texture_destructor); }
