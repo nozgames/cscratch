@@ -57,7 +57,7 @@ int GetBytesPerPixel(TextureFormat format);
 ivec2 GetSize(Texture* texture);
 
 // @font
-Font* font_load(Allocator* allocator, name_t* name);
+Font* LoadFont(Allocator* allocator, name_t* name);
 
 // @shader
 Shader* LoadShader(Allocator* allocator, const name_t* name);

@@ -17,11 +17,11 @@ struct StreamImpl
 };
 
 static void EnsureCapacity(StreamImpl* impl, size_t required_size);
-static StreamImpl* Impl(Stream* stream) { return (StreamImpl*)to_object(stream, type_stream); }
+static StreamImpl* Impl(Stream* stream) { return (StreamImpl*)Cast(stream, type_stream); }
 
 Stream* CreateStream(Allocator* allocator, size_t capacity)
 {
-    StreamImpl* impl = Impl((Stream*)Alloc(allocator, sizeof(StreamImpl), type_stream));
+    StreamImpl* impl = Impl((Stream*)CreateObject(allocator, sizeof(StreamImpl), type_stream));
     if (!impl)
         return nullptr;
 
@@ -31,7 +31,7 @@ Stream* CreateStream(Allocator* allocator, size_t capacity)
     impl->data = (u8*)malloc(capacity);
     if (!impl->data) 
     {
-        FreeObject((Object*)impl);
+        Destroy((Object*)impl);
         return nullptr;
     }
     
@@ -99,7 +99,7 @@ Stream* LoadStream(Allocator* allocator, Path* path)
 void stream_destroy(Stream* stream) 
 {
 	StreamImpl* impl = Impl(stream);
-    FreeObject((Object*)stream);
+    Destroy((Object*)stream);
 }
 #endif
 

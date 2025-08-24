@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
     if (!HasKey(g_config, "source"))
     {
         printf("No [source] section found in config\n");
-        FreeObject(g_config);
+        Destroy(g_config);
         ShutdownFileWatcher();
         return 1;
     }
@@ -105,7 +105,7 @@ int main(int argc, char* argv[])
 
     // Clean up
     ShutdownFileWatcher();
-    FreeObject(g_config);
+    Destroy(g_config);
     g_import_queue.clear();
     return 0;
 }

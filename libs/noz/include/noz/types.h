@@ -16,12 +16,10 @@ enum
     type_props,
     type_file_watcher,
     type_mesh_builder,
-    type_sampler,
-    type_pipeline,
 
     // @asset
     type_texture,
-	type_material,
+    type_material,
     type_shader,
     type_font,
     type_mesh,

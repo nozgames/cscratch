@@ -24,7 +24,7 @@ struct MapImpl
 
 static MapImpl* Impl(const void* m)
 {
-    return (MapImpl*)to_object((Object*)m, type_map);
+    return (MapImpl*)Cast((Object*)m, type_map);
 }
 
 static size_t map_next_power_of_2(size_t n)
@@ -48,7 +48,7 @@ Map* CreateMap(Allocator* allocator, size_t capacity)
     capacity = map_next_power_of_2(capacity);
 
     size_t total_size = sizeof(MapImpl) + sizeof(MapEntry) * capacity;
-    MapImpl* impl = Impl(Alloc(allocator, total_size, type_map));
+    MapImpl* impl = Impl(CreateObject(allocator, total_size, type_map));
     if (!impl)
         return NULL;
 

@@ -6,32 +6,32 @@
 
 #define DEFAULT_CAPACITY 32
 
-typedef struct list_impl
+struct ListImpl
 {
     OBJECT_BASE;
     void** values;
     size_t count;
     size_t capacity;
-} list_impl_t;
+};
 
-static inline list_impl_t* Impl(void* l) { return (list_impl_t*)to_object((Object*)l, type_list); }
+static ListImpl* Impl(List* l) { return (ListImpl*)Cast(l, type_list); }
 
 List* CreateList(Allocator* allocator, size_t capacity)
 {   
     if (capacity == 0)
 		capacity = DEFAULT_CAPACITY;
     
-	list_impl_t* list = Impl(Alloc(allocator, sizeof(list_impl_t), type_list));
+    ListImpl* list = Impl((List*)CreateObject(allocator, sizeof(ListImpl), type_list));
     if (!list)
-        return NULL;
+        return nullptr;
     
     list->count = 0;
     list->capacity = capacity;
-	list->values = (void**)Alloc(allocator, sizeof(void*) * capacity);
+    list->values = (void**)Alloc(allocator, sizeof(void*) * capacity);
     if (!list->values)
     {
-        FreeObject((List*)list);
-        return NULL;
+        Destroy((List*)list);
+        return nullptr;
     }
     
     return (List*)list;
@@ -61,7 +61,7 @@ size_t GetCapacity(List* list)
 
 void Add(List* list, void* value)
 {
-    list_impl_t* impl = Impl(list);
+    ListImpl* impl = Impl(list);
     
     if (impl->count >= impl->capacity)
     {
@@ -76,23 +76,23 @@ void Add(List* list, void* value)
 
 void* Pop(List* list)
 {
-    list_impl_t* impl = Impl(list);
+    ListImpl* impl = Impl(list);
     if (impl->count == 0)
-        return NULL;
+        return nullptr;
     
     return impl->values[--impl->count];
 }
 
 void* GetAt(List* list, size_t index)
 {
-    list_impl_t* impl = Impl(list);
+    ListImpl* impl = Impl(list);
 	assert(index < impl->count);
 	return impl->values[index];
 }
 
 void Clear(List* list)
 {
-    list_impl_t* impl = Impl(list);
+    ListImpl* impl = Impl(list);
     impl->count = 0;
 }
 
@@ -103,7 +103,7 @@ bool IsEmpty(List* list)
 
 int Find(List* list, void* value)
 {
-	list_impl_t* impl = Impl(list);
+	ListImpl* impl = Impl(list);
     for (size_t i = 0; i < impl->count; i++)
         if (impl->values[i] == value)
             return (int)i;
@@ -114,7 +114,7 @@ int Find(List* list, void* value)
 int Find(List* list, bool (*predicate) (void*, void* data), void* data)
 {
     assert(predicate);
-    list_impl_t* impl = Impl(list);
+    ListImpl* impl = Impl(list);
     for (size_t i = 0; i < impl->count; i++)
         if (predicate(impl->values[i], data))
             return (int)i;

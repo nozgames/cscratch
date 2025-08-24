@@ -24,7 +24,7 @@ struct MaterialImpl
     //vector<uint8_t> uniforms_data;
 };
 
-static MaterialImpl* Impl(Material* m) { return (MaterialImpl*)to_object(m, type_material); }
+static MaterialImpl* Impl(Material* m) { return (MaterialImpl*)Cast(m, type_material); }
 
 
 #if 0
@@ -59,7 +59,7 @@ inline size_t material_fragment_uniform_data_size(MaterialImpl* impl)
 
 Material* CreateMaterial(Allocator* allocator, Shader* shader, name_t* name)
 {
-    MaterialImpl* impl = Impl((Material*)Alloc(allocator, sizeof(MaterialImpl*), type_material));
+    MaterialImpl* impl = Impl((Material*)CreateObject(allocator, sizeof(MaterialImpl*), type_material));
     if (!impl)
         return nullptr;
     impl->shader = shader;

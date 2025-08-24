@@ -32,7 +32,7 @@ Object* CreateObject(Allocator* allocator, size_t object_size, type_t object_typ
     return (Object*)impl;
 }
 
-void FreeObject(Object* o)
+void Destroy(Object* o)
 {
     // todo: we would need to know the allocator to free this...  we could store it in the impl struct
 }

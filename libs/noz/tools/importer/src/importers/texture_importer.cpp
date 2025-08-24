@@ -449,7 +449,7 @@ void ImportTexture(const fs::path& source_path, const fs::path& output_path, Pro
         }
     }
     
-    FreeObject(output_stream);
+    Destroy(output_stream);
 }
 
 bool CanImportAsTexture(const fs::path& path)

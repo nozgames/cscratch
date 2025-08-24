@@ -424,7 +424,7 @@ static void InitGammaPass()
     MeshBuilder* builder = CreateMeshBuilder(nullptr, 4, 6);
     AddQuad(builder, VEC3_FORWARD, VEC3_RIGHT, 1, 1, VEC3_ZERO);
 	Mesh* mesh =  CreateMesh(nullptr, builder, &gamma_name);
-	FreeObject(builder);
+	Destroy(builder);
     g_renderer.gamma_mesh = mesh;
 
     g_renderer.gamma_material = CreateMaterial(nullptr, LoadShader(nullptr, &shader_name), &gamma_name);

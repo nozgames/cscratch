@@ -2,9 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#define to_impl(m) ((mesh_builder_impl_t*)to_object(m, type_mesh_builder))
-
-typedef struct mesh_builder_impl
+struct MeshBuilderImpl
 {
     OBJECT_BASE;
     vec3* positions;
@@ -17,13 +15,15 @@ typedef struct mesh_builder_impl
     size_t index_count;
     size_t index_max;
     bool is_full;
-} mesh_builder_impl_t;
+};
 
-MeshBuilder* CreateMeshBuilder(Allocator* allocator, int max_vertices, int max_indices)
+static MeshBuilderImpl* Impl(MeshBuilder* b) { return (MeshBuilderImpl*)Cast(b, type_mesh_builder); }
+
+MeshBuilderImpl* CreateMeshBuilderImpl(Allocator* allocator, int max_vertices, int max_indices)
 {
-	mesh_builder_impl_t* impl = to_impl(Alloc(allocator, sizeof(mesh_builder_impl_t), type_mesh_builder));
+    auto* impl = Impl((MeshBuilder*)CreateObject(allocator, sizeof(MeshBuilderImpl), type_mesh_builder));
     if (!impl)
-        return NULL;
+        return nullptr;
     
     impl->vertex_max = max_vertices;
     impl->index_max = max_indices;
@@ -43,20 +43,20 @@ MeshBuilder* CreateMeshBuilder(Allocator* allocator, int max_vertices, int max_i
         free(impl->uv0);
         free(impl->bones);
         free(impl->indices);
-        FreeObject((MeshBuilder*)impl);
-        return NULL;
+        Destroy((MeshBuilder*)impl);
+        return nullptr;
     }
     
-    return (MeshBuilder*)impl;
+    return impl;
 }
 
 // todo: destructor
 #if 0
-void mesh_builder_destroy(MeshBuilder* builder)
+void mesh_builder_destroy(MeshBuilderImpl* builder)
 {
     if (!builder) return;
     
-    mesh_builder_impl_t* impl = to_impl(builder);    
+    MeshBuilderImpl* impl = Impl(builder);
     free(impl->positions);
     free(impl->normals);
     free(impl->uv0);
@@ -71,54 +71,54 @@ void Clear(MeshBuilder* builder)
 {
     if (!builder) return;
     
-    mesh_builder_impl_t* impl = to_impl(builder);
+    MeshBuilderImpl* impl = Impl(builder);
     impl->vertex_count = 0;
     impl->index_count = 0;
 }
 
 vec3* GetPositions(MeshBuilder* builder)
 {
-    return to_impl(builder)->positions;
+    return Impl(builder)->positions;
 }
 
 vec3* GetNormals(MeshBuilder* builder)
 {
-    return to_impl(builder)->normals;
+    return Impl(builder)->normals;
 }
 
 vec2* GetUvs(MeshBuilder* builder)
 {
-    return to_impl(builder)->uv0;
+    return Impl(builder)->uv0;
 }
 
 uint8_t* GetBoneIndices(MeshBuilder* builder)
 {
-    return to_impl(builder)->bones;
+    return Impl(builder)->bones;
 }
 
 uint16_t* GetIndices(MeshBuilder* builder)
 {
-    return to_impl(builder)->indices;
+    return Impl(builder)->indices;
 }
 
 size_t GetVertexCount(MeshBuilder* builder)
 {
-    return to_impl(builder)->vertex_count;
+    return Impl(builder)->vertex_count;
 }
 
 size_t GetIndexCount(MeshBuilder* builder)
 {
-    return to_impl(builder)->index_count;
+    return Impl(builder)->index_count;
 }
 
 void mesh_builder_add_vertex(
-	MeshBuilder* builder,
+    MeshBuilder* builder,
     vec3 position,
     vec3 normal,
     vec2 uv,
     uint8_t bone_index)
 {
-    mesh_builder_impl_t* impl = to_impl(builder);
+    MeshBuilderImpl* impl = Impl(builder);
     impl->is_full = impl->is_full && impl->vertex_count + 1 >= impl->vertex_max;
     if (impl->is_full)
         return;
@@ -133,7 +133,7 @@ void mesh_builder_add_vertex(
 
 void AddIndex(MeshBuilder* builder, uint16_t index)
 {
-    mesh_builder_impl_t* impl = to_impl(builder);
+    MeshBuilderImpl* impl = Impl(builder);
     impl->is_full = impl->is_full && impl->index_count + 1 >= impl->index_max;
     if (impl->is_full)
         return;
@@ -144,7 +144,7 @@ void AddIndex(MeshBuilder* builder, uint16_t index)
 
 void AddTriangle(MeshBuilder* builder, uint16_t a, uint16_t b, uint16_t c)
 {
-    mesh_builder_impl_t* impl = to_impl(builder);
+    MeshBuilderImpl* impl = Impl(builder);
     impl->is_full = impl->is_full && impl->index_count + 3 >= impl->index_max;
     if (impl->is_full)
         return;
@@ -168,7 +168,7 @@ void AddTriangle(
     vec3 normal = normalize(cross(v2, v1));
 
     // Add vertices with computed normal
-    uint16_t vertex_index = (uint16_t)to_impl(builder)->vertex_count;
+    uint16_t vertex_index = (uint16_t)Impl(builder)->vertex_count;
     mesh_builder_add_vertex(builder, a, normal, { 0.0f, 0.0f }, bone_index);
     mesh_builder_add_vertex(builder, a, normal, { 1.0f, 0.0f }, bone_index);
     mesh_builder_add_vertex(builder, a, normal, { 0.5f, 1.0f }, bone_index);
@@ -205,7 +205,7 @@ void AddQuad(
     vec3 normal,
     uint8_t bone_index)
 {
-    uint16_t base_index = (uint16_t)to_impl(builder)->vertex_count;
+    uint16_t base_index = (uint16_t)Impl(builder)->vertex_count;
 
     // Add vertices
     mesh_builder_add_vertex(builder, a, normal, uv_color, bone_index);
@@ -281,7 +281,7 @@ void AddRaw(
     size_t index_count,
     uint16_t* indices)
 {
-    mesh_builder_impl_t* impl = to_impl(builder);
+    MeshBuilderImpl* impl = Impl(builder);
 	impl->is_full = impl->is_full && (impl->vertex_count + vertex_count >= impl->vertex_max || impl->index_count + index_count >= impl->index_max);
     if (impl->is_full)
         return;
@@ -304,7 +304,7 @@ void AddRaw(
 void AddCube(MeshBuilder* builder, vec3 center, vec3 size, uint8_t bone_index)
 {
 #if 0
-	mesh_builder_impl_t* impl = to_impl(builder);
+	MeshBuilderImpl* impl = Impl(builder);
 
     vec3 half_size = vec3_muls(size, 0.5f);
 
@@ -665,8 +665,7 @@ void mesh_builder::add_cone(
 
 Mesh* CreateMesh(Allocator* allocator, MeshBuilder* builder, name_t* name)
 {
-    assert(builder);
-	mesh_builder_impl_t* impl = to_impl(builder);
+    MeshBuilderImpl* impl = Impl(builder);
     return CreateMesh(
         allocator,
 		impl->vertex_count,

@@ -173,7 +173,7 @@ const name_t* GetName(Shader* shader);
 // @font
 void InitFont(RendererTraits* traits, SDL_GPUDevice* device);
 void ShutdownFont();
-Material* font_material(Font* font);
+Material* GetMaterial(Font* font);
 
 // @animation
 void animation_evaluate_frame(

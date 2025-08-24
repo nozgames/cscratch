@@ -188,7 +188,7 @@ void BindDefaultTexture(int texture_index)
 void BindCamera(Camera* camera)
 {
     assert(camera);
-    BindCamera(entity_world_to_local(camera), camera_projection(camera));
+    BindCamera(GetWorldToLocal(camera), camera_projection(camera));
 }
 
 void BindCamera(const mat4& view, const mat4& projection)

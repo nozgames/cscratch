@@ -22,7 +22,7 @@ struct ShaderImpl
 static Map* g_shader_cache = nullptr;
 static SDL_GPUDevice* g_device = nullptr;
 
-static ShaderImpl* Impl(Shader* s) { return (ShaderImpl*)to_object(s, type_shader); }
+static ShaderImpl* Impl(Shader* s) { return (ShaderImpl*)Cast(s, type_shader); }
 
 // todo: destructor
 #if 0
@@ -51,16 +51,16 @@ Shader* LoadShader(Allocator* allocator, const name_t* name)
     assert(name);
 
     uint64_t key = Hash(name);
-    Shader* shader = (Shader*)GetValue(g_shader_cache, key);
+    auto shader = (Shader*)GetValue(g_shader_cache, key);
     if (shader) 
         return nullptr;
 
-	shader = (Shader*)Alloc(allocator, sizeof(ShaderImpl), type_shader);
+    shader = (Shader*)CreateObject(allocator, sizeof(ShaderImpl), type_shader);
     if (!shader)
         return nullptr;
    
-    ShaderImpl* impl = (ShaderImpl*)Impl(shader);
-	SetName(&impl->name, name);
+    auto* impl = Impl(shader);
+    SetName(&impl->name, name);
     impl->vertex = nullptr;
     impl->fragment = nullptr;
     impl->vertex_uniform_count = 0;
@@ -74,20 +74,20 @@ Shader* LoadShader(Allocator* allocator, const name_t* name)
     // Load shader file
     Path shader_path;
     SetAssetPath(&shader_path, name, "shader");
-    Stream* stream = LoadStream(allocator , &shader_path);
+    auto stream = LoadStream(allocator , &shader_path);
     if (!stream) 
         return nullptr;
 
     if (!ReadFileSignature(stream, "SHDR", 4))
     {
-        FreeObject(stream);
+        Destroy(stream);
         return nullptr;
     }
 
     u32 version = ReadU32(stream);
     if (version != 1)
     {
-        FreeObject(stream);
+        Destroy(stream);
         return nullptr;
     }
 
@@ -96,7 +96,7 @@ Shader* LoadShader(Allocator* allocator, const name_t* name)
     auto* vertex_bytecode = (u8*)Alloc(allocator, vertex_bytecode_length);
     if (!vertex_bytecode) 
     {
-        FreeObject(stream);
+        Destroy(stream);
         return nullptr;
     }
     ReadBytes(stream, vertex_bytecode, vertex_bytecode_length);
@@ -106,7 +106,7 @@ Shader* LoadShader(Allocator* allocator, const name_t* name)
     if (!fragment_bytecode) 
     {
         free(vertex_bytecode);
-        FreeObject(stream);
+        Destroy(stream);
         return nullptr;
     }
     ReadBytes(stream, fragment_bytecode, fragment_bytecode_length);
@@ -119,7 +119,7 @@ Shader* LoadShader(Allocator* allocator, const name_t* name)
     impl->dst_blend = (SDL_GPUBlendFactor)ReadU32(stream);
     impl->cull = (SDL_GPUCullMode)ReadU32(stream);
 
-    FreeObject(stream);
+    Destroy(stream);
 
     // Create fragment shader
     SDL_GPUShaderCreateInfo fragment_create_info = {0};
@@ -243,7 +243,7 @@ void InitShader(RendererTraits* traits, SDL_GPUDevice* device)
 void ShutdownShader()
 {
     assert(g_device);
-    FreeObject(g_shader_cache);
+    Destroy(g_shader_cache);
     g_device = nullptr;
 	g_shader_cache = nullptr;
 }

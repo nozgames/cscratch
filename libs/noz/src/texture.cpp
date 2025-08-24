@@ -29,7 +29,7 @@ int GetBytesPerPixel(TextureFormat format);
 
 static TextureImpl* Impl(Texture* t)
 {
-    return (TextureImpl*)to_object((Object*)t, type_texture);
+    return (TextureImpl*)Cast((Object*)t, type_texture);
 }
 
 SDL_GPUTextureFormat ToSDL(const TextureFormat format)
@@ -60,7 +60,7 @@ Texture* LoadTexture(Allocator* allocator, const name_t* name)
         return texture;
 
     // Create new texture
-    texture = (Texture*)Alloc(allocator, sizeof(TextureImpl), type_texture);
+    texture = (Texture*)CreateObject(allocator, sizeof(TextureImpl), type_texture);
     if (!texture)
         return nullptr;
 
@@ -97,7 +97,7 @@ Texture* CreateTexture(Allocator* allocator, int width, int height, TextureForma
     assert(name);
     assert(g_device);
 
-    auto* texture = (Texture*)Alloc(allocator, sizeof(TextureImpl), type_texture);
+    auto* texture = (Texture*)CreateObject(allocator, sizeof(TextureImpl), type_texture);
     if (!texture)
         return nullptr;
 
@@ -135,7 +135,7 @@ Texture* CreateTexture(
     assert(data);
     assert(name);
 
-    auto* texture = (Texture*)Alloc(allocator, sizeof(TextureImpl), type_texture);
+    auto* texture = (Texture*)CreateObject(allocator, sizeof(TextureImpl), type_texture);
     if (!texture)
         return nullptr;
 
@@ -330,7 +330,7 @@ static void LoadTexture(Allocator* allocator, TextureImpl* impl)
     // Validate file signature
     if (!ReadFileSignature(stream, "NZXT", 4))
     {
-        FreeObject(stream);
+        Destroy(stream);
         return;
     }
 
@@ -338,7 +338,7 @@ static void LoadTexture(Allocator* allocator, TextureImpl* impl)
     uint32_t version = ReadU32(stream);
     if (version != 1)
     {
-        FreeObject(stream);
+        Destroy(stream);
         return;
     }
 
@@ -350,7 +350,7 @@ static void LoadTexture(Allocator* allocator, TextureImpl* impl)
     // Validate format
     if (format > 1)
     {
-        FreeObject(stream);
+        Destroy(stream);
         return;
     }
 
@@ -410,7 +410,7 @@ static void LoadTexture(Allocator* allocator, TextureImpl* impl)
         }
     }
 
-    FreeObject(stream);
+    Destroy(stream);
 }
 
 int GetBytesPerPixel(TextureFormat format)

@@ -5,18 +5,15 @@
 #define INITIAL_CACHE_SIZE 32
 
 
-typedef struct sampler_impl
+struct Sampler
 {
-    OBJECT_BASE;
-    SDL_GPUSampler* sampler;
-} sampler_impl_t;
+    SDL_GPUSampler* gpu_sampler;
+};
 
-static Map* g_sampler_cache = NULL;
-static SDL_GPUDevice* g_device = NULL;
+static Map* g_sampler_cache = nullptr;
+static SDL_GPUDevice* g_device = nullptr;
 
-static inline sampler_impl_t* Impl(void* s) { return (sampler_impl_t*)to_object((Object*)(s), type_sampler); }
-
-static uint64_t sampler_options_hash(const SamplerOptions* options) 
+static u64 Hash(const SamplerOptions* options)
 {
     return Hash((void*)options, sizeof(SamplerOptions));
 }
@@ -31,11 +28,11 @@ SDL_GPUSampler* GetGPUSampler(Texture* texture)
     assert(texture);
 
     SamplerOptions options = GetSamplerOptions(texture);
-    uint64_t key = sampler_options_hash(&options);
+    u64 key = Hash(&options);
 
-    sampler_impl_t* impl = (sampler_impl_t*)GetValue(g_sampler_cache, key);
-    if (impl)
-        return impl->sampler;
+    auto* sampler = (Sampler*)GetValue(g_sampler_cache, key);
+    if (sampler)
+        return sampler->gpu_sampler;
 
     // Create new sampler
     SDL_GPUSamplerCreateInfo sampler_info = {};
@@ -53,16 +50,16 @@ SDL_GPUSampler* GetGPUSampler(Texture* texture)
 
     SDL_GPUSampler* gpu_sampler = SDL_CreateGPUSampler(g_device, &sampler_info);
     if (!gpu_sampler)
-        return NULL;
+        return nullptr;
 
     // Store in cache
-    impl = Impl(Alloc(NULL, sizeof(sampler_impl_t), type_sampler));
-    if (!impl)
-        return NULL;
+    sampler = (Sampler*)Alloc(nullptr, sizeof(Sampler));
+    if (!sampler)
+        return nullptr;
 
-    impl->sampler = gpu_sampler;
-    SetValue(g_sampler_cache, key, impl);
-    return impl->sampler;
+    sampler->gpu_sampler = gpu_sampler;
+    SetValue(g_sampler_cache, key, sampler);
+    return sampler->gpu_sampler;
 }
 
 SDL_GPUFilter to_sdl_filter(TextureFilter filter)
@@ -71,9 +68,8 @@ SDL_GPUFilter to_sdl_filter(TextureFilter filter)
     {
     case TEXTURE_FILTER_NEAREST:
         return SDL_GPU_FILTER_NEAREST;
-    case TEXTURE_FILTER_LINEAR:
-        return SDL_GPU_FILTER_LINEAR;
     default:
+    case TEXTURE_FILTER_LINEAR:
         return SDL_GPU_FILTER_LINEAR;
     }
 }
@@ -95,13 +91,17 @@ SDL_GPUSamplerAddressMode to_sdl_clamp(TextureClamp mode)
 
 void InitSamplerFactory(RendererTraits* traits, SDL_GPUDevice* dev)
 {
+    assert(!g_sampler_cache);
     g_device = dev;
-    g_sampler_cache = CreateMap(NULL, traits->max_samplers);
+    g_sampler_cache = CreateMap(nullptr, traits->max_samplers);
 }
 
 void ShutdownSamplerFactory()
 {
-    FreeObject(g_sampler_cache);
-    g_sampler_cache = NULL;
-    g_device = NULL;
+    assert(g_sampler_cache);
+    //Enumerate(g_sampler_cache,
+
+    Destroy(g_sampler_cache);
+    g_sampler_cache = nullptr;
+    g_device = nullptr;
 }

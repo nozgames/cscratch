@@ -22,7 +22,7 @@ static SDL_GPUDevice* g_device = nullptr;
 
 static void UploadMesh(MeshImpl* impl);
 static void mesh_destroy_impl(MeshImpl* impl);
-static MeshImpl* Impl(void* s) { return (MeshImpl*)to_object((Object*)s, type_mesh); }
+static MeshImpl* Impl(void* s) { return (MeshImpl*)Cast((Object*)s, type_mesh); }
 
 inline size_t GetMeshImplSize(size_t vertex_count, size_t index_count)
 {
@@ -34,7 +34,7 @@ inline size_t GetMeshImplSize(size_t vertex_count, size_t index_count)
 
 static Mesh* CreateMesh(Allocator* allocator, name_t* name, size_t vertex_count, size_t index_count)
 {
-    MeshImpl* impl = Impl(Alloc(allocator, GetMeshImplSize(vertex_count, index_count), type_mesh));
+    MeshImpl* impl = Impl(CreateObject(allocator, GetMeshImplSize(vertex_count, index_count), type_mesh));
     if (!impl)
         return nullptr;
 
@@ -128,7 +128,7 @@ Mesh* mesh_load(Allocator* allocator, name_t* name)
         return nullptr;
 
     auto mesh = LoadMesh(allocator, name, stream);
-    FreeObject(stream);
+    Destroy(stream);
 
     if (!mesh)
         return nullptr;
@@ -267,7 +267,7 @@ void InitMesh(RendererTraits* traits, SDL_GPUDevice* device)
 void ShutdownMesh()
 {
     assert(g_mesh_cache);
-    FreeObject(g_mesh_cache);
+    Destroy(g_mesh_cache);
     g_mesh_cache = nullptr;
     g_device = nullptr;
 }

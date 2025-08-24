@@ -203,7 +203,7 @@ void ImportShader(const fs::path& source_path, const fs::path& output_path, Prop
         }
     }
     
-    FreeObject(output_stream);
+    Destroy(output_stream);
 }
 
 bool CanImportAsShader(const fs::path& path)

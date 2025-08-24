@@ -47,11 +47,11 @@ static bool parse_ini_line_with_section(props_impl_t* impl, const char* line, co
 static bool parse_vector(const char* str, vec3* result);
 
 // Implementation
-static inline props_impl_t* Impl(void* p) { return (props_impl_t*)to_object((Object*)p, type_props); }
+static inline props_impl_t* Impl(void* p) { return (props_impl_t*)Cast((Object*)p, type_props); }
 
 Props* CreateProps(Allocator* allocator)
 {
-    auto* props = (Props*)Alloc(allocator, sizeof(props_impl_t), type_props);
+    auto* props = (Props*)CreateObject(allocator, sizeof(props_impl_t), type_props);
     if (!props)
         return nullptr;
     
@@ -75,7 +75,7 @@ void props_destroy(Props* props)
     props_impl_t* impl = Impl(props);
     
     if (impl->property_map)
-        FreeObject(impl->property_map);
+        Destroy(impl->property_map);
     
     if (impl->pool)
     {
@@ -104,7 +104,7 @@ Props* LoadProps(Allocator* allocator, Path* file_path)
     
     Props* result = LoadProps(allocator, (const char*)GetData(stream), GetSize(stream) - 1);
 
-    FreeObject(stream);
+    Destroy(stream);
     
     return result;
 }

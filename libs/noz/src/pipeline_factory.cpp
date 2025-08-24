@@ -3,19 +3,17 @@
 //
 
 #define INITIAL_CACHE_SIZE 64
-#define to_impl(t) ((pipeline_impl_t*)to_object(t, type_pipeline))
 
-static Map* g_pipeline_cache = NULL;
-static SDL_GPUDevice* g_device = NULL;
-static SDL_Window* g_window = NULL;
+static Map* g_pipeline_cache = nullptr;
+static SDL_GPUDevice* g_device = nullptr;
+static SDL_Window* g_window = nullptr;
 
-typedef struct pipeline_impl
+struct Pipeline
 {
-    OBJECT_BASE;
-    SDL_GPUGraphicsPipeline* pipeline;
-} pipeline_impl_t;
+    SDL_GPUGraphicsPipeline* gpu_pipeline;
+};
 
-static uint64_t pipeline_key(Shader* shader, bool msaa, bool shadow) 
+static uint64_t MakeKey(Shader* shader, bool msaa, bool shadow)
 {
     struct {
         void* shader_ptr;
@@ -26,12 +24,10 @@ static uint64_t pipeline_key(Shader* shader, bool msaa, bool shadow)
     return Hash(&key_data, sizeof(key_data));
 }
 
-static uint32_t vertex_stride(const SDL_GPUVertexAttribute* attributes, size_t attribute_count) 
+static uint32_t GetVertexStride(const SDL_GPUVertexAttribute* attributes, size_t attribute_count)
 {
     if (attribute_count == 0) 
-    {
         return 0;
-    }
 
     // Calculate stride based on the last attribute's offset + size
     const SDL_GPUVertexAttribute* last_attr = &attributes[attribute_count - 1];
@@ -66,15 +62,19 @@ static uint32_t vertex_stride(const SDL_GPUVertexAttribute* attributes, size_t a
     return stride;
 }
 
-static SDL_GPUGraphicsPipeline* create_pipeline(Shader* shader, const SDL_GPUVertexAttribute* attributes,
-                                                size_t attribute_count, bool msaa, bool shadow) 
+static SDL_GPUGraphicsPipeline* CreateGPUPipeline(
+    Shader* shader,
+    const SDL_GPUVertexAttribute* attributes,
+    size_t attribute_count,
+    bool msaa,
+    bool shadow)
 {
     assert(g_window);
     assert(g_device);
     assert(shader);
 
     // Create pipeline directly using the shader's compiled shaders
-    uint32_t vertexStride = vertex_stride(attributes, attribute_count);
+    uint32_t vertexStride = GetVertexStride(attributes, attribute_count);
 
     SDL_GPUVertexBufferDescription vertex_buffer_desc = {};
     vertex_buffer_desc.pitch = vertexStride;
@@ -87,9 +87,8 @@ static SDL_GPUGraphicsPipeline* create_pipeline(Shader* shader, const SDL_GPUVer
     vertex_input_state.num_vertex_attributes = (uint32_t)attribute_count;
 
     SDL_GPUColorTargetDescription color_target = {};
-    if (!shadow) {
+    if (!shadow)
         color_target.format = SDL_GetGPUSwapchainTextureFormat(g_device, g_window);
-    }
 
     SDL_GPUGraphicsPipelineCreateInfo pipeline_create_info = {};
     pipeline_create_info.vertex_shader = shader_gpu_vertex_shader(shader);
@@ -153,7 +152,7 @@ static SDL_GPUGraphicsPipeline* create_pipeline(Shader* shader, const SDL_GPUVer
     } else {
         // Shadow shaders are depth-only, no color targets
         pipeline_create_info.target_info.num_color_targets = 0;
-        pipeline_create_info.target_info.color_target_descriptions = NULL;
+        pipeline_create_info.target_info.color_target_descriptions = nullptr;
     }
 
     // Set depth stencil target info to match the depth texture
@@ -163,11 +162,6 @@ static SDL_GPUGraphicsPipeline* create_pipeline(Shader* shader, const SDL_GPUVer
     SDL_GPUGraphicsPipeline* pipeline = SDL_CreateGPUGraphicsPipeline(g_device, &pipeline_create_info);
     SDL_DestroyProperties(pipeline_create_info.props);
     
-    if (!pipeline) {
-        // Handle error - in C we can't throw exceptions
-        return NULL;
-    }
-
     return pipeline;
 }
 
@@ -178,12 +172,10 @@ SDL_GPUGraphicsPipeline* GetGPUPipeline(Shader* shader, bool msaa, bool shadow)
     assert(shader);
     assert(g_pipeline_cache);
 
-    uint64_t key = pipeline_key(shader, msaa, shadow);
-
-    // Check if pipeline exists in cache
-	pipeline_impl_t* impl = (pipeline_impl_t*)GetValue(g_pipeline_cache, key);
-    if (impl != NULL)
-		return impl->pipeline;
+    auto key = MakeKey(shader, msaa, shadow);
+    auto* impl = (Pipeline*)GetValue(g_pipeline_cache, key);
+    if (impl != nullptr)
+        return impl->gpu_pipeline;
 
     // Create new pipeline
     SDL_GPUVertexAttribute attributes[] = {
@@ -193,17 +185,16 @@ SDL_GPUGraphicsPipeline* GetGPUPipeline(Shader* shader, bool msaa, bool shadow)
         {3, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT, sizeof(float) * 8}   // bone_index : TEXCOORD3 (semantic 3)
     };
 
-    SDL_GPUGraphicsPipeline* pipeline = create_pipeline(shader, attributes, 4, msaa, shadow);
-    if (!pipeline) {
-        return NULL;
-    }
+    SDL_GPUGraphicsPipeline* pipeline = CreateGPUPipeline(shader, attributes, 4, msaa, shadow);
+    if (!pipeline)
+        return nullptr;
 
     // Store in cache
-    impl = to_impl(Alloc(NULL, sizeof(pipeline_impl_t), type_pipeline));
+    impl = (Pipeline*)Alloc(nullptr, sizeof(Pipeline));
     if (!impl)
-        return NULL;
+        return nullptr;
 
-	impl->pipeline = pipeline;
+    impl->gpu_pipeline = pipeline;
     SetValue(g_pipeline_cache, key, impl);
     return pipeline;
 }
@@ -214,14 +205,14 @@ void InitPipelineFactory(SDL_Window* win, SDL_GPUDevice* dev)
 
     g_window = win;
     g_device = dev;
-    g_pipeline_cache = CreateMap(NULL, INITIAL_CACHE_SIZE);
+    g_pipeline_cache = CreateMap(nullptr, INITIAL_CACHE_SIZE);
 }
 
 void ShutdownPipelineFactory()
 {
     assert(g_pipeline_cache);
-    FreeObject(g_pipeline_cache);
-    g_pipeline_cache = NULL;
-    g_window = NULL;
-    g_device = NULL;
+    Destroy(g_pipeline_cache);
+    g_pipeline_cache = nullptr;
+    g_window = nullptr;
+    g_device = nullptr;
 }

@@ -10,16 +10,16 @@ struct Camera : Entity { };
 #define ENTITY_BASE_SIZE 160
 #define ENTITY_BASE char __entity[ENTITY_BASE_SIZE]
 
-inline void* to_object(Object* obj, int16_t type_id)
+inline void* Cast(Object* obj, int16_t type_id)
 {
-	assert(obj && *((int16_t*)obj) == type_id);
-	return (void*)obj;
+    assert(obj && *((int16_t*)obj) == type_id);
+    return obj;
 }
 
-inline void* to_base_object(Object* obj, int16_t base_id)
+inline void* CastToBase(Object* obj, int16_t base_id)
 {
-	assert(obj && *(((int16_t*)obj) + 1) == base_id);
-	return (void*)obj;
+    assert(obj && *(((int16_t*)obj) + 1) == base_id);
+    return obj;
 }
 
 // @scene
@@ -27,10 +27,10 @@ void InitScene();
 void ShutdownScene();
 
 // @entity
-Entity* CreateEntity(Allocator* allocator, size_t entity_size, int16_t type_id);
-vec3 entity_position(Entity* entity);
-mat4 entity_world_to_local(Entity* entity);
-mat4 entity_local_to_world(Entity* entity);
+Entity* CreateEntity(Allocator* allocator, size_t entity_size, type_t type_id);
+vec3 GetPosition(Entity* entity);
+mat4 GetWorldToLocal(Entity* entity);
+mat4 GetLocalToWorld(Entity* entity);
 
 // @camera
 Camera* CreateCamera();

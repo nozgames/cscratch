@@ -21,12 +21,12 @@ struct Object {};
 
 // @object
 Object* CreateObject(Allocator* allocator, size_t object_size, type_t object_type, type_t base_type);
-inline Object* Alloc(Allocator* allocator, size_t object_size, type_t object_type)
+inline Object* CreateObject(Allocator* allocator, size_t object_size, type_t object_type)
 {
     return CreateObject(allocator, object_size, object_type, -1);
 }
 
-void FreeObject(Object* object);
+void Destroy(Object* object);
 
 inline type_t GetType(Object* object) { return *((type_t*)((char*)object + OBJECT_OFFSET_TYPE)); }
 inline type_t GetBaseType(Object* object) { return *((type_t*)((char*)object + OBJECT_OFFSET_BASE)); }

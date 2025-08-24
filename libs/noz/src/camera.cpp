@@ -9,7 +9,7 @@ struct CameraImpl
     mat4 projection;
 };
 
-static CameraImpl* Impl(Camera* c) { return (CameraImpl*)to_object(c, type_camera); }
+static CameraImpl* Impl(Camera* c) { return (CameraImpl*)Cast(c, type_camera); }
 
 Camera* CreateCamera(Allocator* allocator)
 {

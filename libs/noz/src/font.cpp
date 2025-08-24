@@ -5,7 +5,7 @@
 #define MAX_GLYPHS 256  // Support extended ASCII
 #define MAX_KERNING (MAX_GLYPHS * MAX_GLYPHS)  // All possible kerning pairs
 
-struct font_glyph 
+struct FontGlyph
 {
     vec2 uv_min;
     vec2 uv_max;
@@ -15,7 +15,7 @@ struct font_glyph
     vec2 sdf_offset;
 };
 
-struct font_impl 
+struct FontImpl
 {
     OBJECT_BASE;
     name_t name;
@@ -28,7 +28,7 @@ struct font_impl
     float line_height;
 	int atlas_width;
 	int atlas_height;
-    font_glyph glyphs[MAX_GLYPHS];     // Fixed array for glyphs (advance == 0 means no glyph)
+    FontGlyph glyphs[MAX_GLYPHS];     // Fixed array for glyphs (advance == 0 means no glyph)
     uint16_t kerning_index[MAX_KERNING];  // Index into kerning_values array (0xFFFF = no kerning)
     float* kerning_values;                 // Dynamic array of actual kerning values
     uint16_t kerning_count;                // Number of kerning pairs
@@ -37,10 +37,10 @@ struct font_impl
 static Map* g_font_cache = nullptr;
 static SDL_GPUDevice* g_device = nullptr;
 
-inline font_impl* Impl(void* s) { return (font_impl*)to_object((Object*)(s), type_font); }
+inline FontImpl* Impl(Font* f) { return (FontImpl*)Cast(f, type_font); }
 
 #if 0
-static void font_destroy_impl(font_impl* impl)
+static void font_destroy_impl(FontImpl* impl)
 {
     assert(impl);
     // Free dynamic kerning values array
@@ -51,23 +51,23 @@ static void font_destroy_impl(font_impl* impl)
 }
 #endif
 
-Font* font_load_from_stream(Allocator* allocator, Stream* stream, name_t* name)
+Font* LoadFont(Allocator* allocator, Stream* stream, name_t* name)
 {
     // Read header
     if (!ReadFileSignature(stream, "FONT", 4))
     {
-        FreeObject(stream);
+        Destroy(stream);
         return nullptr;
     }
 
     uint32_t version = ReadU32(stream);
     if (version != 1)
     {
-        FreeObject(stream);
+        Destroy(stream);
         return nullptr;
     }
 
-    font_impl* impl = (font_impl*)Alloc(allocator, sizeof(font_impl), type_font);
+    auto* impl = (FontImpl*)CreateObject(allocator, sizeof(FontImpl), type_font);
     if (!impl)
         return nullptr;
 
@@ -97,12 +97,12 @@ Font* font_load_from_stream(Allocator* allocator, Stream* stream, name_t* name)
 
         if (codepoint < MAX_GLYPHS) {
             // Read directly into the glyph structure
-            font_glyph* glyph = &impl->glyphs[codepoint];
-            ReadBytes(stream, glyph, sizeof(font_glyph));
+            FontGlyph* glyph = &impl->glyphs[codepoint];
+            ReadBytes(stream, glyph, sizeof(FontGlyph));
         }
         else {
             // Skip this glyph's data
-            SeekBegin(stream, GetPosition(stream) + sizeof(font_glyph));
+            SeekBegin(stream, GetPosition(stream) + sizeof(FontGlyph));
         }
     }
 
@@ -138,19 +138,19 @@ Font* font_load_from_stream(Allocator* allocator, Stream* stream, name_t* name)
     uint8_t* atlas_data = (uint8_t*)malloc(atlas_data_size);
     if (!atlas_data)
     {
-        FreeObject((Font*)impl);
+        Destroy((Font*)impl);
         return nullptr;
     }
 
     ReadBytes(stream, atlas_data, atlas_data_size);
-    FreeObject(stream);
+    Destroy(stream);
 
     impl->texture = CreateTexture(allocator, atlas_data, impl->atlas_width, impl->atlas_height, TEXTURE_FORMAT_R8, name);
     free(atlas_data);
 
     if (!impl->texture)
     {
-        FreeObject((Font*)impl);
+        Destroy((Font*)impl);
         return nullptr;
     }
 
@@ -161,7 +161,7 @@ Font* font_load_from_stream(Allocator* allocator, Stream* stream, name_t* name)
     impl->material = CreateMaterial(allocator, LoadShader(allocator, &shader_name), &material_name);
     if (!impl->material)
     {
-        FreeObject((Font*)impl);
+        Destroy((Font*)impl);
         return nullptr;
     }
 
@@ -170,7 +170,7 @@ Font* font_load_from_stream(Allocator* allocator, Stream* stream, name_t* name)
     return (Font*)impl;
 }
 
-Font* font_load(Allocator* allocator, name_t* name)
+Font* LoadFont(Allocator* allocator, name_t* name)
 {
     assert(g_device);
     assert(g_font_cache);
@@ -189,19 +189,19 @@ Font* font_load(Allocator* allocator, name_t* name)
     if (!stream)
         return nullptr;
 
-    font = font_load_from_stream(allocator, stream, name);
+    font = LoadFont(allocator, stream, name);
 
     if (font)
         SetValue(g_font_cache, key, font);
 
-    FreeObject(stream);
+    Destroy(stream);
 
     return font;
 }
 
-const font_glyph* font_glyph_at(Font* font, char ch)
+const FontGlyph* GetGlyph(Font* font, char ch)
 {
-    font_impl* impl = Impl(font);
+    FontImpl* impl = Impl(font);
     
     // Check if glyph exists (advance > 0 means valid glyph)
     unsigned char index = (unsigned char)ch;
@@ -218,7 +218,7 @@ const font_glyph* font_glyph_at(Font* font, char ch)
     }
 
     // Return default glyph if nothing found
-    static font_glyph default_glyph = {
+    static FontGlyph default_glyph = {
         {0.0f, 0.0f},   // uv_min
         {0.0f, 0.0f},   // uv_max
         {0.0f, 0.0f},   // size
@@ -230,13 +230,13 @@ const font_glyph* font_glyph_at(Font* font, char ch)
     return &default_glyph;
 }
 
-float font_kerning(Font* font, char first, char second)
+float GetKerning(Font* font, char first, char second)
 {
-	font_impl* impl = Impl(font);
+    auto* impl = Impl(font);
     
-    unsigned char f = (unsigned char)first;
-    unsigned char s = (unsigned char)second;
-    if (f < MAX_GLYPHS && s < MAX_GLYPHS) 
+    auto f = (unsigned char)first;
+    auto s = (unsigned char)second;
+    if (f < MAX_GLYPHS && s < MAX_GLYPHS)
     {
         uint32_t index = f * MAX_GLYPHS + s;
         uint16_t value_index = impl->kerning_index[index];
@@ -247,12 +247,12 @@ float font_kerning(Font* font, char first, char second)
     return 0.0f;
 }
 
-float font_baseline(Font* font)
+float GetBaseline(Font* font)
 {
     return Impl(font)->baseline;
 }
 
-Material* font_material(Font* font)
+Material* GetMaterial(Font* font)
 {
     return Impl(font)->material;
 }
@@ -265,7 +265,7 @@ void InitFont(RendererTraits* traits, SDL_GPUDevice* device)
 
 void ShutdownFont()
 {
-    FreeObject(g_font_cache);
+    Destroy(g_font_cache);
     g_font_cache = nullptr;
     g_device = nullptr;
 }
