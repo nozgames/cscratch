@@ -18,15 +18,15 @@ struct
 {
     struct
     {
-        shader_t* border_effect;
-        shader_t* _default;
-        shader_t* gamma;
-        shader_t* gizmo;
-        shader_t* lit;
-        shader_t* shadow;
-        shader_t* text;
-        shader_t* ui;
-        shader_t* vignette;
+        Shader* border_effect;
+        Shader* _default;
+        Shader* gamma;
+        Shader* gizmo;
+        Shader* lit;
+        Shader* shadow;
+        Shader* text;
+        Shader* ui;
+        Shader* vignette;
     } shaders;
 } g_assets;
 
@@ -40,15 +40,15 @@ bool assets_init(void)
     if (!g_asset_allocator)
         return false;
 
-    NOZ_ASSET_LOAD(shader, "shaders/border_effect", g_assets.shaders.border_effect);
-    NOZ_ASSET_LOAD(shader, "shaders/default", g_assets.shaders._default);
-    NOZ_ASSET_LOAD(shader, "shaders/gamma", g_assets.shaders.gamma);
-    NOZ_ASSET_LOAD(shader, "shaders/gizmo", g_assets.shaders.gizmo);
-    NOZ_ASSET_LOAD(shader, "shaders/lit", g_assets.shaders.lit);
-    NOZ_ASSET_LOAD(shader, "shaders/shadow", g_assets.shaders.shadow);
-    NOZ_ASSET_LOAD(shader, "shaders/text", g_assets.shaders.text);
-    NOZ_ASSET_LOAD(shader, "shaders/ui", g_assets.shaders.ui);
-    NOZ_ASSET_LOAD(shader, "shaders/vignette", g_assets.shaders.vignette);
+    NOZ_ASSET_LOAD(Shader, "shaders/border_effect", g_assets.shaders.border_effect);
+    NOZ_ASSET_LOAD(Shader, "shaders/default", g_assets.shaders._default);
+    NOZ_ASSET_LOAD(Shader, "shaders/gamma", g_assets.shaders.gamma);
+    NOZ_ASSET_LOAD(Shader, "shaders/gizmo", g_assets.shaders.gizmo);
+    NOZ_ASSET_LOAD(Shader, "shaders/lit", g_assets.shaders.lit);
+    NOZ_ASSET_LOAD(Shader, "shaders/shadow", g_assets.shaders.shadow);
+    NOZ_ASSET_LOAD(Shader, "shaders/text", g_assets.shaders.text);
+    NOZ_ASSET_LOAD(Shader, "shaders/ui", g_assets.shaders.ui);
+    NOZ_ASSET_LOAD(Shader, "shaders/vignette", g_assets.shaders.vignette);
 
     return true;
 }

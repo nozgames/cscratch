@@ -5,7 +5,7 @@
 #define INITIAL_CACHE_SIZE 64
 #define to_impl(t) ((pipeline_impl_t*)to_object(t, type_pipeline))
 
-static map_t* g_pipeline_cache = NULL;
+static Map* g_pipeline_cache = NULL;
 static SDL_GPUDevice* g_device = NULL;
 static SDL_Window* g_window = NULL;
 
@@ -15,7 +15,7 @@ typedef struct pipeline_impl
     SDL_GPUGraphicsPipeline* pipeline;
 } pipeline_impl_t;
 
-static uint64_t pipeline_key(shader_t* shader, bool msaa, bool shadow) 
+static uint64_t pipeline_key(Shader* shader, bool msaa, bool shadow) 
 {
     struct {
         void* shader_ptr;
@@ -23,7 +23,7 @@ static uint64_t pipeline_key(shader_t* shader, bool msaa, bool shadow)
         bool shadow;
     } key_data = {shader, msaa, shadow};
     
-    return hash_64(&key_data, sizeof(key_data));
+    return Hash(&key_data, sizeof(key_data));
 }
 
 static uint32_t vertex_stride(const SDL_GPUVertexAttribute* attributes, size_t attribute_count) 
@@ -66,7 +66,7 @@ static uint32_t vertex_stride(const SDL_GPUVertexAttribute* attributes, size_t a
     return stride;
 }
 
-static SDL_GPUGraphicsPipeline* create_pipeline(shader_t* shader, const SDL_GPUVertexAttribute* attributes,
+static SDL_GPUGraphicsPipeline* create_pipeline(Shader* shader, const SDL_GPUVertexAttribute* attributes,
                                                 size_t attribute_count, bool msaa, bool shadow) 
 {
     assert(g_window);
@@ -98,7 +98,7 @@ static SDL_GPUGraphicsPipeline* create_pipeline(shader_t* shader, const SDL_GPUV
     pipeline_create_info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
     pipeline_create_info.props = SDL_CreateProperties();
 
-    SDL_SetStringProperty(pipeline_create_info.props, SDL_PROP_GPU_GRAPHICSPIPELINE_CREATE_NAME_STRING, shader_name(shader)->value);
+    SDL_SetStringProperty(pipeline_create_info.props, SDL_PROP_GPU_GRAPHICSPIPELINE_CREATE_NAME_STRING, GetName(shader)->value);
 
     // Set rasterizer state based on shader properties
     pipeline_create_info.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
@@ -171,7 +171,7 @@ static SDL_GPUGraphicsPipeline* create_pipeline(shader_t* shader, const SDL_GPUV
     return pipeline;
 }
 
-SDL_GPUGraphicsPipeline* pipeline_factory_pipeline(shader_t* shader, bool msaa, bool shadow)
+SDL_GPUGraphicsPipeline* pipeline_factory_pipeline(Shader* shader, bool msaa, bool shadow)
 {
     assert(g_window);
     assert(g_device);
@@ -181,7 +181,7 @@ SDL_GPUGraphicsPipeline* pipeline_factory_pipeline(shader_t* shader, bool msaa, 
     uint64_t key = pipeline_key(shader, msaa, shadow);
 
     // Check if pipeline exists in cache
-	pipeline_impl_t* impl = (pipeline_impl_t*)map_get(g_pipeline_cache, key);
+	pipeline_impl_t* impl = (pipeline_impl_t*)MapGet(g_pipeline_cache, key);
     if (impl != NULL)
 		return impl->pipeline;
 
@@ -199,28 +199,28 @@ SDL_GPUGraphicsPipeline* pipeline_factory_pipeline(shader_t* shader, bool msaa, 
     }
 
     // Store in cache
-    impl = to_impl(object_alloc(NULL, sizeof(pipeline_impl_t), type_pipeline));
+    impl = to_impl(Alloc(NULL, sizeof(pipeline_impl_t), type_pipeline));
     if (!impl)
         return NULL;
 
 	impl->pipeline = pipeline;
-    map_set(g_pipeline_cache, key, impl);
+    MapSet(g_pipeline_cache, key, impl);
     return pipeline;
 }
 
-void pipeline_factory_init(SDL_Window* win, SDL_GPUDevice* dev)
+void InitPipelineFactory(SDL_Window* win, SDL_GPUDevice* dev)
 {
     assert(!g_pipeline_cache);
 
     g_window = win;
     g_device = dev;
-    g_pipeline_cache = map_alloc(NULL, INITIAL_CACHE_SIZE);
+    g_pipeline_cache = AllocMap(NULL, INITIAL_CACHE_SIZE);
 }
 
-void pipeline_factory_uninit()
+void ShutdownPipelineFactory()
 {
     assert(g_pipeline_cache);
-	object_free(g_pipeline_cache);
+    Free(g_pipeline_cache);
     g_pipeline_cache = NULL;
     g_window = NULL;
     g_device = NULL;

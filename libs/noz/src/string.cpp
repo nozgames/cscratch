@@ -61,13 +61,13 @@ name_t* name_set(name_t* dst, const char* src)
     return dst;
 }
 
-bool name_empty(name_t* name)
+bool name_empty(const name_t* name)
 {
     assert(name);
     return name->length == 0;
 }
 
-name_t* name_copy(name_t* dst, name_t* src)
+name_t* CopyName(name_t* dst, const name_t* src)
 {
     assert(dst);
     assert(src);
@@ -108,7 +108,7 @@ bool name_eq(name_t* a, name_t* b)
 	return string_eq(a->value, a->length, b->value, b->length);
 }
 
-bool name_eq_cstr(name_t* a, const char* b)
+bool name_eq_cstr(const name_t* a, const char* b)
 {
     assert(a);
     assert(b);

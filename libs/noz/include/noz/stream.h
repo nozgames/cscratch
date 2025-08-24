@@ -4,12 +4,12 @@
 
 #pragma once
 
-typedef struct object_impl stream_t;
+typedef ObjectTag stream_t;
 
 // @alloc
-stream_t* stream_alloc(allocator_t* allocator, size_t capacity);
-stream_t* stream_load_from_memory(allocator_t* allocator, uint8_t* data, size_t size);
-stream_t* stream_load_from_file(allocator_t* allocator, path_t* path);
+stream_t* stream_alloc(Allocator* allocator, size_t capacity);
+stream_t* stream_load_from_memory(Allocator* allocator, uint8_t* data, size_t size);
+stream_t* LoadStream(Allocator* allocator, path_t* path);
 
 // @file
 bool stream_save_to_file(stream_t* stream, path_t* path);

@@ -2,7 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-struct mesh_impl 
+struct MeshImpl 
 {
     OBJECT_BASE;
 	name_t name;
@@ -17,37 +17,37 @@ struct mesh_impl
     bounds3 bounds;
 };
 
-static map_t* g_mesh_cache = NULL;
-static SDL_GPUDevice* g_device = NULL;
+static Map* g_mesh_cache = nullptr;
+static SDL_GPUDevice* g_device = nullptr;
 
-static void mesh_upload(mesh_impl* impl);
-static void mesh_destroy_impl(mesh_impl* impl);
-static inline mesh_impl* to_impl(void* s) { return (mesh_impl*)to_object((object_t*)s, type_mesh); }
+static void UploadMesh(MeshImpl* impl);
+static void mesh_destroy_impl(MeshImpl* impl);
+static MeshImpl* Impl(void* s) { return (MeshImpl*)to_object((Object*)s, type_mesh); }
 
-inline size_t mesh_impl_size(size_t vertex_count, size_t index_count)
+inline size_t GetMeshImplSize(size_t vertex_count, size_t index_count)
 {
     return
-        sizeof(mesh_impl) +
+        sizeof(MeshImpl) +
         sizeof(mesh_vertex) * vertex_count +
         sizeof(uint16_t) * index_count;
 }
 
-static mesh_t* mesh_alloc_internal(allocator_t* allocator, name_t* name, size_t vertex_count, size_t index_count)
+static Mesh* AllocMesh(Allocator* allocator, name_t* name, size_t vertex_count, size_t index_count)
 {
-    mesh_impl* impl = to_impl(object_alloc(allocator, mesh_impl_size(vertex_count, index_count), type_mesh));
+    MeshImpl* impl = Impl(Alloc(allocator, GetMeshImplSize(vertex_count, index_count), type_mesh));
     if (!impl)
-	    return NULL; 
+        return nullptr;
 
     impl->vertex_count = vertex_count;
     impl->index_count = index_count;
-    impl->vertices = (mesh_vertex*)(impl + sizeof(mesh_impl));
+    impl->vertices = (mesh_vertex*)(impl + sizeof(MeshImpl));
     impl->indices = (uint16_t*)(impl->vertices + sizeof(mesh_vertex) * vertex_count);
-	name_copy(&impl->name, name);
-    return (mesh_t*)impl;
+    CopyName(&impl->name, name);
+    return (Mesh*)impl;
 }
 
-mesh_t* mesh_alloc_raw(
-    allocator_t* allocator,
+Mesh* mesh_alloc_raw(
+    Allocator* allocator,
     size_t vertex_count,
     vec3* positions,
     vec3* normals,
@@ -61,9 +61,9 @@ mesh_t* mesh_alloc_raw(
     assert(normals);
     assert(uvs);
     assert(indices);
-    
-	mesh_t* mesh = mesh_alloc_internal(allocator, name, vertex_count, index_count);
-    mesh_impl* impl = to_impl(mesh);
+
+    auto mesh = AllocMesh(allocator, name, vertex_count, index_count);
+    auto impl = Impl(mesh);
     impl->bounds = to_bounds(positions, vertex_count);
 
     if (bone_indices)
@@ -88,58 +88,58 @@ mesh_t* mesh_alloc_raw(
     }
 
     memcpy(impl->indices, indices, sizeof(uint16_t) * index_count);
-    mesh_upload(impl);
+    UploadMesh(impl);
     return mesh;
 }
 
-static mesh_t* mesh_load_stream(allocator_t* allocator, name_t* name, stream_t* stream)
+static Mesh* LoadMesh(Allocator* allocator, name_t* name, stream_t* stream)
 {
     if (!stream_read_signature(stream, "MESH", 4))
-        return NULL;
+        return nullptr;
 
     // Read bounds
     bounds3 bounds;
     stream_read(stream, &bounds, sizeof(bounds3));
 
     // counts
-    uint32_t vertex_count = stream_read_uint32(stream);
-    uint32_t index_count = stream_read_uint32(stream);
+    auto vertex_count = stream_read_uint32(stream);
+    auto index_count = stream_read_uint32(stream);
 
-	mesh_t* mesh = mesh_alloc_internal(allocator, name, vertex_count, index_count);
+    auto mesh = AllocMesh(allocator, name, vertex_count, index_count);
     if (!mesh)
-		return NULL;
+        return nullptr;
 
-    mesh_impl* impl = to_impl(mesh);
+    auto impl = Impl(mesh);
     stream_read(stream, impl->vertices, sizeof(mesh_vertex) * impl->vertex_count);
     stream_read(stream, impl->indices, sizeof(uint16_t) * impl->index_count);
-    mesh_upload(impl);
+    UploadMesh(impl);
 
     return mesh;
 }
 
-mesh_t* mesh_load(allocator_t* allocator, name_t* name) 
+Mesh* mesh_load(Allocator* allocator, name_t* name) 
 {
     assert(name);
     
     path_t mesh_path;
-    asset_path(&mesh_path, name, "mesh");
-    stream_t* stream = stream_load_from_file(allocator, &mesh_path);
+    SetAssetPath(&mesh_path, name, "mesh");
+    auto stream = LoadStream(allocator, &mesh_path);
     if (!stream)
-        return NULL;
+        return nullptr;
 
-	mesh_t* mesh = mesh_load_stream(allocator, name, stream);
-    object_free(stream);
+    auto mesh = LoadMesh(allocator, name, stream);
+    Free(stream);
 
     if (!mesh)
-        return NULL;
+        return nullptr;
 
-	name_copy(&to_impl(mesh)->name, name);
+    CopyName(&Impl(mesh)->name, name);
 
     return mesh;
 }
 
 #if 0
-static void mesh_destroy_impl(mesh_impl* impl)
+static void mesh_destroy_impl(MeshImpl* impl)
 {
     if (impl->index_transfer)
         SDL_ReleaseGPUTransferBuffer(g_device, impl->index_transfer);
@@ -155,11 +155,11 @@ static void mesh_destroy_impl(mesh_impl* impl)
 }
 #endif
 
-void mesh_render(mesh_t* mesh, SDL_GPURenderPass* pass)
+void RenderMesh(Mesh* mesh, SDL_GPURenderPass* pass)
 {
     assert(pass);
 
-    mesh_impl* impl = to_impl(mesh);
+    MeshImpl* impl = Impl(mesh);
     if (!impl->vertex_buffer)
         return;
 
@@ -175,7 +175,7 @@ void mesh_render(mesh_t* mesh, SDL_GPURenderPass* pass)
     SDL_DrawGPUIndexedPrimitives(pass, (uint32_t)impl->index_count, 1, 0, 0, 0);
 }
 
-static void mesh_upload(mesh_impl* impl)
+static void UploadMesh(MeshImpl* impl)
 {
     assert(impl);
     assert(!impl->vertex_buffer);
@@ -237,38 +237,38 @@ static void mesh_upload(mesh_impl* impl)
     SDL_SubmitGPUCommandBuffer(index_upload_cmd);
 }
 
-const name_t* mesh_name(mesh_t* mesh)
+const name_t* GetName(Mesh* mesh)
 {
-    return &to_impl(mesh)->name;
+    return &Impl(mesh)->name;
 }
 
-size_t mesh_vertex_count(mesh_t* mesh)
+size_t GetVertexCount(Mesh* mesh)
 {
-	return to_impl(mesh)->vertex_count;
+	return Impl(mesh)->vertex_count;
 }
 
-size_t mesh_index_count(mesh_t* mesh)
+size_t GetIndexCount(Mesh* mesh)
 {
-    return to_impl(mesh)->index_count;
+    return Impl(mesh)->index_count;
 }
 
-bounds3 mesh_bounds(mesh_t* mesh)
+bounds3 GetBounds(Mesh* mesh)
 {
-    return to_impl(mesh)->bounds;
+    return Impl(mesh)->bounds;
 }
 
-void mesh_init(renderer_traits* traits, SDL_GPUDevice* device)
+void InitMesh(RendererTraits* traits, SDL_GPUDevice* device)
 {
     assert(!g_mesh_cache);
     g_device = device;
-    g_mesh_cache = map_alloc(NULL, traits->max_meshes);
+    g_mesh_cache = AllocMap(nullptr, traits->max_meshes);
 }
 
-void mesh_uninit()
+void ShutdownMesh()
 {
-	assert(g_mesh_cache);
-    object_free(g_mesh_cache);
-    g_mesh_cache = NULL;
-    g_device = NULL;
+    assert(g_mesh_cache);
+    Free(g_mesh_cache);
+    g_mesh_cache = nullptr;
+    g_device = nullptr;
 }
 

@@ -17,11 +17,11 @@ typedef struct stream_impl
 } stream_impl_t;
 
 static void stream_ensure_capacity(stream_impl_t* impl, size_t required_size);
-static inline stream_impl_t* to_impl(void* stream) { return (stream_impl_t*)to_object((object_t*)stream, type_stream); }
+static inline stream_impl_t* Impl(void* stream) { return (stream_impl_t*)to_object((Object*)stream, type_stream); }
 
-stream_t* stream_alloc(allocator_t* allocator, size_t capacity)
+stream_t* stream_alloc(Allocator* allocator, size_t capacity)
 {
-    stream_impl_t* impl = to_impl(object_alloc(allocator, sizeof(stream_impl_t), type_stream));
+    stream_impl_t* impl = Impl(Alloc(allocator, sizeof(stream_impl_t), type_stream));
     if (!impl)
         return NULL;
 
@@ -31,7 +31,7 @@ stream_t* stream_alloc(allocator_t* allocator, size_t capacity)
     impl->data = (u8*)malloc(capacity);
     if (!impl->data) 
     {
-        object_free((object_t*)impl);
+        Free((Object*)impl);
         return NULL;
     }
     
@@ -42,9 +42,9 @@ stream_t* stream_alloc(allocator_t* allocator, size_t capacity)
     return (stream_t*)impl;
 }
 
-stream_t* stream_load_from_memory(allocator_t* allocator, uint8_t* data, size_t size)
+stream_t* stream_load_from_memory(Allocator* allocator, uint8_t* data, size_t size)
 {
-    stream_impl_t* impl = to_impl(stream_alloc(allocator, size));
+    stream_impl_t* impl = Impl(stream_alloc(allocator, size));
     if (!impl)
         return NULL;
         
@@ -56,7 +56,7 @@ stream_t* stream_load_from_memory(allocator_t* allocator, uint8_t* data, size_t 
     return (stream_t*)impl;
 }
 
-stream_t* stream_load_from_file(allocator_t* allocator, path_t* path)
+stream_t* LoadStream(Allocator* allocator, path_t* path)
 {
     assert(path);
     
@@ -77,7 +77,7 @@ stream_t* stream_load_from_file(allocator_t* allocator, path_t* path)
     
     // Create stream and read file
     void* t = stream_alloc(allocator, file_size + 1);
-    stream_impl_t* impl = to_impl(t); //  stream_alloc(allocator, file_size));
+    stream_impl_t* impl = Impl(t); //  stream_alloc(allocator, file_size));
     if (!impl) 
     {
         fclose(file);
@@ -98,8 +98,8 @@ stream_t* stream_load_from_file(allocator_t* allocator, path_t* path)
 #if 0
 void stream_destroy(stream_t* stream) 
 {
-	stream_impl_t* impl = to_impl(stream);    
-    object_free((object_t*)stream);
+	stream_impl_t* impl = Impl(stream);    
+    Free((Object*)stream);
 }
 #endif
 
@@ -108,7 +108,7 @@ bool stream_save_to_file(stream_t* stream, path_t* path)
     if (!stream || !path)
         return false;
     
-    stream_impl_t* impl = to_impl(stream);
+    stream_impl_t* impl = Impl(stream);
     
     FILE* file = fopen(path->value, "wb");
     if (!file)
@@ -122,29 +122,29 @@ bool stream_save_to_file(stream_t* stream, path_t* path)
 
 uint8_t* stream_data(stream_t* stream)
 {
-    return to_impl(stream)->data;
+    return Impl(stream)->data;
 }
 
 size_t stream_size(stream_t* stream) 
 {
-	return to_impl(stream)->size;
+	return Impl(stream)->size;
 }
 
 void stream_clear(stream_t* stream) 
 {
-	stream_impl_t* impl = to_impl(stream);
+	stream_impl_t* impl = Impl(stream);
     impl->size = 0;
     impl->position = 0;
 }
 
 size_t stream_position(stream_t* stream) 
 {
-    return to_impl(stream)->position;
+    return Impl(stream)->position;
 }
 
 void stream_set_position(stream_t* stream, size_t position) 
 {
-    stream_impl_t* impl = to_impl(stream);
+    stream_impl_t* impl = Impl(stream);
     impl->position = position;
 }
 
@@ -156,14 +156,14 @@ size_t stream_seek_begin(stream_t* stream, size_t offset)
 
 size_t stream_seek_end(stream_t* stream, size_t offset)
 {
-    stream_impl_t* impl = to_impl(stream);
+    stream_impl_t* impl = Impl(stream);
     stream_set_position(stream, i32_max(i32(impl->size - offset), 0));
     return impl->position;
 }
 
 bool stream_is_eos(stream_t* stream) 
 {
-	stream_impl_t* impl = to_impl(stream);
+	stream_impl_t* impl = Impl(stream);
     return impl->position >= impl->size;
 }
 
@@ -171,7 +171,7 @@ bool stream_read_signature(stream_t* stream, const char* expected_signature, siz
 {
     if (!stream || !expected_signature) return false;
     
-    stream_impl_t* impl = to_impl(stream);
+    stream_impl_t* impl = Impl(stream);
     
     if (impl->position + signature_length > impl->size) return false;
     
@@ -187,7 +187,7 @@ uint8_t stream_read_uint8(stream_t* stream)
 {
     if (!stream) return 0;
     
-    stream_impl_t* impl = to_impl(stream);
+    stream_impl_t* impl = Impl(stream);
     
     if (impl->position + sizeof(uint8_t) > impl->size) return 0;
     
@@ -265,7 +265,7 @@ void stream_read(stream_t* stream, void* dest, size_t size)
 {
     if (!stream || !dest || size == 0) return;
     
-    stream_impl_t* impl = to_impl(stream);
+    stream_impl_t* impl = Impl(stream);
     
     if (impl->position + size > impl->size) 
     {
@@ -389,7 +389,7 @@ void stream_write(stream_t* stream, void* src, size_t size)
 {
     if (!stream || !src || size == 0) return;
     
-    stream_impl_t* impl = to_impl(stream);
+    stream_impl_t* impl = Impl(stream);
     
     stream_ensure_capacity(impl, impl->position + size);
     

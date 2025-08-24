@@ -6,7 +6,7 @@
 #include "noz/stream.h"
 #include <string.h>
 
-bool asset_header_read(stream_t* stream, asset_header_t* header)
+bool ReadAssetHeader(stream_t* stream, asset_header_t* header)
 {
     if (!stream || !header) return false;
     
@@ -19,7 +19,7 @@ bool asset_header_read(stream_t* stream, asset_header_t* header)
     return !stream_is_eos(stream);
 }
 
-bool asset_header_write(stream_t* stream, asset_header_t* header)
+bool WriteAssetHeader(stream_t* stream, asset_header_t* header)
 {
     if (!stream || !header) return false;
     
@@ -32,7 +32,7 @@ bool asset_header_write(stream_t* stream, asset_header_t* header)
     return true;
 }
 
-bool asset_header_validate(asset_header_t* header, uint32_t expected_signature)
+bool ValidateAssetHeader(asset_header_t* header, uint32_t expected_signature)
 {
     if (!header) return false;
     return header->signature == expected_signature;
@@ -49,7 +49,7 @@ const char* asset_signature_to_string(uint32_t signature)
     return sig_str;
 }
 
-type_t asset_signature_to_type(uint32_t signature)
+type_t ToType(uint32_t signature)
 {
     switch (signature) {
         case NOZ_TEXTURE_SIG:  return type_texture;
@@ -62,7 +62,7 @@ type_t asset_signature_to_type(uint32_t signature)
     }
 }
 
-const char* asset_type_to_string(type_t type)
+const char* ToString(type_t type)
 {
     switch (type) {
         case type_texture:  return "texture";
@@ -75,7 +75,7 @@ const char* asset_type_to_string(type_t type)
     }
 }
 
-path_t* asset_path(path_t* dst, name_t* name, const char* ext)
+void SetAssetPath(path_t* dst, const name_t* name, const char* ext)
 {
     assert(dst);
     assert(name);
@@ -96,6 +96,4 @@ path_t* asset_path(path_t* dst, name_t* name, const char* ext)
     // Append the name and extension
     path_append(dst, name->value);
     path_set_extension(dst, ext);
-    
-    return dst;
 }

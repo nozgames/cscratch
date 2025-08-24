@@ -4,7 +4,7 @@
 
 // todo: rework memory management here after asset loading
 
-struct shader_impl 
+struct ShaderImpl
 {
     OBJECT_BASE;
     name_t name;
@@ -19,50 +19,50 @@ struct shader_impl
     SDL_GPUCullMode cull;
 };
 
-static map_t* g_shader_cache = NULL;
-static SDL_GPUDevice* g_device = NULL;
+static Map* g_shader_cache = nullptr;
+static SDL_GPUDevice* g_device = nullptr;
 
-static inline shader_impl* to_impl(void* s) { return (shader_impl*)to_object((object_t*)s, type_shader); }
+static ShaderImpl* Impl(Shader* s) { return (ShaderImpl*)to_object((Object*)s, type_shader); }
 
 // todo: destructor
 #if 0
 
-static void shader_destroy_impl(shader_impl* impl)
+static void shader_destroy_impl(ShaderImpl* impl)
 {
     assert(impl);
     if (impl->vertex)
     {
         SDL_ReleaseGPUShader(g_device, impl->vertex);
-        impl->vertex = NULL;
+        impl->vertex = nullptr;
     }
 
     if (impl->fragment)
     {
         SDL_ReleaseGPUShader(g_device, impl->fragment);
-        impl->fragment = NULL;
+        impl->fragment = nullptr;
     }    
 }
 #endif
 
-shader_t* shader_load(allocator_t* allocator, name_t* name)
+Shader* LoadShader(Allocator* allocator, const name_t* name)
 {
     assert(g_device);
     assert(g_shader_cache);
     assert(name);
 
-    uint64_t key = hash_name(name);
-    shader_t* shader = (shader_t*)map_get(g_shader_cache, key);
+    uint64_t key = Hash(name);
+    Shader* shader = (Shader*)MapGet(g_shader_cache, key);
     if (shader) 
-        return NULL;
+        return nullptr;
 
-	shader = (shader_t*)object_alloc(allocator, sizeof(shader_impl), type_shader);
+	shader = (Shader*)Alloc(allocator, sizeof(ShaderImpl), type_shader);
     if (!shader)
-        return NULL;
+        return nullptr;
    
-    shader_impl* impl = (shader_impl*)to_impl(shader);
-	name_copy(&impl->name, name);
-    impl->vertex = NULL;
-    impl->fragment = NULL;
+    ShaderImpl* impl = (ShaderImpl*)Impl(shader);
+	CopyName(&impl->name, name);
+    impl->vertex = nullptr;
+    impl->fragment = nullptr;
     impl->vertex_uniform_count = 0;
     impl->fragment_uniform_count = 0;
     impl->sampler_count = 0;
@@ -73,22 +73,22 @@ shader_t* shader_load(allocator_t* allocator, name_t* name)
 
     // Load shader file
     path_t shader_path;
-    asset_path(&shader_path, name, "shader");
-    stream_t* stream = stream_load_from_file(allocator , &shader_path);
+    SetAssetPath(&shader_path, name, "shader");
+    stream_t* stream = LoadStream(allocator , &shader_path);
     if (!stream) 
-        return NULL;
+        return nullptr;
 
     if (!stream_read_signature(stream, "SHDR", 4))
     {
-        object_free(stream);
-        return NULL;
+        Free(stream);
+        return nullptr;
     }
 
     uint32_t version = stream_read_uint32(stream);
     if (version != 1)
     {
-        object_free(stream);
-        return NULL;
+        Free(stream);
+        return nullptr;
     }
 
     // Read bytecode lengths
@@ -96,8 +96,8 @@ shader_t* shader_load(allocator_t* allocator, name_t* name)
     uint8_t* vertex_bytecode = (uint8_t*)allocator_alloc(allocator, vertex_bytecode_length);
     if (!vertex_bytecode) 
     {
-        object_free(stream);
-        return NULL;
+        Free(stream);
+        return nullptr;
     }
     stream_read_bytes(stream, vertex_bytecode, vertex_bytecode_length);
 
@@ -106,8 +106,8 @@ shader_t* shader_load(allocator_t* allocator, name_t* name)
     if (!fragment_bytecode) 
     {
         free(vertex_bytecode);
-        object_free(stream);
-        return NULL;
+        Free(stream);
+        return nullptr;
     }
     stream_read_bytes(stream, fragment_bytecode, fragment_bytecode_length);
 
@@ -119,7 +119,7 @@ shader_t* shader_load(allocator_t* allocator, name_t* name)
     impl->dst_blend = (SDL_GPUBlendFactor)stream_read_uint32(stream);
     impl->cull = (SDL_GPUCullMode)stream_read_uint32(stream);
 
-    object_free(stream);
+    Free(stream);
 
     // Create fragment shader
     SDL_GPUShaderCreateInfo fragment_create_info = {0};
@@ -142,7 +142,7 @@ shader_t* shader_load(allocator_t* allocator, name_t* name)
     {
         free(vertex_bytecode);
         free(fragment_bytecode);
-        return NULL;
+        return nullptr;
     }
 
     // Create vertex shader
@@ -166,84 +166,84 @@ shader_t* shader_load(allocator_t* allocator, name_t* name)
     free(fragment_bytecode);
 
     if (!impl->vertex)
-        return NULL;
+        return nullptr;
 
-    map_set(g_shader_cache, key, shader);
+    MapSet(g_shader_cache, key, shader);
 
     return shader;
 }
 
 // Shader property getter functions with new naming convention
-SDL_GPUShader* shader_gpu_vertex_shader(shader_t* shader)
+SDL_GPUShader* shader_gpu_vertex_shader(Shader* shader)
 {
-    return to_impl(shader)->vertex;
+    return Impl(shader)->vertex;
 }
 
-SDL_GPUShader* shader_gpu_fragment_shader(shader_t* shader)
+SDL_GPUShader* shader_gpu_fragment_shader(Shader* shader)
 {
-    return to_impl(shader)->fragment;
+    return Impl(shader)->fragment;
 }
 
-SDL_GPUCullMode shader_gpu_cull_mode(shader_t* shader)
+SDL_GPUCullMode shader_gpu_cull_mode(Shader* shader)
 {
-    return to_impl(shader)->cull;
+    return Impl(shader)->cull;
 }
 
-bool shader_blend_enabled(shader_t* shader)
+bool shader_blend_enabled(Shader* shader)
 {
-    return (to_impl(shader)->flags & shader_flags_blend) != 0;
+    return (Impl(shader)->flags & shader_flags_blend) != 0;
 }
 
-SDL_GPUBlendFactor shader_gpu_src_blend(shader_t* shader)
+SDL_GPUBlendFactor shader_gpu_src_blend(Shader* shader)
 {
-    return to_impl(shader)->src_blend;
+    return Impl(shader)->src_blend;
 }
 
-SDL_GPUBlendFactor shader_gpu_dst_blend(shader_t* shader)
+SDL_GPUBlendFactor shader_gpu_dst_blend(Shader* shader)
 {
-    return to_impl(shader)->dst_blend;
+    return Impl(shader)->dst_blend;
 }
 
-bool shader_depth_test_enabled(shader_t* shader)
+bool shader_depth_test_enabled(Shader* shader)
 {
-    return (to_impl(shader)->flags & shader_flags_depth_test) != 0;
+    return (Impl(shader)->flags & shader_flags_depth_test) != 0;
 }
 
-bool shader_depth_write_enabled(shader_t* shader)
+bool shader_depth_write_enabled(Shader* shader)
 {
-    return (to_impl(shader)->flags & shader_flags_depth_write) != 0;
+    return (Impl(shader)->flags & shader_flags_depth_write) != 0;
 }
 
-int shader_vertex_uniform_count(shader_t* shader)
+int shader_vertex_uniform_count(Shader* shader)
 {
-    return to_impl(shader)->vertex_uniform_count;
+    return Impl(shader)->vertex_uniform_count;
 }
 
-int shader_fragment_uniform_count(shader_t* shader)
+int shader_fragment_uniform_count(Shader* shader)
 {
-    return to_impl(shader)->fragment_uniform_count;
+    return Impl(shader)->fragment_uniform_count;
 }
 
-int shader_sampler_count(shader_t* shader)
+int shader_sampler_count(Shader* shader)
 {
-    return to_impl(shader)->sampler_count;
+    return Impl(shader)->sampler_count;
 }
 
-name_t* shader_name(shader_t* shader)
+const name_t* GetName(Shader* shader)
 {
-    return &to_impl(shader)->name;
+    return &Impl(shader)->name;
 }
 
-void shader_init(renderer_traits* traits, SDL_GPUDevice* device)
+void InitShader(RendererTraits* traits, SDL_GPUDevice* device)
 {
     g_device = device;
-    g_shader_cache = map_alloc(NULL, traits->max_shaders);
+    g_shader_cache = AllocMap(nullptr, traits->max_shaders);
 }
 
-void shader_uninit()
+void ShutdownShader()
 {
     assert(g_device);
-    object_free(g_shader_cache);
-    g_device = NULL;
-	g_shader_cache = NULL;
+    Free(g_shader_cache);
+    g_device = nullptr;
+	g_shader_cache = nullptr;
 }

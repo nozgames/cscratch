@@ -10,8 +10,9 @@ int main(int argc, char* argv[])
     {
         BeginRenderFrame();
 
-        render_buffer_begin_pass(true, color_blue, false, nullptr);
-        render_buffer_end_pass();
+        BeginRenderPass(true, color_blue, false, nullptr);
+
+        EndRenderPass();
 
         EndRenderFrame();
     }

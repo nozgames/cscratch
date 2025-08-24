@@ -7,7 +7,7 @@
 
 typedef struct arena_allocator_impl
 {
-	allocator_t base;
+	Allocator base;
 	void* data;
 	size_t* stack;
 	size_t stack_depth;
@@ -86,9 +86,9 @@ arena_allocator_t* arena_allocator_create(size_t size)
 		return nullptr;
 
 	allocator->base = {
-		.alloc = (void* (*)(allocator_t*, size_t))arena_allocator_alloc,
-		.free = (void (*)(allocator_t*, void*))arena_allocator_free,
-		.realloc = (void* (*)(allocator_t*, void*, size_t))arena_allocator_realloc
+		.alloc = (void* (*)(Allocator*, size_t))arena_allocator_alloc,
+		.free = (void (*)(Allocator*, void*))arena_allocator_free,
+		.realloc = (void* (*)(Allocator*, void*, size_t))arena_allocator_realloc
 	};
 	allocator->stack = (size_t*)(allocator + 1);
 	allocator->stack_size = ARENA_ALLOCATOR_MAX_STACK;

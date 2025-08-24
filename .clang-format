@@ -15,4 +15,4 @@ BreakBeforeBraces: Allman
 PointerAlignment: Left
 AllowShortFunctionsOnASingleLine: None
 UseTab: Never
-
+BreakAfterReturnType: ExceptShortType

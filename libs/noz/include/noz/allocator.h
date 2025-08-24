@@ -9,22 +9,22 @@ typedef struct allocator
 	void* (*alloc)(struct allocator*, size_t size);
 	void (*free)(struct allocator*, void* ptr);
 	void* (*realloc)(struct allocator*, void* ptr, size_t new_size);
-} allocator_t;
+} Allocator;
 
 // @allocator
-extern allocator_t* g_default_allocator;
+extern Allocator* g_default_allocator;
 
-inline void* allocator_alloc(allocator_t* a, size_t size)
+inline void* allocator_alloc(Allocator* a, size_t size)
 {
 	return (a == NULL ? g_default_allocator : a)->alloc(a, size);
 }
 
-inline void allocator_free(allocator_t* a, void* ptr)
+inline void allocator_free(Allocator* a, void* ptr)
 {
 	(a == NULL ? g_default_allocator : a)->free(a, ptr);
 }
 
-inline void* allocator_realloc(allocator_t* a, void* ptr, size_t new_size)
+inline void* allocator_realloc(Allocator* a, void* ptr, size_t new_size)
 {
 	return (a == NULL ? g_default_allocator : a)->realloc(a, ptr, new_size);
 }

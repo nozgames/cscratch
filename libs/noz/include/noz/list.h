@@ -4,9 +4,9 @@
 
 #pragma once
 
-typedef struct object_impl list_t;
+typedef ObjectTag list_t;
 
-list_t* list_alloc(allocator_t* allocator, size_t capacity);
+list_t* list_alloc(Allocator* allocator, size_t capacity);
 size_t list_count(list_t* list);
 size_t list_capacity(list_t* list);
 void list_add(list_t* list, void* value);

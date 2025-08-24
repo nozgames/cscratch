@@ -11,29 +11,29 @@ typedef struct sampler_impl
     SDL_GPUSampler* sampler;
 } sampler_impl_t;
 
-static map_t* g_sampler_cache = NULL;
+static Map* g_sampler_cache = NULL;
 static SDL_GPUDevice* g_device = NULL;
 
-static inline sampler_impl_t* to_impl(void* s) { return (sampler_impl_t*)to_object((object_t*)(s), type_sampler); }
+static inline sampler_impl_t* Impl(void* s) { return (sampler_impl_t*)to_object((Object*)(s), type_sampler); }
 
 static uint64_t sampler_options_hash(const sampler_options_t* options) 
 {
-    return hash_64((void*)options, sizeof(sampler_options_t));
+    return Hash((void*)options, sizeof(sampler_options_t));
 }
 
-SDL_GPUFilter to_sdl_filter(texture_filter filter);
-SDL_GPUSamplerAddressMode to_sdl_clamp(texture_clamp clamp);
+SDL_GPUFilter to_sdl_filter(TextureFilter filter);
+SDL_GPUSamplerAddressMode to_sdl_clamp(TextureClamp clamp);
 
-SDL_GPUSampler* sampler_factory_sampler(texture_t* texture)
+SDL_GPUSampler* sampler_factory_sampler(Texture* texture)
 {
     assert(g_device);
     assert(g_sampler_cache);
     assert(texture);
 
-    sampler_options_t options = texture_sampler_options(texture);
+    sampler_options_t options = GetSamplerOptions(texture);
     uint64_t key = sampler_options_hash(&options);
 
-    sampler_impl_t* impl = (sampler_impl_t*)map_get(g_sampler_cache, key);
+    sampler_impl_t* impl = (sampler_impl_t*)MapGet(g_sampler_cache, key);
     if (impl)
         return impl->sampler;
 
@@ -56,16 +56,16 @@ SDL_GPUSampler* sampler_factory_sampler(texture_t* texture)
         return NULL;
 
     // Store in cache
-    impl = to_impl(object_alloc(NULL, sizeof(sampler_impl_t), type_sampler));
+    impl = Impl(Alloc(NULL, sizeof(sampler_impl_t), type_sampler));
     if (!impl)
         return NULL;
 
     impl->sampler = gpu_sampler;
-    map_set(g_sampler_cache, key, impl);
+    MapSet(g_sampler_cache, key, impl);
     return impl->sampler;
 }
 
-SDL_GPUFilter to_sdl_filter(texture_filter filter)
+SDL_GPUFilter to_sdl_filter(TextureFilter filter)
 {
     switch (filter)
     {
@@ -78,7 +78,7 @@ SDL_GPUFilter to_sdl_filter(texture_filter filter)
     }
 }
 
-SDL_GPUSamplerAddressMode to_sdl_clamp(texture_clamp mode)
+SDL_GPUSamplerAddressMode to_sdl_clamp(TextureClamp mode)
 {
     switch (mode)
     {
@@ -93,15 +93,15 @@ SDL_GPUSamplerAddressMode to_sdl_clamp(texture_clamp mode)
     }
 }
 
-void sampler_factory_init(renderer_traits* traits, SDL_GPUDevice* dev)
+void InitSamplerFactory(RendererTraits* traits, SDL_GPUDevice* dev)
 {
     g_device = dev;
-    g_sampler_cache = map_alloc(NULL, traits->max_samplers);
+    g_sampler_cache = AllocMap(NULL, traits->max_samplers);
 }
 
-void sampler_factory_uninit()
+void ShutdownSamplerFactory()
 {
-    object_free(g_sampler_cache);
+    Free(g_sampler_cache);
     g_sampler_cache = NULL;
     g_device = NULL;
 }

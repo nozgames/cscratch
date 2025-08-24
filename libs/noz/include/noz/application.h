@@ -7,7 +7,7 @@ struct ApplicationTraits
     const char* title;
     int width;
     int height;
-    renderer_traits renderer;
+    RendererTraits renderer;
 };
 
 void InitDefaults(ApplicationTraits* traits);

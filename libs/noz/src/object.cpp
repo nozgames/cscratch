@@ -2,23 +2,23 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-typedef struct object_impl
+typedef struct ObjectImpl
 {
     // todo: add a debug magic number here to validate object integrity
     type_t type;
     type_t base_type;
     uint32_t size;
-    allocator_t* allocator;
+    Allocator* allocator;
 } object_impl_t;
 
-static inline object_impl_t* to_impl(const void* o) 
+static inline object_impl_t* Impl(const void* o) 
 {
     return (object_impl_t*)o;
 }
 
-object_t* object_alloc_with_base(allocator_t* allocator, size_t object_size, type_t object_type, type_t base_type)
+Object* Alloc(Allocator* allocator, size_t object_size, type_t object_type, type_t base_type)
 {
-    object_impl_t* impl = to_impl(allocator_alloc(allocator, object_size));
+    object_impl_t* impl = Impl(allocator_alloc(allocator, object_size));
     if (!impl)
         return nullptr;
 
@@ -26,15 +26,15 @@ object_t* object_alloc_with_base(allocator_t* allocator, size_t object_size, typ
     impl->base_type = base_type;
     impl->allocator = allocator;
     impl->size = (uint32_t)object_size;
-    return impl;
+    return (Object*)impl;
 }
 
-void object_free(object_t* o)
+void Free(Object* o)
 {
     // todo: we would need to know the allocator to free this...  we could store it in the impl struct
 }
 
-void object_init()
+void InitObject()
 {
     size_t object_type_size = sizeof(object_impl_t);
     if (object_type_size != OBJECT_BASE_SIZE)
@@ -72,6 +72,6 @@ void object_init()
     }
 }
 
-void object_uninit()
+void ShutdownObject()
 {
 }

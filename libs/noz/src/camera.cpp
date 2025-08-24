@@ -2,31 +2,31 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-struct camera_impl
+struct CameraImpl
 {
     ENTITY_BASE;
     ivec2 view_size;
-	mat4 projection;
+    mat4 projection;
 };
 
-static inline camera_impl* to_impl(camera_t* c) { return (camera_impl*)to_object(c, type_camera); }
+static CameraImpl* Impl(Camera* c) { return (CameraImpl*)to_object(c, type_camera); }
 
-camera_t* camera_create(allocator_t* allocator)
+Camera* CreateCamera(Allocator* allocator)
 {
-	camera_impl* camera = to_impl(entity_create(allocator, sizeof(camera_impl), type_camera));
-	camera->view_size = { 800, 600 };
-    return (camera_t*)camera;
+    CameraImpl* camera = Impl((Camera*)CreateEntity(allocator, sizeof(CameraImpl), type_camera));
+    camera->view_size = { 800, 600 };
+    return (Camera*)camera;
 }
 
-mat4 camera_projection(camera_t* camera)
+mat4 camera_projection(Camera* camera)
 {
-    return to_impl(camera)->projection;
+    return Impl(camera)->projection;
 }
 
-void camera_init()
+void InitCamera()
 {
 }
 
-void camera_uninit()
+void ShutdownCamera()
 {
 }

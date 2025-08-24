@@ -2,13 +2,13 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-void reset_state();
-void update_back_buffer();
-void init_gamma_pass();
-void init_shadow_pass(const renderer_traits* traits);
-void render_gamma_pass();
+static void ResetRenderState();
+static void UpdateBackBuffer();
+static void InitGammaPass();
+static void InitShadowPass(const RendererTraits* traits);
+static void RenderGammaPass();
 
-typedef struct renderer_impl
+struct Renderer
 {
     SDL_GPUDevice* device;
     SDL_Window* window;
@@ -18,8 +18,8 @@ typedef struct renderer_impl
     mat4 view;
 
     // gamma
-    mesh_t* gamma_mesh;
-    material_t* gamma_material;
+    Mesh* gamma_mesh;
+    Material* gamma_material;
 
     // Depth buffer support
     SDL_GPUTexture* depth_texture;
@@ -31,26 +31,24 @@ typedef struct renderer_impl
     SDL_GPUTexture* msaa_depth_texture;
 
     // Default texture for rendering
-    texture_t* default_texture;
+    Texture* default_texture;
 
     // Light view projection matrix for shadow mapping
     mat4 light_view;
 
-    texture_t* linear_back_buffer;
+    Texture* linear_back_buffer;
     SDL_GPUTexture* swap_chain_texture;
     SDL_GPUTexture* shadow_map;
     SDL_GPUSampler* shadow_sampler;
-    shader_t* shadow_shader;
+    Shader* shadow_shader;
     bool shadow_pass;
     bool msaa;
     SDL_GPUGraphicsPipeline* pipeline;
-} renderer_impl;
+};
 
-static renderer_impl g_renderer = {0};
+static Renderer g_renderer = {};
 
-
-
-void init_shadow_pass(const renderer_traits* traits)
+void InitShadowPass(const RendererTraits* traits)
 {
     if (!traits->shadow_map_size)
         return;
@@ -88,13 +86,13 @@ void init_shadow_pass(const renderer_traits* traits)
         Exit(SDL_GetError());
 }
 
-void renderer_begin_frame()
+void BeginRenderFrame()
 {
     render_buffer_clear();
-    update_back_buffer();
+    UpdateBackBuffer();
 
     SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(g_renderer.device);
-    //SDL_GPUTexture* backbuffer = NULL;
+    //SDL_GPUTexture* backbuffer = nullptr;
     Uint32 width, height;
     SDL_WaitAndAcquireGPUSwapchainTexture(cmd, g_renderer.window, &g_renderer.swap_chain_texture, &width, &height);
     if (!g_renderer.swap_chain_texture)
@@ -124,7 +122,7 @@ void renderer_begin_frame()
         if (g_renderer.depth_texture)
         {
             SDL_ReleaseGPUTexture(g_renderer.device, g_renderer.depth_texture);
-            g_renderer.depth_texture = NULL;
+            g_renderer.depth_texture = nullptr;
         }
 
         // Create property group for D3D12 clear depth value to match our clear value
@@ -154,12 +152,12 @@ void renderer_begin_frame()
         if (g_renderer.msaa_color_texture)
         {
             SDL_ReleaseGPUTexture(g_renderer.device, g_renderer.msaa_color_texture);
-            g_renderer.msaa_color_texture = NULL;
+            g_renderer.msaa_color_texture = nullptr;
         }
         if (g_renderer.msaa_depth_texture)
         {
             SDL_ReleaseGPUTexture(g_renderer.device, g_renderer.msaa_depth_texture);
-            g_renderer.msaa_depth_texture = NULL;
+            g_renderer.msaa_depth_texture = nullptr;
         }
 
         // Create MSAA color texture - use 16-bit float to match render target format
@@ -203,19 +201,19 @@ void renderer_begin_frame()
     g_renderer.command_buffer = cmd;
 }
 
-void renderer_end_frame()
+void EndRenderFrame()
 {
     assert(!g_renderer.render_pass);
 
     if (!g_renderer.command_buffer)
         return;
 
-    render_gamma_pass();
+    RenderGammaPass();
     render_buffer_execute(g_renderer.command_buffer);
     SDL_SubmitGPUCommandBuffer(g_renderer.command_buffer);
 
-    g_renderer.command_buffer = NULL;
-    g_renderer.render_pass = NULL;
+    g_renderer.command_buffer = nullptr;
+    g_renderer.render_pass = nullptr;
 }
 
 SDL_GPURenderPass* renderer_begin_pass_gpu(SDL_GPUTexture* target, bool clear, color_t clear_color)
@@ -236,12 +234,12 @@ SDL_GPURenderPass* renderer_begin_pass_gpu(SDL_GPUTexture* target, bool clear, c
     g_renderer.render_pass = SDL_BeginGPURenderPass(g_renderer.command_buffer, &color_target, 1, &depth_target);
     assert(g_renderer.render_pass);
 
-    reset_state();
+    ResetRenderState();
 
     return g_renderer.render_pass;
 }
 
-SDL_GPURenderPass* renderer_begin_pass(bool clear, color_t clear_color, bool msaa, texture_t* target)
+SDL_GPURenderPass* renderer_begin_pass(bool clear, color_t clear_color, bool msaa, Texture* target)
 {
     assert(!g_renderer.render_pass);
 
@@ -294,7 +292,7 @@ SDL_GPURenderPass* renderer_begin_pass(bool clear, color_t clear_color, bool msa
         g_renderer.render_pass = SDL_BeginGPURenderPass(g_renderer.command_buffer, &color_target, 1, &depth_target);
         assert(g_renderer.render_pass);
 
-        reset_state();
+        ResetRenderState();
 
         return g_renderer.render_pass;
 #endif
@@ -305,7 +303,7 @@ void renderer_end_pass()
     assert(g_renderer.render_pass);
 
     SDL_EndGPURenderPass(g_renderer.render_pass);
-    g_renderer.render_pass = NULL;
+    g_renderer.render_pass = nullptr;
     g_renderer.shadow_pass = false;
     g_renderer.msaa = false;
 }
@@ -316,13 +314,13 @@ void renderer_bind_default_texture(int index)
     renderer_bind_texture(g_renderer.command_buffer, g_renderer.default_texture, sampler_register_user0 + index);
 }
 
-void renderer_bind_texture(SDL_GPUCommandBuffer* cb, texture_t* texture, int index)
+void renderer_bind_texture(SDL_GPUCommandBuffer* cb, Texture* texture, int index)
 {
     if (g_renderer.shadow_pass)
         return;
 
     // Get the actual texture to bind (use default if none provided)
-    texture_t* actual_texture = texture ? texture : g_renderer.default_texture;
+    Texture* actual_texture = texture ? texture : g_renderer.default_texture;
 
     // Main pass: bind diffuse texture and shadow map
     SDL_GPUTextureSamplerBinding binding = {0};
@@ -331,7 +329,7 @@ void renderer_bind_texture(SDL_GPUCommandBuffer* cb, texture_t* texture, int ind
     SDL_BindGPUFragmentSamplers(g_renderer.render_pass, index, &binding, 1);
 }
 
-void renderer_bind_shader(shader_t* shader)
+void renderer_bind_shader(Shader* shader)
 {
     assert(shader);
 
@@ -352,11 +350,11 @@ void renderer_bind_shader(shader_t* shader)
     g_renderer.pipeline = pipeline;
 }
 
-void renderer_bind_material(material_t* material)
+void renderer_bind_material(Material* material)
 {
     assert(material);
 
-    shader_t* shader = material_shader(material);
+    Shader* shader = material_shader(material);
     assert(shader);
 
     renderer_bind_shader(shader);
@@ -391,50 +389,50 @@ SDL_GPURenderPass* renderer_begin_shadow_pass()
     depth_info.load_op = SDL_GPU_LOADOP_CLEAR;
     depth_info.store_op = SDL_GPU_STOREOP_STORE;
 
-    g_renderer.render_pass = SDL_BeginGPURenderPass(g_renderer.command_buffer, NULL, 0, &depth_info);
+    g_renderer.render_pass = SDL_BeginGPURenderPass(g_renderer.command_buffer, nullptr, 0, &depth_info);
     g_renderer.shadow_pass = true;
-    reset_state();
+    ResetRenderState();
 
     return g_renderer.render_pass;
 }
 
-void reset_state()
+static void ResetRenderState()
 {
     // Reset all state tracking variables to force rebinding
-    g_renderer.pipeline = NULL;
+    g_renderer.pipeline = nullptr;
 
     for (int i = 0; i < (int)(sampler_register_count); i++)
         renderer_bind_texture(g_renderer.command_buffer, g_renderer.default_texture, i);
 }
 
-void update_back_buffer()
+static void UpdateBackBuffer()
 {
     // is the back buffer the correct size?
     assert(g_renderer.device);
     ivec2 size = GetScreenSize();
-    if (g_renderer.linear_back_buffer && texture_size(g_renderer.linear_back_buffer) == size)
+    if (g_renderer.linear_back_buffer && GetSize(g_renderer.linear_back_buffer) == size)
         return;
 
     name_t name;
 	name_set(&name, "linear");
     g_renderer.linear_back_buffer =
-        texture_alloc(NULL, size.x, size.y, texture_format_rgba16f, &name);
+        AllocTexture(nullptr, size.x, size.y, texture_format_rgba16f, &name);
 }
 
-void init_gamma_pass()
+static void InitGammaPass()
 {
     name_t gamma_name;
     name_t shader_name;
     name_set(&gamma_name, "gamma");
     name_set(&shader_name, "shaders/gamma");
 
-    mesh_builder_t* builder = mesh_builder_alloc(NULL, 4, 6);
+    MeshBuilder* builder = mesh_builder_alloc(nullptr, 4, 6);
     mesh_builder_add_quad(builder, VEC3_FORWARD, VEC3_RIGHT, 1, 1, VEC3_ZERO);
-	mesh_t* mesh =  mesh_alloc_from_mesh_builder(NULL, builder, &gamma_name);
-	object_free(builder);
+	Mesh* mesh =  mesh_alloc_from_mesh_builder(nullptr, builder, &gamma_name);
+	Free(builder);
     g_renderer.gamma_mesh = mesh;
 
-    g_renderer.gamma_material = material_alloc(NULL, shader_load(NULL, &shader_name), &gamma_name);
+    g_renderer.gamma_material = material_alloc(nullptr, LoadShader(nullptr, &shader_name), &gamma_name);
 
     // For now, just stub this out since gamma_mesh and gamma_material are commented out
     // TODO: Implement gamma pass when needed
@@ -445,7 +443,7 @@ SDL_GPURenderPass* renderer_begin_gamma_pass()
     return renderer_begin_pass_gpu(g_renderer.swap_chain_texture, false, color_transparent);
 }
 
-void render_gamma_pass()
+static void RenderGammaPass()
 {
     static mat4 ident = identity<mat4>();
 
@@ -456,105 +454,73 @@ void render_gamma_pass()
     render_buffer_bind_transform(ident);
     render_buffer_bind_material(g_renderer.gamma_material);
     render_buffer_render_mesh(g_renderer.gamma_mesh);
-    render_buffer_end_pass();
+    EndRenderPass();
 }
 
-void renderer_init(renderer_traits* traits, SDL_Window* window)
+void InitRenderer(RendererTraits* traits, SDL_Window* window)
 {
     g_renderer.window = window;
     //g_renderer.render_buffer = create_render_buffer();
 
     // Create GPU device
-    g_renderer.device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, NULL);
+    g_renderer.device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, nullptr);
     if (!g_renderer.device)
         Exit(SDL_GetError());
 
-    // Claim window for GPU device
     if (!SDL_ClaimWindowForGPUDevice(g_renderer.device, window))
     {
         SDL_DestroyGPUDevice(g_renderer.device);
-        g_renderer.device = NULL;
         Exit(SDL_GetError());
     }
 
-    texture_init(traits, g_renderer.device);
-    shader_init(traits, g_renderer.device);
-    font_init(traits, g_renderer.device);
-    mesh_init(traits, g_renderer.device);
-    render_buffer_init(traits);
-    sampler_factory_init(traits, g_renderer.device);
-    pipeline_factory_init(window, g_renderer.device);
+    InitTexture(traits, g_renderer.device);
+    InitShader(traits, g_renderer.device);
+    InitFont(traits, g_renderer.device);
+    InitMesh(traits, g_renderer.device);
+    InitRenderBuffer(traits);
+    InitSamplerFactory(traits, g_renderer.device);
+    InitPipelineFactory(window, g_renderer.device);
+    InitGammaPass();
+    InitShadowPass(traits);
 
-    // Create default texture
     //g_renderer.shadow_shader = load_shader("shaders/shadow");
     //g_renderer.default_texture = load_texture("white");
-
-    init_gamma_pass();
-    init_shadow_pass(traits);
 }
 
-void renderer_uninit()
+void ShutdownRenderer()
 {
-    pipeline_factory_uninit();
-    sampler_factory_uninit();
-    render_buffer_uninit();
-    mesh_uninit();
-    font_uninit();
-    shader_uninit();
-    texture_uninit();
-
     assert(g_renderer.device);
 
-    // Release gamma mesh
-    // g_renderer.gamma_mesh = NULL; // TODO: implement proper cleanup
+    ShutdownPipelineFactory();
+    ShutdownSamplerFactory();
+    ShutdownRenderBuffer();
+    ShutdownMesh();
+    ShutdownFont();
+    ShutdownShader();
+    ShutdownTexture();
 
-    // Release depth textures first
+    // g_renderer.gamma_mesh = nullptr; // TODO: implement proper cleanup
+
     if (g_renderer.depth_texture)
-    {
         SDL_ReleaseGPUTexture(g_renderer.device, g_renderer.depth_texture);
-        g_renderer.depth_texture = NULL;
-    }
 
-    // Release MSAA textures
     if (g_renderer.msaa_color_texture)
-    {
         SDL_ReleaseGPUTexture(g_renderer.device, g_renderer.msaa_color_texture);
-        g_renderer.msaa_color_texture = NULL;
-    }
 
     if (g_renderer.msaa_depth_texture)
-    {
         SDL_ReleaseGPUTexture(g_renderer.device, g_renderer.msaa_depth_texture);
-        g_renderer.msaa_depth_texture = NULL;
-    }
 
     // Release shadow resources
     if (g_renderer.shadow_map)
-    {
         SDL_ReleaseGPUTexture(g_renderer.device, g_renderer.shadow_map);
-        g_renderer.shadow_map = NULL;
-    }
 
     if (g_renderer.shadow_sampler)
-    {
         SDL_ReleaseGPUSampler(g_renderer.device, g_renderer.shadow_sampler);
-        g_renderer.shadow_sampler = NULL;
-    }
 
     // Release default texture
-    // g_renderer.default_texture = NULL; // TODO: implement proper cleanup
+    // g_renderer.default_texture = nullptr; // TODO: implement proper cleanup
 
-    sampler_factory_uninit();
-    pipeline_factory_uninit();
+    SDL_DestroyGPUDevice(g_renderer.device);
 
-    // Destroy GPU device last
-    if (g_renderer.device)
-        SDL_DestroyGPUDevice(g_renderer.device);
-
-    g_renderer.device = NULL;
-    g_renderer.command_buffer = NULL;
-    g_renderer.render_pass = NULL;
-    g_renderer.shadow_pass = false;
-
-    memset(&g_renderer, 0, sizeof(renderer_impl));
+    g_renderer = {};
 }

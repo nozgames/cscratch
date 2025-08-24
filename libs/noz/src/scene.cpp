@@ -2,15 +2,15 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-void entity_init();
+void InitEntity();
 
-void scene_init()
+void InitScene()
 {
-    entity_init();
-    camera_init();
+    InitEntity();
+    InitCamera();
 }
 
-void scene_uninit()
+void ShutdownScene()
 {
-    camera_uninit();
+    ShutdownCamera();
 }

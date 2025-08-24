@@ -56,7 +56,7 @@ bool asset_manifest_generate(char* output_directory, char* manifest_output_path)
     if (!generator.manifest_stream)
     {
         printf("ERROR: Failed to create manifest stream\n");
-        object_free(generator.asset_entries);
+        Free(generator.asset_entries);
         return false;
     }
 
@@ -76,8 +76,8 @@ bool asset_manifest_generate(char* output_directory, char* manifest_output_path)
         bool success = stream_save_to_file(generator.manifest_stream, &manifest_path);
         
         // Clean up
-        object_free(generator.manifest_stream);
-        object_free(generator.asset_entries);
+        Free(generator.manifest_stream);
+        Free(generator.asset_entries);
         
         return success;
     }
@@ -85,8 +85,8 @@ bool asset_manifest_generate(char* output_directory, char* manifest_output_path)
     if (!dir_stat.is_directory)
     {
         printf("ERROR: '%s' is not a directory\n", output_directory);
-        object_free(generator.manifest_stream);
-        object_free(generator.asset_entries);
+        Free(generator.manifest_stream);
+        Free(generator.asset_entries);
         return false;
     }
 
@@ -94,8 +94,8 @@ bool asset_manifest_generate(char* output_directory, char* manifest_output_path)
     if (!directory_enum_files(&generator.output_dir, scan_asset_file, &generator))
     {
         printf("ERROR: Failed to enumerate files in directory: %s\n", output_directory);
-        object_free(generator.manifest_stream);
-        object_free(generator.asset_entries);
+        Free(generator.manifest_stream);
+        Free(generator.asset_entries);
         return false;
     }
 
@@ -113,8 +113,8 @@ bool asset_manifest_generate(char* output_directory, char* manifest_output_path)
     }
 
     // Clean up
-    object_free(generator.manifest_stream);
-    object_free(generator.asset_entries);
+    Free(generator.manifest_stream);
+    Free(generator.asset_entries);
 
     return success;
 }
@@ -156,14 +156,14 @@ static void scan_asset_file(path_t* file_path, file_stat_t* stat, void* user_dat
         }
     }
 
-    asset_entry_t* entry = (asset_entry_t*)object_alloc(object_allocator(generator->asset_entries), sizeof(asset_entry_t), type_unknown);
+    asset_entry_t* entry = (asset_entry_t*)Alloc(GetAllocator(generator->asset_entries), sizeof(asset_entry_t), type_unknown);
     if (!entry)
     {
         printf("error: out_of_memory\n");
         return;
     }
 
-	list_add(generator->asset_entries, (object_t*)entry);
+	list_add(generator->asset_entries, (Object*)entry);
 
     // Copy the relative path we already computed (extension already removed)
     path_copy(&entry->path, &relative_path);
@@ -189,14 +189,14 @@ static bool read_asset_header(char* file_path, uint32_t* signature, size_t* runt
 {
     path_t asset_path;
     path_set(&asset_path, file_path);
-    stream_t* stream = stream_load_from_file(NULL, &asset_path);
+    stream_t* stream = LoadStream(NULL, &asset_path);
     if (!stream)
         return false;
 
     // Read asset header (16 bytes)
     if (stream_size(stream) < 16)
     {
-        object_free(stream);
+        Free(stream);
         return false;
     }
 
@@ -205,7 +205,7 @@ static bool read_asset_header(char* file_path, uint32_t* signature, size_t* runt
     *runtime_size = stream_read_uint32(stream);
     // Skip version and flags for manifest generation
     
-    object_free(stream);
+    Free(stream);
     return true;
 }
 
@@ -247,11 +247,11 @@ static void generate_manifest_code(manifest_generator_t* generator)
     for (size_t i = 0; i < list_count(generator->asset_entries); i++) 
     {
         asset_entry_t* entry = (asset_entry_t*)list_get(generator->asset_entries, i);
-        type_t asset_type = asset_signature_to_type(entry->signature);        
+        type_t asset_type = ToType(entry->signature);
         if (asset_type == type_invalid)
 			continue;
 
-        const char* type_name = asset_type_to_string(asset_type);
+        const char* type_name = ToString(asset_type);
         assert(type_name);
         stream_write_raw_cstr(
             stream,
@@ -447,7 +447,7 @@ static void write_asset_type_struct(stream_t* stream, list_t* assets, type_t typ
     if (list_count(assets) == 0)
         return;
     
-    const char* type_name = asset_type_to_string(type);
+    const char* type_name = ToString(type);
     if (type_name == NULL)
         return;
    
@@ -481,26 +481,26 @@ static void organize_assets_by_type(manifest_generator_t* generator)
     for (size_t i = 0, c = list_count(generator->asset_entries); i < c; i++)
     {
         asset_entry_t* entry = (asset_entry_t*)list_get(generator->asset_entries, i);
-        type_t asset_type = asset_signature_to_type(entry->signature);
+        type_t asset_type = ToType(entry->signature);
         
         switch (asset_type) {
             case type_texture:
-                list_add(textures, (object_t*)entry);
+                list_add(textures, (Object*)entry);
                 break;
             case type_mesh:
-                list_add(meshes, (object_t*)entry);
+                list_add(meshes, (Object*)entry);
                 break;
             case type_sound:
-                list_add(sounds, (object_t*)entry);
+                list_add(sounds, (Object*)entry);
                 break;
             case type_shader:
-                list_add(shaders, (object_t*)entry);
+                list_add(shaders, (Object*)entry);
                 break;
             case type_material:
-                list_add(materials, (object_t*)entry);
+                list_add(materials, (Object*)entry);
                 break;
             case type_font:
-                list_add(fonts, (object_t*)entry);
+                list_add(fonts, (Object*)entry);
                 break;
             default:
                 // Unknown type, skip
@@ -536,10 +536,10 @@ static void organize_assets_by_type(manifest_generator_t* generator)
     stream_write_raw_cstr(stream, "} g_assets;\n\n");
     
     // Clean up
-    object_free(textures);
-    object_free(meshes);
-    object_free(sounds);
-    object_free(shaders);
-    object_free(materials);
-    object_free(fonts);
+    Free(textures);
+    Free(meshes);
+    Free(sounds);
+    Free(shaders);
+    Free(materials);
+    Free(fonts);
 }

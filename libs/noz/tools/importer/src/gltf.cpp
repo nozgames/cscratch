@@ -21,7 +21,7 @@ static void read_bones_recursive(
     list_t* bones,
     int parent_index,
     gltf_bone_filter_t* filter,
-    allocator_t* allocator);
+    Allocator* allocator);
 
 static bool read_bone(
     gltf_t* gltf,
@@ -29,7 +29,7 @@ static bool read_bone(
     list_t* bones,
     int parent_index,
     gltf_bone_filter_t* filter,
-    allocator_t* allocator);
+    Allocator* allocator);
 
 static bool is_bone_leaf(struct cgltf_node* node, list_t* exclude_bones);
 static void update_parent_bone_length(gltf_bone_t* bone, gltf_bone_t* parent_bone);
@@ -48,7 +48,7 @@ static vec2 convert_uv(float* vector2);
 static quat convert_quaternion(float* quaternion);
 
 // @init
-gltf_t* gltf_alloc(allocator_t* allocator)
+gltf_t* gltf_alloc(Allocator* allocator)
 {
     gltf_t* gltf = (gltf_t*)allocator_alloc(allocator, sizeof(gltf_t));
     if (!gltf)
@@ -106,7 +106,7 @@ void gltf_close(gltf_t* gltf)
 }
 
 // @filter
-gltf_bone_filter_t* gltf_bone_filter_alloc(allocator_t* allocator)
+gltf_bone_filter_t* gltf_bone_filter_alloc(Allocator* allocator)
 {
     gltf_bone_filter_t* filter = (gltf_bone_filter_t*)allocator_alloc(allocator, sizeof(gltf_bone_filter_t));
     if (!filter)
@@ -134,7 +134,7 @@ gltf_bone_filter_t* gltf_bone_filter_from_meta_file(gltf_bone_filter_t* filter, 
 }
 
 // @bones
-list_t* gltf_read_bones(gltf_t* gltf, gltf_bone_filter_t* filter, allocator_t* allocator)
+list_t* gltf_read_bones(gltf_t* gltf, gltf_bone_filter_t* filter, Allocator* allocator)
 {
     if (!gltf || !gltf->data || !allocator)
         return NULL;
@@ -170,7 +170,7 @@ static void read_bones_recursive(
     list_t* bones,
     int parent_index,
     gltf_bone_filter_t* filter,
-    allocator_t* allocator)
+    Allocator* allocator)
 {
     if (!node)
         return;
@@ -207,7 +207,7 @@ static bool read_bone(
     list_t* bones,
     int parent_index,
     gltf_bone_filter_t* filter,
-    allocator_t* allocator)
+    Allocator* allocator)
 {
     (void)gltf;
     (void)filter;
@@ -280,7 +280,7 @@ static void update_parent_bone_length(gltf_bone_t* bone, gltf_bone_t* parent_bon
 }
 
 // @animation
-gltf_animation_t* gltf_read_animation(gltf_t* gltf, list_t* bones, name_t* animation_name, allocator_t* allocator)
+gltf_animation_t* gltf_read_animation(gltf_t* gltf, list_t* bones, name_t* animation_name, Allocator* allocator)
 {
     (void)animation_name; // TODO: Use animation name to select specific animation
     
@@ -409,7 +409,7 @@ void gltf_animation_free(gltf_animation_t* animation)
 }
 
 // @mesh
-gltf_mesh_t* gltf_read_mesh(gltf_t* gltf, list_t* bones, allocator_t* allocator)
+gltf_mesh_t* gltf_read_mesh(gltf_t* gltf, list_t* bones, Allocator* allocator)
 {
     if (!gltf || !gltf->data || !allocator)
         return NULL;

@@ -27,7 +27,7 @@ typedef struct prop_value
 typedef struct props_impl
 {
     OBJECT_BASE;
-    map_t* property_map;        // Maps name_t key hash -> prop_value_t*
+    Map* property_map;        // Maps name_t key hash -> prop_value_t*
     prop_value_t* pool;    // Pool of prop values
     size_t pool_size;
     size_t pool_used;
@@ -47,16 +47,16 @@ static bool parse_ini_line_with_section(props_impl_t* impl, const char* line, co
 static bool parse_vector(const char* str, vec3* result);
 
 // Implementation
-static inline props_impl_t* to_impl(void* p) { return (props_impl_t*)to_object((object_t*)p, type_props); }
+static inline props_impl_t* Impl(void* p) { return (props_impl_t*)to_object((Object*)p, type_props); }
 
-props_t* props_alloc(allocator_t* allocator)
+Props* props_alloc(Allocator* allocator)
 {
-    props_t* props = (props_t*)object_alloc(allocator, sizeof(props_impl_t), type_props);
+    Props* props = (Props*)Alloc(allocator, sizeof(props_impl_t), type_props);
     if (!props)
         return NULL;
     
-    props_impl_t* impl = to_impl(props);
-    impl->property_map = map_alloc(allocator, HASH_SIZE);
+    props_impl_t* impl = Impl(props);
+    impl->property_map = AllocMap(allocator, HASH_SIZE);
     impl->pool_size = HASH_SIZE;
     impl->pool = (prop_value_t*)calloc(impl->pool_size, sizeof(prop_value_t));
     impl->pool_used = 0;
@@ -70,12 +70,12 @@ props_t* props_alloc(allocator_t* allocator)
 }
 
 #if 0
-void props_destroy(props_t* props)
+void props_destroy(Props* props)
 {
-    props_impl_t* impl = to_impl(props);
+    props_impl_t* impl = Impl(props);
     
     if (impl->property_map)
-        object_free(impl->property_map);
+        Free(impl->property_map);
     
     if (impl->pool)
     {
@@ -87,39 +87,39 @@ void props_destroy(props_t* props)
         free(impl->key_cache);
     }
     
-    object_destroy((object_t)props);
+    object_destroy((Object)props);
 }
 #endif
 
-props_t* props_load_from_file(allocator_t* allocator, path_t* file_path)
+Props* props_load_from_file(Allocator* allocator, path_t* file_path)
 {
     assert(file_path);
     
-    stream_t* stream = stream_load_from_file(allocator, file_path);
+    stream_t* stream = LoadStream(allocator, file_path);
     if (!stream)
         return nullptr;
     
     stream_seek_end(stream, 0);
     stream_write_uint8(stream, 0);
     
-    props_t* result = props_load_from_memory(allocator, (const char*)stream_data(stream), stream_size(stream) - 1);
+    Props* result = props_load_from_memory(allocator, (const char*)stream_data(stream), stream_size(stream) - 1);
 
-    object_free(stream);
+    Free(stream);
     
     return result;
 }
 
-props_t* props_load_from_memory(allocator_t* allocator, const char* content, size_t content_length)
+Props* props_load_from_memory(Allocator* allocator, const char* content, size_t content_length)
 {
     assert(content);
     assert(content_length > 0);
     assert(content[content_length] == 0);
     
-    props_t* props = (props_t*)props_alloc(allocator);
+    Props* props = (Props*)props_alloc(allocator);
     if (!props)
         return NULL;
 
-    props_impl_t* impl = to_impl(props);
+    props_impl_t* impl = Impl(props);
 
     tokenizer_t tokenizer;
     tokenizer_init(&tokenizer, content);
@@ -178,14 +178,14 @@ props_t* props_load_from_memory(allocator_t* allocator, const char* content, siz
     return props;
 }
 
-void props_clear(props_t* props)
+void props_clear(Props* props)
 {
     if (!props)
     {
         return;
     }
     
-    props_impl_t* impl = to_impl(props);
+    props_impl_t* impl = Impl(props);
     
     // Clear the map (this doesn't free the property values)
     map_clear(impl->property_map);
@@ -198,19 +198,19 @@ void props_clear(props_t* props)
     impl->key_cache_dirty = true;
 }
 
-void props_set_string(props_t* props, const char* key, const char* value)
+void props_set_string(Props* props, const char* key, const char* value)
 {
     if (!props || !key || !value)
     {
         return;
     }
     
-    props_impl_t* impl = to_impl(props);
+    props_impl_t* impl = Impl(props);
     name_t key_name;
     name_set(&key_name, key);
     
-    uint64_t hash_key = hash_string(key);
-    prop_value_t* prop = (prop_value_t*)map_get(impl->property_map, hash_key);
+    uint64_t hash_key = Hash(key);
+    prop_value_t* prop = (prop_value_t*)MapGet(impl->property_map, hash_key);
     
     if (!prop)
     {
@@ -219,7 +219,7 @@ void props_set_string(props_t* props, const char* key, const char* value)
         {
             return;
         }
-        map_set(impl->property_map, hash_key, prop);
+        MapSet(impl->property_map, hash_key, prop);
         impl->key_cache_dirty = true;
     }
     
@@ -228,37 +228,37 @@ void props_set_string(props_t* props, const char* key, const char* value)
     text_set(&prop->single, value);
 }
 
-void props_set_int(props_t* props, const char* key, int value)
+void props_set_int(Props* props, const char* key, int value)
 {
     text_t str_value;
     text_format(&str_value, "%d", value);
     props_set_string(props, key, str_value.value);
 }
 
-void props_set_float(props_t* props, const char* key, float value)
+void props_set_float(Props* props, const char* key, float value)
 {
     text_t str_value;
     text_format(&str_value, "%.6f", value);
     props_set_string(props, key, str_value.value);
 }
 
-void props_set_vec3(props_t* props, const char* key, vec3 value)
+void props_set_vec3(Props* props, const char* key, vec3 value)
 {
     text_t str_value;
     text_format(&str_value, "(%.6f,%.6f,%.6f)", value.x, value.y, value.z);
     props_set_string(props, key, str_value.value);
 }
 
-void props_add_to_list(props_t* props, const char* key, const char* value)
+void props_add_to_list(Props* props, const char* key, const char* value)
 {
     if (!props || !key || !value)
     {
         return;
     }
     
-    props_impl_t* impl = to_impl(props);
-    uint64_t hash_key = hash_string(key);
-    prop_value_t* prop = (prop_value_t*)map_get(impl->property_map, hash_key);
+    props_impl_t* impl = Impl(props);
+    uint64_t hash_key = Hash(key);
+    prop_value_t* prop = (prop_value_t*)MapGet(impl->property_map, hash_key);
     
     if (!prop)
     {
@@ -270,7 +270,7 @@ void props_add_to_list(props_t* props, const char* key, const char* value)
         prop->type = prop_type_list;
         text_set(&prop->key, key);
         prop->list.count = 0;
-        map_set(impl->property_map, hash_key, prop);
+        MapSet(impl->property_map, hash_key, prop);
         impl->key_cache_dirty = true;
     }
     
@@ -291,56 +291,56 @@ void props_add_to_list(props_t* props, const char* key, const char* value)
     }
 }
 
-bool props_has_key(props_t* props, const char* key)
+bool props_has_key(Props* props, const char* key)
 {
     if (!props || !key)
     {
         return false;
     }
     
-    props_impl_t* impl = to_impl(props);
-    uint64_t hash_key = hash_string(key);
-    return map_get(impl->property_map, hash_key) != NULL;
+    props_impl_t* impl = Impl(props);
+    uint64_t hash_key = Hash(key);
+    return MapGet(impl->property_map, hash_key) != NULL;
 }
 
-bool props_is_list(props_t* props, const char* key)
+bool props_is_list(Props* props, const char* key)
 {
     if (!props || !key)
     {
         return false;
     }
     
-    props_impl_t* impl = to_impl(props);
-    uint64_t hash_key = hash_string(key);
-    prop_value_t* prop = (prop_value_t*)map_get(impl->property_map, hash_key);
+    props_impl_t* impl = Impl(props);
+    uint64_t hash_key = Hash(key);
+    prop_value_t* prop = (prop_value_t*)MapGet(impl->property_map, hash_key);
     
     return prop && prop->type == prop_type_list;
 }
 
-prop_type_t props_get_type(props_t* props, const char* key)
+prop_type_t props_get_type(Props* props, const char* key)
 {
     if (!props || !key)
     {
         return prop_type_value;
     }
     
-    props_impl_t* impl = to_impl(props);
-    uint64_t hash_key = hash_string(key);
-    prop_value_t* prop = (prop_value_t*)map_get(impl->property_map, hash_key);
+    props_impl_t* impl = Impl(props);
+    uint64_t hash_key = Hash(key);
+    prop_value_t* prop = (prop_value_t*)MapGet(impl->property_map, hash_key);
     
     return prop ? prop->type : prop_type_value;
 }
 
-const char* props_get_string(props_t* props, const char* key, const char* default_value)
+const char* props_get_string(Props* props, const char* key, const char* default_value)
 {
     if (!props || !key)
     {
         return default_value;
     }
     
-    props_impl_t* impl = to_impl(props);
-    uint64_t hash_key = hash_string(key);
-    prop_value_t* prop = (prop_value_t*)map_get(impl->property_map, hash_key);
+    props_impl_t* impl = Impl(props);
+    uint64_t hash_key = Hash(key);
+    prop_value_t* prop = (prop_value_t*)MapGet(impl->property_map, hash_key);
     
     if (!prop || prop->type != prop_type_value)
     {
@@ -350,7 +350,7 @@ const char* props_get_string(props_t* props, const char* key, const char* defaul
     return prop->single.value;
 }
 
-int props_get_int(props_t* props, const char* key, int default_value)
+int props_get_int(Props* props, const char* key, int default_value)
 {
     const char* str_value = props_get_string(props, key, NULL);
     if (!str_value)
@@ -366,7 +366,7 @@ int props_get_int(props_t* props, const char* key, int default_value)
     return atoi(str_value);
 }
 
-float props_get_float(props_t* props, const char* key, float default_value)
+float props_get_float(Props* props, const char* key, float default_value)
 {
     const char* str_value = props_get_string(props, key, NULL);
     if (!str_value)
@@ -377,7 +377,7 @@ float props_get_float(props_t* props, const char* key, float default_value)
     return (float)atof(str_value);
 }
 
-bool props_get_bool(props_t* props, const char* key, bool default_value)
+bool props_get_bool(Props* props, const char* key, bool default_value)
 {
     const char* str_value = props_get_string(props, key, NULL);
     if (!str_value)
@@ -400,7 +400,7 @@ bool props_get_bool(props_t* props, const char* key, bool default_value)
     return default_value;
 }
 
-vec3 props_get_vec3(props_t* props, const char* key, vec3 default_value)
+vec3 props_get_vec3(Props* props, const char* key, vec3 default_value)
 {
     const char* str_value = props_get_string(props, key, NULL);
     if (!str_value)
@@ -417,16 +417,16 @@ vec3 props_get_vec3(props_t* props, const char* key, vec3 default_value)
     return default_value;
 }
 
-size_t props_get_list_count(props_t* props, const char* key)
+size_t props_get_list_count(Props* props, const char* key)
 {
     if (!props || !key)
     {
         return 0;
     }
     
-    props_impl_t* impl = to_impl(props);
-    uint64_t hash_key = hash_string(key);
-    prop_value_t* prop = (prop_value_t*)map_get(impl->property_map, hash_key);
+    props_impl_t* impl = Impl(props);
+    uint64_t hash_key = Hash(key);
+    prop_value_t* prop = (prop_value_t*)MapGet(impl->property_map, hash_key);
     
     if (!prop)
     {
@@ -436,16 +436,16 @@ size_t props_get_list_count(props_t* props, const char* key)
     return prop->type == prop_type_list ? prop->list.count : 1;
 }
 
-const char* props_get_list_item(props_t* props, const char* key, size_t index, const char* default_value)
+const char* props_get_list_item(Props* props, const char* key, size_t index, const char* default_value)
 {
     if (!props || !key)
     {
         return default_value;
     }
     
-    props_impl_t* impl = to_impl(props);
-    uint64_t hash_key = hash_string(key);
-    prop_value_t* prop = (prop_value_t*)map_get(impl->property_map, hash_key);
+    props_impl_t* impl = Impl(props);
+    uint64_t hash_key = Hash(key);
+    prop_value_t* prop = (prop_value_t*)MapGet(impl->property_map, hash_key);
     
     if (!prop)
     {
@@ -465,14 +465,14 @@ const char* props_get_list_item(props_t* props, const char* key, size_t index, c
     return prop->list.values[index].value;
 }
 
-size_t props_get_key_count(props_t* props)
+size_t props_get_key_count(Props* props)
 {
     if (!props)
     {
         return 0;
     }
     
-    props_impl_t* impl = to_impl(props);
+    props_impl_t* impl = Impl(props);
     if (impl->key_cache_dirty)
     {
         rebuild_key_cache(impl);
@@ -481,14 +481,14 @@ size_t props_get_key_count(props_t* props)
     return impl->key_count;
 }
 
-const char* props_get_key_at(props_t* props, size_t index)
+const char* props_get_key_at(Props* props, size_t index)
 {
     if (!props)
     {
         return NULL;
     }
     
-    props_impl_t* impl = to_impl(props);
+    props_impl_t* impl = Impl(props);
     if (impl->key_cache_dirty)
     {
         rebuild_key_cache(impl);
@@ -502,7 +502,7 @@ const char* props_get_key_at(props_t* props, size_t index)
     return impl->key_cache[index].value;
 }
 
-void props_print(props_t* props)
+void props_print(Props* props)
 {
     if (!props)
     {
@@ -633,7 +633,7 @@ static bool parse_ini_line_with_section(props_impl_t* impl, const char* line, co
     text_trim(&value);
     
     // Store the property
-    uint64_t hash_key = hash_string(full_key.value);
+    uint64_t hash_key = Hash(full_key.value);
     prop_value_t* prop = alloc_prop_value(impl);
     if (!prop)
     {
@@ -644,7 +644,7 @@ static bool parse_ini_line_with_section(props_impl_t* impl, const char* line, co
     text_copy(&prop->key, &full_key);
     text_copy(&prop->single, &value);
     
-    map_set(impl->property_map, hash_key, prop);
+    MapSet(impl->property_map, hash_key, prop);
     impl->key_cache_dirty = true;
     
     return true;

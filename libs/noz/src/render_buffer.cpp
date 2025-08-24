@@ -24,7 +24,7 @@ typedef enum command_type
 
 typedef struct bind_material
 {
-    material_t* material;
+    Material* material;
 } bind_material_t;
 
 typedef struct bind_transform
@@ -73,7 +73,7 @@ typedef struct bind_color
 
 typedef struct draw_mesh
 {
-    mesh_t* mesh;
+    Mesh* mesh;
 } draw_mesh_t;
 
 typedef struct begin_pass
@@ -81,7 +81,7 @@ typedef struct begin_pass
     bool clear;
     color_t color;
     bool msaa;
-    texture_t* target;
+    Texture* target;
 } begin_pass_t;
 
 typedef struct bind_default_texture
@@ -144,7 +144,7 @@ void render_buffer_clear(void)
     g_render_buffer->transform_count = 1;
 }
 
-void render_buffer_begin_pass(bool clear, color_t clear_color, bool msaa, texture_t* target)
+void BeginRenderPass(bool clear, color_t clear_color, bool msaa, Texture* target)
 {
     command_t cmd = {
         .type = command_type_begin_pass,
@@ -163,7 +163,7 @@ void render_buffer_begin_shadow_pass(mat4 light_view, mat4 light_projection)
     render_buffer_add_command(&cmd);
 }
 
-void render_buffer_end_pass(void)
+void EndRenderPass(void)
 {
     command_t cmd = { .type = command_type_end_pass };
     render_buffer_add_command(&cmd);
@@ -185,7 +185,7 @@ void render_buffer_bind_default_texture(int texture_index)
     render_buffer_add_command(&cmd);
 }
 
-void render_buffer_bind_camera(camera_t* camera)
+void render_buffer_bind_camera(Camera* camera)
 {
     assert(camera);
     render_buffer_bind_camera_matrices(entity_world_to_local(camera), camera_projection(camera));
@@ -205,7 +205,7 @@ void render_buffer_bind_camera_matrices(mat4 view, mat4 projection)
     render_buffer_add_command(&cmd);
 }
 
-void render_buffer_bind_material(material_t* material)
+void render_buffer_bind_material(Material* material)
 {
     assert(material);
 
@@ -270,7 +270,7 @@ void render_buffer_bind_color(color_t color)
     render_buffer_add_command(&cmd);
 }
 
-void render_buffer_render_mesh(mesh_t* mesh)
+void render_buffer_render_mesh(Mesh* mesh)
 {
     assert(mesh);
     command_t cmd = {
@@ -331,7 +331,7 @@ void render_buffer_execute(SDL_GPUCommandBuffer* cb)
             break;
 
         case command_type_draw_mesh:
-            mesh_render(command->data.draw_mesh.mesh, pass);
+            RenderMesh(command->data.draw_mesh.mesh, pass);
             break;
 
         case command_type_begin_pass:
@@ -415,7 +415,7 @@ void render_buffer_execute(SDL_GPUCommandBuffer* cb)
 
 #endif
 
-void render_buffer_init(renderer_traits* traits)
+void InitRenderBuffer(RendererTraits* traits)
 {
     size_t commands_size = traits->max_frame_commands * sizeof(command_t);
 	size_t transforms_size = traits->max_frame_transforms * sizeof(mat4);
@@ -435,7 +435,7 @@ void render_buffer_init(renderer_traits* traits)
     g_render_buffer->transform_count_max = traits->max_frame_transforms;
 }
 
-void render_buffer_uninit()
+void ShutdownRenderBuffer()
 {
     assert(g_render_buffer);
     free(g_render_buffer);

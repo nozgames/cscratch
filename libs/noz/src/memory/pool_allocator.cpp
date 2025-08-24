@@ -9,7 +9,7 @@ typedef struct pool_entry
 
 typedef struct pool_allocator
 {
-	allocator_t base;
+	Allocator base;
 	pool_entry_t* entries;
 	pool_entry_t* free;
 	size_t count;
@@ -56,9 +56,9 @@ pool_allocator_t* pool_allocator_create(size_t entry_size, size_t entry_count)
 	size_t stride = entry_size + sizeof(pool_entry_t);
 	pool_allocator_t* a = (pool_allocator_t*)calloc(1, sizeof(pool_allocator_t) + stride * entry_count);
 	a->base = {
-		.alloc = (void* (*)(allocator_t*, size_t))pool_allocator_alloc,
-		.free = (void (*)(allocator_t*, void*))pool_allocator_free,
-		.realloc = (void* (*)(allocator_t*, void*, size_t))pool_allocator_realloc
+		.alloc = (void* (*)(Allocator*, size_t))pool_allocator_alloc,
+		.free = (void (*)(Allocator*, void*))pool_allocator_free,
+		.realloc = (void* (*)(Allocator*, void*, size_t))pool_allocator_realloc
 	};
 	a->entries = (pool_entry_t*)(a + 1);
 

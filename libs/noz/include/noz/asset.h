@@ -22,13 +22,13 @@ typedef struct asset_header
     uint32_t flags;          // Asset-specific flags
 } asset_header_t;
 
-bool asset_header_read(stream_t* stream, asset_header_t* header);
-bool asset_header_write(stream_t* stream, asset_header_t* header);
-bool asset_header_validate(asset_header_t* header, uint32_t expected_signature);
+bool ReadAssetHeader(stream_t* stream, asset_header_t* header);
+bool WriteAssetHeader(stream_t* stream, asset_header_t* header);
+bool ValidateAssetHeader(asset_header_t* header, uint32_t expected_signature);
 const char* asset_signature_to_string(uint32_t signature);
-type_t asset_signature_to_type(uint32_t signature);
-const char* asset_type_to_string(type_t type);
-path_t* asset_path(path_t* dst, name_t* name, const char* ext);
+type_t ToType(uint32_t signature);
+const char* ToString(type_t type);
+void SetAssetPath(path_t* dst, const name_t* name, const char* ext);
 
 // Asset loading macro - creates a name_t and calls the appropriate load function
 // Usage: NOZ_ASSET_LOAD(shader, "shaders/border_effect", g_assets.shaders.border_effect);
@@ -36,5 +36,5 @@ path_t* asset_path(path_t* dst, name_t* name, const char* ext);
     do { \
         name_t asset_name; \
         name_set(&asset_name, path); \
-        member = type##_load(g_asset_allocator, &asset_name); \
+        member = Load##type##(g_asset_allocator, &asset_name); \
     } while(0)

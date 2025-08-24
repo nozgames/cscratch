@@ -22,7 +22,7 @@ typedef struct map_impl
 	size_t deleted_count;
 } map_impl_t;
 
-static inline map_impl_t* to_impl(const void* m) { return (map_impl_t*)to_object((object_t*)m, type_map); }
+static inline map_impl_t* Impl(const void* m) { return (map_impl_t*)to_object((Object*)m, type_map); }
 
 static size_t map_next_power_of_2(size_t n)
 {
@@ -37,13 +37,13 @@ static size_t map_next_power_of_2(size_t n)
 	return n + 1;
 }
 
-map_t* map_alloc(allocator_t* allocator, size_t capacity)
+Map* AllocMap(Allocator* allocator, size_t capacity)
 {
 	if (capacity == 0) capacity = 16;
 	capacity = map_next_power_of_2(capacity);
 	
 	size_t total_size = sizeof(map_impl_t) + sizeof(map_entry_t) * capacity;
-	map_impl_t* impl = to_impl(object_alloc(allocator, total_size, type_map));
+	map_impl_t* impl = Impl(Alloc(allocator, total_size, type_map));
 	if (!impl) return NULL;
 	
 	impl->entries = (map_entry_t*)(impl + 1);
@@ -52,7 +52,7 @@ map_t* map_alloc(allocator_t* allocator, size_t capacity)
 	impl->deleted_count = 0;
 	
 	memset(impl->entries, 0, sizeof(map_entry_t) * capacity);
-	return (map_t*)impl;
+	return (Map*)impl;
 }
 
 static size_t map_find_key(map_entry_t* entries, size_t capacity, uint64_t key)
@@ -73,10 +73,10 @@ static size_t map_find_key(map_entry_t* entries, size_t capacity, uint64_t key)
 	return SIZE_MAX;
 }
 
-void* map_get(map_t* map, uint64_t key)
+void* MapGet(Map* map, uint64_t key)
 {
 	assert(map);
-	map_impl_t* impl = to_impl(map);
+	map_impl_t* impl = Impl(map);
 	
 	if (key == MAP_DELETED_KEY)
 		return NULL;
@@ -89,16 +89,16 @@ void* map_get(map_t* map, uint64_t key)
 	return impl->entries[index].value;
 }
 
-void* map_get_string(map_t* map, const char* key)
+void* map_get_string(Map* map, const char* key)
 {
 	assert(key);
-	return map_get(map, hash_string(key));
+	return MapGet(map, Hash(key));
 }
 
-static void map_resize(map_t* map)
+static void map_resize(Map* map)
 {
 	assert(map);
-	map_impl_t* impl = to_impl(map);
+	map_impl_t* impl = Impl(map);
 	
 	size_t old_capacity = impl->capacity;
 	map_entry_t* old_entries = impl->entries;
@@ -120,7 +120,7 @@ static void map_resize(map_t* map)
 	
 	for (size_t i = 0; i < old_capacity; i++) {
 		if (old_entries[i].is_occupied) {
-			map_set(map, old_entries[i].key, old_entries[i].value);
+			MapSet(map, old_entries[i].key, old_entries[i].value);
 		}
 	}
 	
@@ -142,10 +142,10 @@ static size_t map_find_slot(map_entry_t* entries, size_t capacity, uint64_t key)
 	return SIZE_MAX;
 }
 
-void map_set(map_t* map, uint64_t key, void* value)
+void MapSet(Map* map, uint64_t key, void* value)
 {
 	assert(map);
-	map_impl_t* impl = to_impl(map);
+	map_impl_t* impl = Impl(map);
 	
 	if (key == MAP_DELETED_KEY) {
 		return;
@@ -170,15 +170,15 @@ void map_set(map_t* map, uint64_t key, void* value)
 	entry->value = value;
 }
 
-void map_set_string(map_t* map, const char* key, void* value)
+void map_set_string(Map* map, const char* key, void* value)
 {
 	assert(key);
-	map_set(map, hash_string(key), value);
+	MapSet(map, Hash(key), value);
 }
-void map_remove(map_t* map, uint64_t key)
+void map_remove(Map* map, uint64_t key)
 {
 	assert(map);
-	map_impl_t* impl = to_impl(map);
+	map_impl_t* impl = Impl(map);
 	
 	if (key == MAP_DELETED_KEY) {
 		return;
@@ -198,16 +198,16 @@ void map_remove(map_t* map, uint64_t key)
 	impl->deleted_count++;
 }
 
-void map_remove_string(map_t* map, const char* key)
+void map_remove_string(Map* map, const char* key)
 {
 	assert(key);
-	map_remove(map, hash_string(key));
+	map_remove(map, Hash(key));
 }
 
-void map_clear(map_t* map)
+void map_clear(Map* map)
 {
 	assert(map);
-	map_impl_t* impl = to_impl(map);
+	map_impl_t* impl = Impl(map);
 	
 	// Clear all entries
 	memset(impl->entries, 0, sizeof(map_entry_t) * impl->capacity);
@@ -215,12 +215,12 @@ void map_clear(map_t* map)
 	impl->deleted_count = 0;
 }
 
-void map_iterate(map_t* map, map_iterate_fn callback, void* user_data)
+void map_iterate(Map* map, map_iterate_fn callback, void* user_data)
 {
 	assert(map);
 	assert(callback);
 	
-	map_impl_t* impl = to_impl(map);
+	map_impl_t* impl = Impl(map);
 	
 	for (size_t i = 0; i < impl->capacity; i++)
 	{

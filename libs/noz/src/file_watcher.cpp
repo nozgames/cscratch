@@ -49,7 +49,7 @@ static struct
     size_t watched_dir_count;
     
     // File tracking
-    map_t* file_map;  // Maps file path hash -> file_info_t*
+    Map* file_map;  // Maps file path hash -> file_info_t*
     file_info_t* file_pool;
     size_t file_pool_size;
     size_t file_pool_used;
@@ -87,7 +87,7 @@ void file_watcher_init(int poll_interval_ms)
     g_watcher.watched_dir_count = 0;
     
     // Initialize file tracking
-    g_watcher.file_map = map_alloc(NULL, MAX_TRACKED_FILES);
+    g_watcher.file_map = AllocMap(NULL, MAX_TRACKED_FILES);
     g_watcher.file_pool = (file_info_t*)calloc(MAX_TRACKED_FILES, sizeof(file_info_t));
     g_watcher.file_pool_size = MAX_TRACKED_FILES;
     g_watcher.file_pool_used = 0;
@@ -120,7 +120,7 @@ void file_watcher_shutdown(void)
     // Clean up file tracking
     if (g_watcher.file_map)
     {
-        object_free(g_watcher.file_map);
+        Free(g_watcher.file_map);
         g_watcher.file_map = nullptr;
     }
     
@@ -375,7 +375,7 @@ static int file_watcher_thread(void* data)
                 queue_event(&info->path, file_change_type_deleted);
                 
                 // Remove from map
-                uint64_t key = hash_string(info->path.value);
+                uint64_t key = Hash(info->path.value);
                 map_remove(g_watcher.file_map, key);
                 
                 // Clear the file info
@@ -416,8 +416,8 @@ static void process_file(const char* file_path, const file_stat_t* st)
     path_t path;
     path_set(&path, file_path);
     
-    uint64_t key = hash_string(file_path);
-    file_info_t* existing = (file_info_t*)map_get(g_watcher.file_map, key);
+    uint64_t key = Hash(file_path);
+    file_info_t* existing = (file_info_t*)MapGet(g_watcher.file_map, key);
     
     if (existing)
     {
@@ -441,7 +441,7 @@ static void process_file(const char* file_path, const file_stat_t* st)
             info->modified_time = (uint64_t)st->modified_time;
             info->size = st->size;
             
-            map_set(g_watcher.file_map, key, info);
+            MapSet(g_watcher.file_map, key, info);
             queue_event(&info->path, file_change_type_added);
         }
     }

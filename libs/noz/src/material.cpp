@@ -14,8 +14,8 @@ typedef struct material_impl
     name_t name;
     int vertex_uniform_count;
     int fragment_uniform_count;
-    shader_t* shader;
-    texture_t** textures;
+    Shader* shader;
+    Texture** textures;
     size_t texture_count;
     uniform_buffer_info_t* uniforms;
 	uint8_t* uniforms_data;
@@ -24,7 +24,7 @@ typedef struct material_impl
     //vector<uint8_t> uniforms_data;
 } material_impl_t;
 
-static inline material_impl_t* to_impl(void* m) { return (material_impl_t*)to_object((object_t*)m, type_material); }
+static inline material_impl_t* Impl(void* m) { return (material_impl_t*)to_object((Object*)m, type_material); }
 
 
 #if 0
@@ -57,40 +57,40 @@ inline size_t material_fragment_uniform_data_size(material_impl_t* impl)
 }
 #endif
 
-material_t* material_alloc(allocator_t* allocator, shader_t* shader, name_t* name)
+Material* material_alloc(Allocator* allocator, Shader* shader, name_t* name)
 {
-	material_impl_t* impl = to_impl(object_alloc(allocator, sizeof(material_impl_t*), type_material));
+	material_impl_t* impl = Impl(Alloc(allocator, sizeof(material_impl_t*), type_material));
     if (!impl)
         return NULL;
     impl->shader = shader;
 	impl->vertex_uniform_count = shader_vertex_uniform_count(shader);
     impl->fragment_uniform_count = shader_fragment_uniform_count(shader);
 	impl->texture_count = shader_sampler_count(shader);
-	name_copy(&impl->name, name);
-    return (material_t*)impl;
+	CopyName(&impl->name, name);
+    return (Material*)impl;
 }
 
-name_t* material_name(material_t* material)
+name_t* material_name(Material* material)
 {
-    return &to_impl(material)->name;
+    return &Impl(material)->name;
 }
 
-shader_t* material_shader(material_t* material)
+Shader* material_shader(Material* material)
 {
-    return to_impl(material)->shader;
+    return Impl(material)->shader;
 }
 
-void material_set_texture(material_t* material, texture_t* texture, size_t index)
+void material_set_texture(Material* material, Texture* texture, size_t index)
 {
-	material_impl_t* impl = to_impl(material);
+	material_impl_t* impl = Impl(material);
     assert(index < impl->texture_count);
     impl->textures[index] = texture;
 }
 
-void material_bind_gpu(material_t* material, SDL_GPUCommandBuffer* cb)
+void material_bind_gpu(Material* material, SDL_GPUCommandBuffer* cb)
 {
 #if 0
-	material_impl_t* impl = to_impl(material);
+	material_impl_t* impl = Impl(material);
 
     // Then push uniform buffer data for vertex shader (additional buffers beyond default 0,1,2)
     if (impl->vertex_uniform_count > 0)

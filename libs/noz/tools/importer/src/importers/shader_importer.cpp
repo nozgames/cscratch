@@ -74,7 +74,7 @@ static bool CompileAndWriteShader(
         .version = 1,
         .flags = 0
     };
-    asset_header_write(output_stream, &header);
+    WriteAssetHeader(output_stream, &header);
     
     // Write SHDR signature for shader-specific data
     stream_write_signature(output_stream, "SHDR", 4);
@@ -104,7 +104,7 @@ static bool CompileAndWriteShader(
     return true;
 }
 
-void ImportShader(path_t* source_path, path_t* output_path, props_t* config)
+void ImportShader(path_t* source_path, path_t* output_path, Props* config)
 {
     // Get source directories
     size_t source_count = props_get_list_count(config, "source");
@@ -124,7 +124,7 @@ void ImportShader(path_t* source_path, path_t* output_path, props_t* config)
     }
 
     // Read source file
-    stream_t* source_stream = stream_load_from_file(NULL, source_path);
+    stream_t* source_stream = LoadStream(NULL, source_path);
     if (!source_stream)
     {
         printf("Failed to open shader source: %s\n", source_path->value);
@@ -134,13 +134,13 @@ void ImportShader(path_t* source_path, path_t* output_path, props_t* config)
     size_t size = stream_size(source_stream);
     char* source = (char*)malloc(size + 1);
     if (!source) {
-        object_free(source_stream);
+        Free(source_stream);
         return;
     }
     
     stream_read_bytes(source_stream, (uint8_t*)source, size);
     source[size] = '\0';
-    object_free(source_stream);
+    Free(source_stream);
     
     // For now, compile the same source for both vertex and fragment
     // Later we can add stage-specific preprocessing
@@ -188,7 +188,7 @@ void ImportShader(path_t* source_path, path_t* output_path, props_t* config)
         }
     }
     
-    object_free(output_stream);
+    Free(output_stream);
     free(source);
 }
 

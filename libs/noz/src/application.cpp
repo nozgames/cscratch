@@ -2,9 +2,6 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include <stdio.h>
-#include <stdarg.h>
-
 // @traits
 static ApplicationTraits g_default_traits = 
 {
@@ -99,16 +96,17 @@ void InitApplication(ApplicationTraits* traits)
 
     UpdateScreenSize();
 
-	object_init();
-    scene_init();
-    renderer_init(&traits->renderer, g_application.window);
+    InitObject();
+    InitRenderer(&traits->renderer, g_application.window);
+    InitScene();
 }
 
 // @uninit
 void ShutdownApplication()
 {
-	renderer_uninit();
-    object_uninit();
+    ShutdownScene();
+    ShutdownRenderer();
+    ShutdownObject();
 }
 
 // @update
@@ -131,16 +129,7 @@ bool UpdateApplication()
     return true;
 }
 
-void BeginRenderFrame()
-{
-    renderer_begin_frame();
-}
-
-void EndRenderFrame()
-{
-    renderer_end_frame();
-}
-
+// @screen
 ivec2 GetScreenSize()
 {
     return g_application.screen_size;

@@ -13,22 +13,24 @@
 #define OBJECT_OFFSET_SIZE (sizeof(u16) * 2)
 #define OBJECT_OFFSET_ALLOCATOR (sizeof(u16) * 2 + sizeof(u32))
 
+typedef u16 type_t;
 
-typedef int16_t type_t;
-typedef struct object_impl object_t;
+struct ObjectTag {};
+
+typedef ObjectTag Object;
 
 #define type_invalid (-1)
 
 // @object
-object_t* object_alloc_with_base(allocator_t* allocator, size_t object_size, type_t object_type, type_t base_type);
-inline object_t* object_alloc(allocator_t* allocator, size_t object_size, type_t object_type)
+Object* Alloc(Allocator* allocator, size_t object_size, type_t object_type, type_t base_type);
+inline Object* Alloc(Allocator* allocator, size_t object_size, type_t object_type)
 {
-	return object_alloc_with_base(allocator, object_size, object_type, -1);
+    return Alloc(allocator, object_size, object_type, -1);
 }
 
-void object_free(object_t* object);
+void Free(Object* object);
 
-inline type_t object_type(object_t* object) { return *((type_t*)((char*)object + OBJECT_OFFSET_TYPE)); }
-inline type_t object_base_type(object_t* object) { return *((type_t*)((char*)object + OBJECT_OFFSET_BASE)); }
-inline size_t object_size(object_t* object) { return (size_t)(uint32_t*)((char*)object + OBJECT_OFFSET_SIZE); }
-inline allocator_t* object_allocator(object_t* object) { return *(allocator_t**)((char*)object + OBJECT_OFFSET_ALLOCATOR); }
+inline type_t GetType(Object* object) { return *((type_t*)((char*)object + OBJECT_OFFSET_TYPE)); }
+inline type_t GetBaseType(Object* object) { return *((type_t*)((char*)object + OBJECT_OFFSET_BASE)); }
+inline size_t GetAllocatedSize(Object* object) { return (size_t)(uint32_t*)((char*)object + OBJECT_OFFSET_SIZE); }
+inline Allocator* GetAllocator(Object* object) { return *(Allocator**)((char*)object + OBJECT_OFFSET_ALLOCATOR); }
