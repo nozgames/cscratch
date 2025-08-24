@@ -13,4 +13,4 @@
 // @param output_directory: Path to the directory containing imported assets
 // @param manifest_output_path: Path where to generate the manifest C file
 // @return: true on success, false on failure
-bool asset_manifest_generate(const char* output_directory, const char* manifest_output_path);
+bool asset_manifest_generate(char* output_directory, char* manifest_output_path);

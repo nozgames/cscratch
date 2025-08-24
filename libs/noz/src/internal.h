@@ -3,12 +3,10 @@
 //
 #pragma once
 
-NOZ_WARNINGS_DISABLE()
 #include <SDL3/SDL.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
-NOZ_WARNINGS_ENABLE()
 
 #include <noz/noz.h>
 #include <noz/color.h>
@@ -16,18 +14,18 @@ NOZ_WARNINGS_ENABLE()
 // @mesh
 typedef struct mesh_vertex
 {
-    vec3_t position;
-    vec2_t uv0;
-    vec3_t normal;
+    vec3 position;
+    vec2 uv0;
+    vec3 normal;
     float bone;
 } mesh_vertex;
 
 
 typedef struct bone_transform
 {
-    vec3_t position;
-    vec3_t scale;
-    quat_t rotation;
+    vec3 position;
+    vec3 scale;
+    quat rotation;
 } bone_transform_t;
 
 typedef struct bone
@@ -35,11 +33,11 @@ typedef struct bone
     char* name;
     int index;
     int parentIndex;
-    mat4_t world_to_local;
-    mat4_t local_to_world;
+    mat4 world_to_local;
+    mat4 local_to_world;
     bone_transform_t transform;
     float length;
-    vec3_t direction;
+    vec3 direction;
 } bone_t;
 
 typedef struct sampler_options
@@ -53,7 +51,7 @@ typedef struct sampler_options
 } sampler_options_t;
 
 // Function to compare sampler options
-bool sampler_options_equals(const sampler_options_t* a, const sampler_options_t* b);
+bool sampler_options_equals(sampler_options_t* a, sampler_options_t* b);
 
 // Shader flags enum (C99 version)
 typedef enum shader_flags 
@@ -117,7 +115,7 @@ void object_init(void);
 void object_uninit(void);
 
 // @renderer
-void renderer_init(const renderer_traits* traits, SDL_Window* window);
+void renderer_init(renderer_traits* traits, SDL_Window* window);
 void renderer_uninit(void);
 void renderer_begin_frame(void);
 void renderer_end_frame(void);
@@ -130,14 +128,14 @@ void renderer_bind_material(material_t* material);
 void renderer_bind_default_texture(int texture_index);
 
 // @render_buffer
-void render_buffer_init(const renderer_traits* traits);
+void render_buffer_init(renderer_traits* traits);
 void render_buffer_uninit();
 void render_buffer_begin_gamma_pass();
 void render_buffer_clear();
 void render_buffer_execute(SDL_GPUCommandBuffer* cb);
 
 // @sampler_factory
-void sampler_factory_init(const renderer_traits* traits, SDL_GPUDevice* device);
+void sampler_factory_init(renderer_traits* traits, SDL_GPUDevice* device);
 void sampler_factory_uninit();
 SDL_GPUSampler* sampler_factory_sampler(texture_t* texture);
 
@@ -150,18 +148,18 @@ SDL_GPUGraphicsPipeline* pipeline_factory_pipeline(shader_t* shader, bool msaa, 
 void material_bind_gpu(material_t* material, SDL_GPUCommandBuffer* cb);
 
 // @mesh
-void mesh_init(const renderer_traits* traits, SDL_GPUDevice* device);
+void mesh_init(renderer_traits* traits, SDL_GPUDevice* device);
 void mesh_uninit();
 void mesh_render(mesh_t* mesh, SDL_GPURenderPass* pass);
 
 // @texture
-void texture_init(const renderer_traits* traits, SDL_GPUDevice* dev);
+void texture_init(renderer_traits* traits, SDL_GPUDevice* dev);
 void texture_uninit();
 SDL_GPUTexture* texture_gpu_texture(texture_t* texture);
 sampler_options_t texture_sampler_options(texture_t* texture);
 
 // @shader
-void shader_init(const renderer_traits* traits, SDL_GPUDevice* device);
+void shader_init(renderer_traits* traits, SDL_GPUDevice* device);
 void shader_uninit();
 
 // New naming convention
@@ -176,10 +174,10 @@ bool shader_depth_write_enabled(shader_t* shader);
 int shader_vertex_uniform_count(shader_t* shader);
 int shader_fragment_uniform_count(shader_t* shader);
 int shader_sampler_count(shader_t* shader);
-const name_t* shader_name(shader_t* shader);
+name_t* shader_name(shader_t* shader);
 
 // @font
-void font_init(const renderer_traits* traits, SDL_GPUDevice* device);
+void font_init(renderer_traits* traits, SDL_GPUDevice* device);
 void font_uninit();
 material_t* font_material(font_t* font);
 
@@ -191,11 +189,19 @@ void camera_uninit();
 void animation_evaluate_frame(
     animation_t* animation,
     float time,
-    const bone_t* bones,
+    bone_t* bones,
     size_t bone_count,
     bone_transform_t* transforms,
     size_t transform_count);
 
 // @helpers
-inline SDL_FColor color_to_sdl(color_t color) { return (SDL_FColor) { color.r, color.g, color.b, color.a }; }
-//inline b2Vec2 vec2_to_b2(const vec2& v) { return b2Vec2(v.x, v.y); }
+inline SDL_FColor color_to_sdl(color_t color) 
+{
+    SDL_FColor result;
+    result.r = color.r;
+    result.g = color.g;
+    result.b = color.b;
+    result.a = color.a;
+    return result;
+}
+//inline b2Vec2 vec2o_b2(vec2& v) { return b2Vec2(v.x, v.y); }

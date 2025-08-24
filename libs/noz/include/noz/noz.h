@@ -10,31 +10,30 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-// Macros for disabling external library warnings
-#ifdef _MSC_VER
-    #define NOZ_WARNINGS_DISABLE() \
-        __pragma(warning(push)) \
-        __pragma(warning(disable: 4820)) \
-        __pragma(warning(disable: 4255)) \
-        __pragma(warning(disable: 4668)) \
-        __pragma(warning(disable: 4710)) \
-        __pragma(warning(disable: 4711)) \
-        __pragma(warning(disable: 4514)) \
-        __pragma(warning(disable: 4061)) \
-        __pragma(warning(disable: 4062)) \
-        __pragma(warning(disable: 4371)) \
-        __pragma(warning(disable: 4191)) \
-        __pragma(warning(disable: 4100))
-    
-    #define NOZ_WARNINGS_ENABLE() __pragma(warning(pop))
-#else
-    #define NOZ_WARNINGS_ENABLE()
-    #define NOZ_WARNINGS_DISABLE()
-#endif
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 
+using namespace glm;
+
+#define VEC3_FORWARD vec3(0, 0, 1)
+#define VEC3_BACKWARD vec3(0, 0, -1)
+#define VEC3_UP vec3(0, 1, 0)
+#define VEC3_DOWN vec3(0, -1, 0)
+#define VEC3_RIGHT vec3(1, 0, 0)
+#define VEC3_LEFT vec3(-1, 0, 0)
+#define VEC3_ZERO vec3(0,0,0)
+#define VEC3_ONE vec3(1,1,1)
+#define VEC4_ZERO vec4(0,0,0,0)
+#define VEC4_ONE vec4(1,1,1,1)
+#define VEC2_ZERO vec2(0,0)
+#define VEC2_ONE vec2(1,1)
+
+inline int i32_max(i32 a, i32 b) { return (a > b) ? a : b; }
+inline int i32_min(i32 a, i32 b) { return (a < b) ? a : b; }
+
+#include "bounds3.h"
 #include "types.h"
 #include "allocator.h"
-#include "gmath.h"
 #include "object.h"
 #include "map.h"
 #include "list.h"
@@ -49,3 +48,4 @@
 #include "renderer.h"
 #include "scene.h"
 #include "platform.h"
+

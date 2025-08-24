@@ -40,49 +40,49 @@ typedef struct color
 
 // Color32 functions
 color32_t color32_create(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
-color32_t color32_from_color(const color_t* color);
-color32_t color32_from_color24(const color24_t* color, uint8_t alpha);
-bool color32_is_transparent(const color32_t* color);
-bool color32_is_opaque(const color32_t* color);
-bool color32_equals(const color32_t* a, const color32_t* b);
+color32_t color32_from_color(color_t* color);
+color32_t color32_from_color24(color24_t* color, uint8_t alpha);
+bool color32_is_transparent(color32_t* color);
+bool color32_is_opaque(color32_t* color);
+bool color32_equals(color32_t* a, color32_t* b);
 
 // Color24 functions
 color24_t color24_create(uint8_t r, uint8_t g, uint8_t b);
-color24_t color24_from_color(const color_t* color);
-color24_t color24_from_color32(const color32_t* color);
-bool color24_equals(const color24_t* a, const color24_t* b);
+color24_t color24_from_color(color_t* color);
+color24_t color24_from_color32(color32_t* color);
+bool color24_equals(color24_t* a, color24_t* b);
 
 // Color functions
 color_t color_create(float r, float g, float b, float a);
-color_t color_from_color32(const color32_t* color);
-color_t color_from_color24(const color24_t* color, float alpha);
-bool color_is_transparent(const color_t* color);
-bool color_is_opaque(const color_t* color);
-color_t color_clamped(const color_t* color);
-bool color_equals(const color_t* a, const color_t* b);
-color_t color_add(const color_t* a, const color_t* b);
-color_t color_subtract(const color_t* a, const color_t* b);
-color_t color_multiply_scalar(const color_t* color, float scalar);
-color_t color_multiply(const color_t* a, const color_t* b);
-color_t color_lerp(const color_t* a, const color_t* b, float t);
+color_t color_from_color32(color32_t* color);
+color_t color_from_color24(color24_t* color, float alpha);
+bool color_is_transparent(color_t* color);
+bool color_is_opaque(color_t* color);
+color_t color_clamped(color_t* color);
+bool color_equals(color_t* a, color_t* b);
+color_t color_add(color_t* a, color_t* b);
+color_t color_subtract(color_t* a, color_t* b);
+color_t color_multiply_scalar(color_t* color, float scalar);
+color_t color_multiply(color_t* a, color_t* b);
+color_t color_lerp(color_t* a, color_t* b, float t);
 
 // Predefined colors
-extern const color32_t color32_black;
-extern const color32_t color32_white;
-extern const color32_t color32_red;
-extern const color32_t color32_green;
-extern const color32_t color32_blue;
-extern const color32_t color32_transparent;
+extern color32_t color32_black;
+extern color32_t color32_white;
+extern color32_t color32_red;
+extern color32_t color32_green;
+extern color32_t color32_blue;
+extern color32_t color32_transparent;
 
-extern const color24_t color24_black;
-extern const color24_t color24_white;
-extern const color24_t color24_red;
-extern const color24_t color24_green;
-extern const color24_t color24_blue;
+extern color24_t color24_black;
+extern color24_t color24_white;
+extern color24_t color24_red;
+extern color24_t color24_green;
+extern color24_t color24_blue;
 
-extern const color_t color_black;
-extern const color_t color_white;
-extern const color_t color_red;
-extern const color_t color_green;
-extern const color_t color_blue;
-extern const color_t color_transparent;
+extern color_t color_black;
+extern color_t color_white;
+extern color_t color_red;
+extern color_t color_green;
+extern color_t color_blue;
+extern color_t color_transparent;

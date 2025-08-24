@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(importer)
+project(importer LANGUAGES C CXX)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(FetchContent)
 
 # Force static builds globally before declaring dependencies
@@ -33,6 +34,10 @@ set(SPIRV_TOOLS_SKIP_SYMBOL_EXPORT ON CACHE BOOL "" FORCE)
 set(SPIRV_CROSS_ENABLE_GLSL ON CACHE BOOL "" FORCE)
 set(SPIRV_CROSS_ENABLE_MSL OFF CACHE BOOL "" FORCE)
 set(SPIRV_CROSS_ENABLE_REFLECT OFF CACHE BOOL "" FORCE)
+
+# SPIRV-Tools requires C++17
+set(CMAKE_CXX_STANDARD_SPIRV_TOOLS 17 CACHE STRING "" FORCE)
+set(SPIRV_TOOLS_CXX_STANDARD 17 CACHE STRING "" FORCE)
     
 # Keep DXC components needed by SDL3_shadercross
 set(DXC_BUILD_EXE OFF)
@@ -49,7 +54,20 @@ set(LLVM_INCLUDE_TESTS OFF)
 set(LLVM_DISTRIBUTION_COMPONENTS "" CACHE STRING "" FORCE)
 set(LLVM_INSTALL_TOOLCHAIN_ONLY ON CACHE BOOL "" FORCE)
 set(LLVM_INSTALL_UTILS OFF CACHE BOOL "" FORCE)
+
+# Save current C++ standard
+set(SAVED_CMAKE_CXX_STANDARD ${CMAKE_CXX_STANDARD})
+set(SAVED_CMAKE_CXX_STANDARD_REQUIRED ${CMAKE_CXX_STANDARD_REQUIRED})
+
+# Set C++17 for SPIRV-Tools
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 FetchContent_MakeAvailable(SDL3_shadercross)
+
+# Restore original C++ standard for rest of the project
+set(CMAKE_CXX_STANDARD ${SAVED_CMAKE_CXX_STANDARD})
+set(CMAKE_CXX_STANDARD_REQUIRED ${SAVED_CMAKE_CXX_STANDARD_REQUIRED})
 
 # cgltf
 FetchContent_Declare(cgltf
@@ -62,18 +80,10 @@ FetchContent_MakeAvailable(cgltf)
 add_library(cgltf_lib INTERFACE)
 target_include_directories(cgltf_lib INTERFACE ${cgltf_SOURCE_DIR})
 
-file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
-
-# Separate source files for importer and asset_manifest
-file(GLOB IMPORTER_SOURCE_FILES 
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/importer_main.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/importers/*.c"
-)
+file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 # Add main importer executable
-add_executable(importer ${IMPORTER_SOURCE_FILES}
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/asset_manifest.c"
-)
+add_executable(importer ${SOURCE_FILES})
 
 # Include directories
 target_include_directories(importer PRIVATE ${CMAKE_SOURCE_DIR}/libs/noz/external ${CMAKE_SOURCE_DIR}/libs/noz/include)
@@ -95,37 +105,6 @@ if(WIN32)
 endif()
 
 set_target_properties(importer PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-
-if(MSVC)
-    target_compile_options(noz PRIVATE /Wall /WX /wd4201 /wd4255 /wd4820 /wd4668 /wd5045 /wd4061 /wd4100)
-else()
-    target_compile_options(noz PRIVATE 
-        -Wall 
-        -Wextra 
-        -Wpedantic
-        -Wcast-align
-        -Wcast-qual
-        -Wconversion
-        -Wdouble-promotion
-        -Wfloat-equal
-        -Wformat=2
-        -Winit-self
-        -Winline
-        -Wmissing-declarations
-        -Wmissing-include-dirs
-        -Wmissing-prototypes
-        -Wnested-externs
-        -Wold-style-definition
-        -Wpointer-arith
-        -Wredundant-decls
-        -Wshadow
-        -Wstrict-prototypes
-        -Wundef
-        -Wunreachable-code
-        -Wwrite-strings
-        -Werror
-    )
-endif()
 
 target_compile_definitions(importer PRIVATE _CRT_SECURE_NO_WARNINGS )
 

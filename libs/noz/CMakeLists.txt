@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.15)
-project(noz LANGUAGES C)
+project(noz LANGUAGES C CXX)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(FetchContent)
 
 # SDL3
@@ -24,6 +26,14 @@ set(SDL3_VENDORED ON CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
 
+# GLM
+
+# GLM (OpenGL Mathematics)
+FetchContent_Declare(glm
+    GIT_REPOSITORY https://github.com/g-truc/glm.git
+    GIT_TAG 0.9.9.8
+)
+
 # Box2d
 FetchContent_Declare(
     box2d
@@ -37,56 +47,24 @@ set(BOX2D_BUILD_TESTBED OFF CACHE BOOL "Don't build Box2D testbed" FORCE)
 set(BOX2D_BUILD_UNIT_TESTS OFF CACHE BOOL "Don't build Box2D unit tests" FORCE)
 set(BOX2D_BUILD_SAMPLES OFF CACHE BOOL "Don't build Box2D samples" FORCE)
 
-FetchContent_MakeAvailable(SDL3 box2d)
+FetchContent_MakeAvailable(SDL3 box2d glm)
 
 add_library(noz STATIC)
 
 target_precompile_headers(noz PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/pch.h)
 
-file(GLOB_RECURSE SOURCE_FILES_C "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
+file(GLOB_RECURSE SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
 # Remove platform-specific files that don't match the current platform
 if(WIN32)
-    list(REMOVE_ITEM SOURCE_FILES_C "${CMAKE_CURRENT_SOURCE_DIR}/src/platform_posix.c")
+    list(REMOVE_ITEM SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/platform_posix.cpp")
 else()
-    list(REMOVE_ITEM SOURCE_FILES_C "${CMAKE_CURRENT_SOURCE_DIR}/src/platform_win.c")
+    list(REMOVE_ITEM SOURCE_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/platform_win.cpp")
 endif()
 
-target_sources(noz PRIVATE ${SOURCE_FILES_C})
+target_sources(noz PRIVATE ${SOURCE_FILES})
 target_include_directories(noz PRIVATE ${enet_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/external)
 target_include_directories(noz PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include )
-
-# Set warning flags only for noz library
-if(MSVC)
-    target_compile_options(noz PRIVATE /Wall /WX /wd4201 /wd4255 /wd4820 /wd4668 /wd5045 /wd4061 /wd4100)
-else()
-    target_compile_options(noz PRIVATE 
-        -Wall 
-        -Wextra 
-        -Wpedantic
-        -Wcast-align
-        -Wcast-qual
-        -Wconversion
-        -Wdouble-promotion
-        -Wfloat-equal
-        -Wformat=2
-        -Winit-self
-        -Winline
-        -Wmissing-declarations
-        -Wmissing-include-dirs
-        -Wmissing-prototypes
-        -Wnested-externs
-        -Wold-style-definition
-        -Wpointer-arith
-        -Wredundant-decls
-        -Wshadow
-        -Wstrict-prototypes
-        -Wundef
-        -Wunreachable-code
-        -Wwrite-strings
-        -Werror
-    )
-endif()
 
 target_compile_definitions(noz PRIVATE _CRT_SECURE_NO_WARNINGS)
 
@@ -96,6 +74,7 @@ target_link_libraries(noz
         box2d
         ws2_32
         winmm
+        glm::glm
         SDL3::SDL3
 )
 
