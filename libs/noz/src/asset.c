@@ -71,7 +71,7 @@ const char* asset_type_to_string(type_t type)
         case type_shader:   return "shader";
         case type_material: return "material";
         case type_font:     return "font";
-        default:            return "unknown";
+        default:            return NULL;
     }
 }
 

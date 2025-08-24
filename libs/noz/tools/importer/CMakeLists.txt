@@ -71,17 +71,12 @@ file(GLOB IMPORTER_SOURCE_FILES
 )
 
 # Add main importer executable
-add_executable(importer ${IMPORTER_SOURCE_FILES})
-
-# Add asset manifest generator executable
-add_executable(asset_manifest 
+add_executable(importer ${IMPORTER_SOURCE_FILES}
     "${CMAKE_CURRENT_SOURCE_DIR}/src/asset_manifest.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/asset_manifest_main.c"
 )
 
 # Include directories
 target_include_directories(importer PRIVATE ${CMAKE_SOURCE_DIR}/libs/noz/external ${CMAKE_SOURCE_DIR}/libs/noz/include)
-target_include_directories(asset_manifest PRIVATE ${CMAKE_SOURCE_DIR}/libs/noz/external ${CMAKE_SOURCE_DIR}/libs/noz/include)
 
 # Link libraries
 target_link_libraries(importer PRIVATE
@@ -90,9 +85,6 @@ target_link_libraries(importer PRIVATE
     SDL3_shadercross::SDL3_shadercross
 )
 
-target_link_libraries(asset_manifest PRIVATE
-    noz
-)
 
 # Platform-specific libraries
 if(WIN32)
@@ -103,7 +95,6 @@ if(WIN32)
 endif()
 
 set_target_properties(importer PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-set_target_properties(asset_manifest PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 if(MSVC)
     target_compile_options(noz PRIVATE /Wall /WX /wd4201 /wd4255 /wd4820 /wd4668 /wd5045 /wd4061 /wd4100)
@@ -137,7 +128,6 @@ else()
 endif()
 
 target_compile_definitions(importer PRIVATE _CRT_SECURE_NO_WARNINGS )
-target_compile_definitions(asset_manifest PRIVATE _CRT_SECURE_NO_WARNINGS )
 
 # Enable precompiled headers for importer only (asset_manifest is standalone)
 target_precompile_headers(importer PRIVATE src/importer_pch.h)

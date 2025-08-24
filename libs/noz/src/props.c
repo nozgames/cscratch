@@ -4,6 +4,7 @@
 
 #include <noz/props.h>
 #include <stdio.h>
+#include <string.h>
 
 #define MAX_PROPERTY_VALUES 32
 #define HASH_SIZE 256
@@ -374,6 +375,29 @@ float props_get_float(props_t* props, const char* key, float default_value)
     }
     
     return (float)atof(str_value);
+}
+
+bool props_get_bool(props_t* props, const char* key, bool default_value)
+{
+    const char* str_value = props_get_string(props, key, NULL);
+    if (!str_value)
+    {
+        return default_value;
+    }
+    
+    // Check for common boolean representations
+    if (strcmp(str_value, "true") == 0 || strcmp(str_value, "1") == 0 || 
+        strcmp(str_value, "yes") == 0 || strcmp(str_value, "on") == 0)
+    {
+        return true;
+    }
+    else if (strcmp(str_value, "false") == 0 || strcmp(str_value, "0") == 0 || 
+             strcmp(str_value, "no") == 0 || strcmp(str_value, "off") == 0)
+    {
+        return false;
+    }
+    
+    return default_value;
 }
 
 vec3_t props_get_vec3(props_t* props, const char* key, vec3_t default_value)

@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <stdlib.h>
 
 void thread_sleep_ms(int milliseconds)
 {
@@ -108,6 +109,19 @@ bool directory_enum_files(const path_t* dir_path, directory_enum_files_callback_
     }
     
     closedir(dir);
+    return true;
+}
+
+bool path_current_directory(path_t* dst)
+{
+    if (!dst)
+        return false;
+    
+    char buffer[1024];
+    if (getcwd(buffer, sizeof(buffer)) == NULL)
+        return false;
+    
+    path_set(dst, buffer);
     return true;
 }
 

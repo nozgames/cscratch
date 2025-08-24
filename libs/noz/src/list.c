@@ -66,7 +66,7 @@ void list_add(list_t* list, object_t* value)
     if (impl->count >= impl->capacity)
     {
         impl->capacity *= 2;
-		impl->values = allocator_realloc(object_allocator(list), impl->values, impl->capacity * 2);
+		impl->values = allocator_realloc(object_allocator(list), impl->values, sizeof(object_t*) * impl->capacity);
         if (!impl->values)
             return;
     }

@@ -43,6 +43,9 @@ path_t* path_normalize(path_t* path);
 bool path_is_absolute(const path_t* path);
 bool path_is_empty(const path_t* path);
 path_t* path_make_relative(path_t* dst, const path_t* path, const path_t* base);
+path_t* path_make_absolute(path_t* dst, const path_t* path);
+bool path_is_under(const path_t* path, const path_t* base);
+bool path_find_relative_to_bases(path_t* dst, const path_t* path, const char** bases, size_t base_count);
 
 // @text
 typedef struct text

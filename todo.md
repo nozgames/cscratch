@@ -1,6 +1,8 @@
 
-
-
+## do
+- destructor support for objects
+	- type_set_destructor(type_t type, void (*)(object_t* o))
+	- void texture_init() { type_set_destructor(type_texture, texture_destructor); }
 
 ## thoughts
 - can we have the import just create a manifest of all assets and then we can preallocate for them.

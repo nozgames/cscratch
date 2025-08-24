@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <string.h>
+#include "asset_manifest.h"
 
 asset_importer_traits_t* shader_importer_create();
 
@@ -130,9 +131,6 @@ void process_file_change(const path_t* file_path, file_change_type_t change_type
 	if (change_type == file_change_type_deleted)
 		return; // Don't process deleted files
 	
-	// Debug: show what file was detected
-	printf("File changed: %s\n", file_path->value);
-
 	// Find an importer that can handle this file
 	path_t source_path;
 	path_copy(&source_path, file_path);
@@ -143,7 +141,6 @@ void process_file_change(const path_t* file_path, file_change_type_t change_type
 		if (importers[i]->can_import && importers[i]->can_import(&source_path))
 		{
 			selected_importer = importers[i];
-			printf("  -> Can import with shader importer\n");
 			break;
 		}
 	}
@@ -173,13 +170,14 @@ void process_import_queue(asset_importer_traits_t** importers)
 	// Get output directory from config
 	const char* output_dir = props_get_string(g_config, "output.directory", "assets");
 	
-	// Ensure output directory exists
-	path_t output_path;
-	path_set(&output_path, output_dir);
+	// Ensure output directory exists (make it absolute)
+	path_t output_path, output_path_rel;
+	path_set(&output_path_rel, output_dir);
+	path_make_absolute(&output_path, &output_path_rel);
 	
-	if (!directory_create(&output_path))
+	if (!directory_create_recursive(&output_path))
 	{
-		printf("Failed to create directory: %s\n", output_dir);
+		printf("Failed to create directory: %s\n", output_path.value);
 	}
 	list_t* remaining_jobs = list_alloc(NULL, list_count(g_import_queue));
 	bool made_progress = true;
@@ -242,4 +240,29 @@ void process_import_queue(asset_importer_traits_t** importers)
 
 	list_clear(g_import_queue);
 	object_free(remaining_jobs);
+	
+	// Generate asset manifest after processing imports if enabled
+	bool manifest_enabled = props_get_bool(g_config, "manifest.enabled", false);
+	if (manifest_enabled)
+	{
+		const char* manifest_path = props_get_string(g_config, "manifest.output_file", "./src/assets.c");
+		
+		// Create absolute path for manifest
+		path_t manifest_abs_path, manifest_rel_path;
+		path_set(&manifest_rel_path, manifest_path);
+		path_make_absolute(&manifest_abs_path, &manifest_rel_path);
+		
+		// Ensure the manifest directory exists
+		path_t manifest_dir;
+		path_dir(&manifest_abs_path, &manifest_dir);
+		if (!directory_create_recursive(&manifest_dir))
+		{
+			printf("WARNING: Failed to create manifest directory: %s\n", manifest_dir.value);
+		}
+		
+		if (!asset_manifest_generate(output_path.value, manifest_abs_path.value))
+		{
+			printf("WARNING: Failed to generate asset manifest\n");
+		}
+	}
 }

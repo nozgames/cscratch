@@ -24,11 +24,15 @@ static bool compile_and_write_shader(
     stream_t* output_stream,
     const path_t* include_dir)
 {
+    // Make sure include directory is absolute
+    path_t absolute_include_dir;
+    path_make_absolute(&absolute_include_dir, include_dir);
+    
     // Setup HLSL info for vertex shader
     SDL_ShaderCross_HLSL_Info vertex_info = {
         .source = vertex_source,
         .entrypoint = "vs",  // Vertex shader entry point
-        .include_dir = include_dir->value,  // Set include directory for shader includes
+        .include_dir = absolute_include_dir.value,
         .shader_stage = SDL_SHADERCROSS_SHADERSTAGE_VERTEX,
         .enable_debug = false
     };
@@ -45,7 +49,7 @@ static bool compile_and_write_shader(
     SDL_ShaderCross_HLSL_Info fragment_info = {
         .source = fragment_source,
         .entrypoint = "ps",  // Pixel/fragment shader entry point
-        .include_dir = include_dir->value,  // Set include directory for shader includes
+        .include_dir = absolute_include_dir.value,  // Set include directory for shader includes
         .shader_stage = SDL_SHADERCROSS_SHADERSTAGE_FRAGMENT,
         .enable_debug = false
     };
@@ -108,6 +112,25 @@ static bool compile_and_write_shader(
 
 void shader_importer_import(const path_t* source_path, const path_t* output_path, props_t* config)
 {
+    // Get source directories
+    size_t source_count = props_get_list_count(config, "source");
+    const char* source_dirs[32];  // Max 32 source directories
+    if (source_count > 32) source_count = 32;
+    
+    for (size_t i = 0; i < source_count; i++)
+    {
+        source_dirs[i] = props_get_list_item(config, "source", i, "");
+    }
+    
+    // Find relative path from source directories
+    path_t relative_path;
+    if (!path_find_relative_to_bases(&relative_path, source_path, source_dirs, source_count))
+    {
+        // If we couldn't find relative path, just use the filename
+        const char* filename = path_basename(source_path);
+        path_set(&relative_path, filename);
+    }
+
     // Read source file
     stream_t* source_stream = stream_load_from_file(NULL, source_path);
     if (!source_stream) {
@@ -142,25 +165,29 @@ void shader_importer_import(const path_t* source_path, const path_t* output_path
     
     // Compile and write shader
     if (compile_and_write_shader(source, source, output_stream, &include_path)) {
-        // Build output file path
+        // Build output file path preserving directory structure
         path_t final_path;
         path_copy(&final_path, output_path);
         
-        // Get just the filename from source
-        const char* filename = path_basename(source_path);
-        
-        // Append filename to output directory
-        path_append(&final_path, filename);
+        // Append the relative path (with directory structure preserved)
+        path_append(&final_path, relative_path.value);
         
         // Replace extension with .nzsh
         path_set_extension(&final_path, "nzsh");
         
+        // Ensure the output directory exists
+        path_t output_dir;
+        path_dir(&final_path, &output_dir);
+        directory_create_recursive(&output_dir);
+        
         if (!stream_save(output_stream, &final_path)) {
             printf("Failed to save shader: %s\n", final_path.value);
         } else {
-            // Extract just the filename for cleaner output
-            const char* src_name = path_basename(source_path);
-            printf("Imported: %s\n", src_name);
+            // Remove extension for clean output
+            path_t clean_path;
+            path_copy(&clean_path, &relative_path);
+            path_set_extension(&clean_path, "");
+            printf("Imported 'shaders/%s'\n", path_basename(&clean_path));
         }
     }
     
@@ -171,9 +198,7 @@ void shader_importer_import(const path_t* source_path, const path_t* output_path
 bool shader_importer_can_import(const path_t* path)
 {
     // path_has_extension expects extension without the dot
-    bool can_import = path_has_extension(path, "hlsl");
-    printf("  Checking %s: %s\n", path->value, can_import ? "YES" : "NO");
-    return can_import;
+    return path_has_extension(path, "hlsl");
 }
 
 bool shader_importer_does_depend_on(const path_t* source_path, const path_t* dependency_path)

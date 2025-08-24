@@ -27,6 +27,7 @@ prop_type_t props_get_type(props_t* props, const char* key);
 const char* props_get_string(props_t* props, const char* key, const char* default_value);
 int props_get_int(props_t* props, const char* key, int default_value);
 float props_get_float(props_t* props, const char* key, float default_value);
+bool props_get_bool(props_t* props, const char* key, bool default_value);
 vec3_t props_get_vec3(props_t* props, const char* key, vec3_t default_value);
 size_t props_get_list_count(props_t* props, const char* key);
 const char* props_get_list_item(props_t* props, const char* key, size_t index, const char* default_value);

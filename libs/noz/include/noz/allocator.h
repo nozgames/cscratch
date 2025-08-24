@@ -30,7 +30,7 @@ inline void* allocator_realloc(allocator_t* a, void* ptr, size_t new_size)
 }
 
 // @arena
-typedef struct arena_allocator arena_allocator_t;
+typedef struct allocator arena_allocator_t;
 
 arena_allocator_t* arena_allocator_create(size_t size);
 void* arena_allocator_alloc(arena_allocator_t* a, size_t size);

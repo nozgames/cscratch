@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <assert.h>
 #include <ctype.h>
+#include <noz/platform.h>
 
 #ifndef nullptr
 #define nullptr NULL
@@ -323,12 +324,44 @@ const char* path_basename(const path_t* path)
 
 void path_filename(const path_t* src, name_t* dst)
 {
-    // todo: implement
+    assert(src);
+    assert(dst);
+    
+    // Get the basename (filename with extension)
+    const char* filename = path_basename(src);
+    
+    // Copy to name_t
+    name_set(dst, filename);
 }
 
 void path_filename_without_extension(const path_t* src, name_t* dst)
 {
-    // todo: implement
+    assert(src);
+    assert(dst);
+    
+    // Get the basename first
+    const char* filename = path_basename(src);
+    
+    // Find the last dot in the filename
+    const char* last_dot = strrchr(filename, '.');
+    
+    if (last_dot && last_dot != filename) 
+    {
+        // Copy up to the last dot
+        size_t len = (size_t)(last_dot - filename);
+        if (len >= sizeof(dst->value)) 
+        {
+            len = sizeof(dst->value) - 1;
+        }
+        memcpy(dst->value, filename, len);
+        dst->value[len] = '\0';
+        dst->length = (uint8_t)len;
+    }
+    else 
+    {
+        // No extension, copy the whole filename
+        name_set(dst, filename);
+    }
 }
 
 const char* path_extension(const path_t* path)
@@ -393,8 +426,15 @@ path_t* path_set_extension(path_t* path, const char* ext)
     // Determine where to start the new extension
     size_t ext_start = last_dot ? (last_dot - path->value) : path->length;
     
-    // Calculate new length
+    // If extension is empty string, just remove the extension
     size_t ext_len = strlen(ext);
+    if (ext_len == 0) {
+        path->value[ext_start] = '\0';
+        path->length = ext_start;
+        return path;
+    }
+    
+    // Calculate new length
     size_t dot_len = (*ext == '.') ? 0 : 1;  // Add dot if ext doesn't start with one
     size_t new_len = ext_start + dot_len + ext_len;
     
@@ -549,6 +589,95 @@ path_t* path_make_relative(path_t* dst, const path_t* path, const path_t* base)
     
     // Path doesn't start with base, return as-is
     return path_copy(dst, path);
+}
+
+path_t* path_make_absolute(path_t* dst, const path_t* path)
+{
+    assert(dst);
+    assert(path);
+    
+    // If path is already absolute, just copy it
+    if (path_is_absolute(path)) 
+    {
+        return path_copy(dst, path);
+    }
+    
+    // Get current directory and append the relative path
+    path_t cwd;
+    if (!path_current_directory(&cwd)) 
+    {
+        // If we can't get current directory, return path as-is
+        return path_copy(dst, path);
+    }
+    
+    // Join current directory with the relative path
+    path_copy(dst, &cwd);
+    path_append(dst, path->value);
+    
+    return path_normalize(dst);
+}
+
+bool path_is_under(const path_t* path, const path_t* base)
+{
+    assert(path);
+    assert(base);
+    
+    path_t relative;
+    if (!path_make_relative(&relative, path, base))
+    {
+        return false;
+    }
+    
+    // If the relative path starts with "..", it's not under the base
+    if (relative.length >= 2 && relative.value[0] == '.' && relative.value[1] == '.')
+    {
+        return false;
+    }
+    
+    // If it starts with "../", it's not under the base  
+    if (relative.length >= 3 && relative.value[0] == '.' && relative.value[1] == '.' && 
+        (relative.value[2] == '/' || relative.value[2] == '\\'))
+    {
+        return false;
+    }
+    
+    return true;
+}
+
+bool path_find_relative_to_bases(path_t* dst, const path_t* path, const char** bases, size_t base_count)
+{
+    assert(dst);
+    assert(path);
+    
+    if (!bases || base_count == 0)
+    {
+        return false;
+    }
+    
+    // Make the input path absolute for comparison
+    path_t path_abs;
+    path_make_absolute(&path_abs, path);
+    
+    // Try each base directory
+    for (size_t i = 0; i < base_count; i++)
+    {
+        if (!bases[i])
+            continue;
+            
+        path_t base_path, base_abs;
+        path_set(&base_path, bases[i]);
+        path_make_absolute(&base_abs, &base_path);
+        
+        // Check if the path is under this base
+        if (path_is_under(&path_abs, &base_abs))
+        {
+            // Get the relative path
+            path_make_relative(dst, &path_abs, &base_abs);
+            return true;
+        }
+    }
+    
+    return false;
 }
 
 // ============================================================================

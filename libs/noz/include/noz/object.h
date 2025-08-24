@@ -30,5 +30,5 @@ void object_free(object_t* object);
 
 inline type_t object_type(const object_t* object) { return *((type_t*)((char*)object + OBJECT_OFFSET_TYPE)); }
 inline type_t object_base_type(const object_t* object) { return *((type_t*)((char*)object + OBJECT_OFFSET_BASE)); }
-inline allocator_t* object_allocator(const object_t* object) { return (allocator_t*)((char*)object + OBJECT_OFFSET_ALLOCATOR); }
 inline size_t object_size(const object_t* object) { return (size_t)(uint32_t*)((char*)object + OBJECT_OFFSET_SIZE); }
+inline allocator_t* object_allocator(const object_t* object) { return *(allocator_t**)((char*)object + OBJECT_OFFSET_ALLOCATOR); }

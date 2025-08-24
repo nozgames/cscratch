@@ -5,17 +5,15 @@
 #include "asset_manifest.h"
 #include <noz/platform.h>
 
-typedef struct asset_entry_impl
+typedef struct asset_entry
 {
     OBJECT_BASE;
-    path_t path;             // Relative path from assets directory
-    uint32_t signature;      // 4-byte signature
-    size_t runtime_size;     // Size needed at runtime
-    size_t file_size;        // Size of the file on disk
-    name_t var_name;         // Variable name for C struct
-} asset_entry_impl_t;
-
-typedef struct object_impl asset_entry_t;
+    path_t path;
+    uint32_t signature;
+    size_t runtime_size;
+    size_t file_size;
+    name_t var_name;
+} asset_entry_t;
 
 typedef struct manifest_generator
 {
@@ -43,8 +41,6 @@ bool asset_manifest_generate(const char* output_directory, const char* manifest_
         return false;
     }
 
-    printf("Generating asset manifest from: %s\n", output_directory);
-    printf("Output manifest to: %s\n", manifest_output_path);
 
     // Initialize manifest generator
     manifest_generator_t generator = {0};
@@ -71,8 +67,6 @@ bool asset_manifest_generate(const char* output_directory, const char* manifest_
     file_stat_t dir_stat;
     if (!file_stat(&generator.output_dir, &dir_stat))
     {
-        printf("WARNING: Output directory '%s' does not exist or is not accessible\n", output_directory);
-        printf("This may be expected if no assets have been imported yet.\n");
         
         // Generate an empty manifest
         generate_manifest_code(&generator);
@@ -106,8 +100,6 @@ bool asset_manifest_generate(const char* output_directory, const char* manifest_
         return false;
     }
 
-    printf("Found %zu asset files\n", list_count(generator.asset_entries));
-    printf("Total runtime memory required: %zu bytes\n", generator.total_memory);
 
     // Generate the manifest C code
     generate_manifest_code(&generator);
@@ -116,11 +108,7 @@ bool asset_manifest_generate(const char* output_directory, const char* manifest_
     path_t manifest_path;
     path_set(&manifest_path, manifest_output_path);
     bool success = stream_save(generator.manifest_stream, &manifest_path);
-    if (success)
-    {
-        printf("Asset manifest generated successfully: %s\n", manifest_output_path);
-    }
-    else
+    if (!success)
     {
         printf("ERROR: Failed to save manifest to: %s\n", manifest_output_path);
     }
@@ -140,33 +128,50 @@ static void scan_asset_file(const path_t* file_path, const file_stat_t* stat, vo
     if (stat->is_directory)
         return;
 
-    // Check for known asset extensions using path API
-    bool is_asset = path_has_extension(file_path, ".nzt") ||   // NoZ Texture
-                    path_has_extension(file_path, ".nzm") ||   // NoZ Mesh
-                    path_has_extension(file_path, ".nzs") ||   // NoZ Sound
-                    path_has_extension(file_path, ".nzsh") ||  // NoZ Shader
-                    path_has_extension(file_path, ".nzmt") ||  // NoZ Material
-                    path_has_extension(file_path, ".nzf");     // NoZ Font
+    // Check for known asset extensions using path API (without dot)
+    bool is_asset = path_has_extension(file_path, "nzt") ||   // NoZ Texture
+                    path_has_extension(file_path, "nzm") ||   // NoZ Mesh
+                    path_has_extension(file_path, "nzs") ||   // NoZ Sound
+                    path_has_extension(file_path, "nzsh") ||  // NoZ Shader
+                    path_has_extension(file_path, "nzmt") ||  // NoZ Material
+                    path_has_extension(file_path, "nzf");     // NoZ Font
 
     if (!is_asset)
         return;
 
-    printf("Processing asset: %s\n", file_path->value);
+    // Make path relative to output_dir first
+    path_t relative_path;
+    path_make_relative(&relative_path, file_path, &generator->output_dir);
+    
+    // Remove extension for comparison and storage
+    path_set_extension(&relative_path, "");
+    
+    // Check if this asset is already in the list (compare without extensions)
+    for (size_t i = 0; i < list_count(generator->asset_entries); i++)
+    {
+        asset_entry_t* existing = (asset_entry_t*)list_get(generator->asset_entries, i);
+        if (path_eq(&existing->path, &relative_path))
+        {
+            // Asset already in list, skip it
+            return;
+        }
+    }
 
-    asset_entry_impl_t* entry = (asset_entry_impl_t*)object_alloc(object_allocator(generator->asset_entries), sizeof(asset_entry_impl_t), type_unknown);
+    asset_entry_t* entry = (asset_entry_t*)object_alloc(object_allocator(generator->asset_entries), sizeof(asset_entry_t), type_unknown);
     if (!entry)
     {
         printf("error: out_of_memory\n");
         return;
     }
 
-	list_add(generator->asset_entries, (asset_entry_t*)entry);
+	list_add(generator->asset_entries, (object_t*)entry);
 
-    // Make path relative to output_dir
-    path_make_relative(&entry->path, file_path, &generator->output_dir);
+    // Copy the relative path we already computed (extension already removed)
+    path_copy(&entry->path, &relative_path);
+    
     entry->file_size = stat->size;
 
-    // Generate variable name from path
+    // Generate variable name from path (without extension)
     path_to_var_name(&entry->var_name, entry->path.value);
 
     // Read asset header to get signature and runtime size
@@ -179,10 +184,6 @@ static void scan_asset_file(const path_t* file_path, const file_stat_t* stat, vo
 
     // Add to total memory requirement
     generator->total_memory += entry->runtime_size;
-
-    printf("  - Runtime size: %zu bytes\n", entry->runtime_size);
-    printf("  - File size: %zu bytes\n", entry->file_size);
-    printf("  - Variable name: %s\n", entry->var_name.value);
 }
 
 static bool read_asset_header(const char* file_path, uint32_t* signature, size_t* runtime_size)
@@ -219,36 +220,65 @@ static void generate_manifest_code(manifest_generator_t* generator)
         "// Auto-generated asset manifest - DO NOT EDIT MANUALLY\n"
         "// Generated by NoZ Game Engine Asset Importer\n"
         "//\n\n"
+        "// @includes\n"
         "#include <noz/noz.h>\n\n");
 
-    // Write memory requirement constant
+    // Write memory requirement constant and allocator pointer
+    stream_write_raw_cstr(stream, "// @constants\n");
     stream_write_raw_cstr(stream, "#define ASSET_TOTAL_MEMORY %zu\n\n", generator->total_memory);
+    
+    stream_write_raw_cstr(stream, "// @globals\n");
+    stream_write_raw_cstr(stream, "static arena_allocator_t* g_asset_allocator = NULL;\n\n");
 
     // Generate the g_assets structure
     organize_assets_by_type(generator);
 
     // Write load all function
     stream_write_raw_cstr(stream, 
-        "\n// Load all assets into single arena\n"
-        "bool noz_assets_load_all(void) {\n"
-        "    arena_allocator_t* arena = arena_allocator_create(ASSET_TOTAL_MEMORY);\n"
-        "    if (!arena) return false;\n\n");
+        "// @init\n"
+        "bool assets_init(void)\n"
+        "{\n"
+        "    if (g_asset_allocator != NULL)\n"
+        "        return false; // Already initialized\n\n"
+        "    g_asset_allocator = arena_allocator_create(ASSET_TOTAL_MEMORY);\n"
+        "    if (!g_asset_allocator)\n"
+        "        return false;\n\n");
     
     // Generate load calls for each asset
     for (size_t i = 0; i < list_count(generator->asset_entries); i++) 
     {
-        asset_entry_impl_t* entry = (asset_entry_impl_t*)list_get(generator->asset_entries, i);
-        type_t asset_type = asset_signature_to_type(entry->signature);
-        
+        asset_entry_t* entry = (asset_entry_t*)list_get(generator->asset_entries, i);
+        type_t asset_type = asset_signature_to_type(entry->signature);        
+        if (asset_type == type_invalid)
+			continue;
+
         const char* type_name = asset_type_to_string(asset_type);
-        if (type_name && strcmp(type_name, "unknown") != 0)
-        {
-            stream_write_raw_cstr(stream, "    g_assets.%ss.%s = noz_%s_load(\"%s\", arena);\n",
-                     type_name, entry->var_name.value, type_name, entry->path.value);
-        }
+        assert(type_name);
+        stream_write_raw_cstr(
+            stream,
+            "    NOZ_ASSET_LOAD(%s, \"%s\", g_assets.%ss.%s);\n",
+            type_name,
+            entry->path.value,
+            type_name,
+            entry->var_name.value);
     }
     
-    stream_write_raw_cstr(stream, "\n    return true;\n}\n");
+    stream_write_raw_cstr(stream, "\n    return true;\n}\n\n");
+    
+    // Write assets_uninit function
+    stream_write_raw_cstr(stream,
+        "// @uninit\n"
+        "void assets_uninit(void)\n"
+        "{\n"
+        "    if (g_asset_allocator != NULL)\n"
+        "    {\n"
+        "        arena_allocator_destroy(g_asset_allocator);\n"
+        "        g_asset_allocator = NULL;\n"
+        "        \n"
+        "        // Clear all asset pointers\n"
+        "        memset(&g_assets, 0, sizeof(g_assets));\n"
+        "    }\n"
+        "}\n");
 }
 
 static void write_asset_structure(manifest_generator_t* generator)
@@ -278,7 +308,7 @@ static void write_asset_structure(manifest_generator_t* generator)
 
     for (size_t i = 0; i < list_count(generator->asset_entries); i++)
     {
-        asset_entry_impl_t* entry = (asset_entry_impl_t*)list_get(generator->asset_entries, i);
+        asset_entry_t* entry = (asset_entry_t*)list_get(generator->asset_entries, i);
         char buffer[512];
 
         snprintf(buffer, sizeof(buffer), 
@@ -380,29 +410,56 @@ static void path_to_var_name(name_t* dst, const char* path_str)
     
     out[out_len] = '\0';
     dst->length = out_len;
+    
+    // Check for C keywords and add underscore prefix if needed
+    if (strcmp(dst->value, "default") == 0 ||
+        strcmp(dst->value, "switch") == 0 ||
+        strcmp(dst->value, "case") == 0 ||
+        strcmp(dst->value, "break") == 0 ||
+        strcmp(dst->value, "continue") == 0 ||
+        strcmp(dst->value, "return") == 0 ||
+        strcmp(dst->value, "if") == 0 ||
+        strcmp(dst->value, "else") == 0 ||
+        strcmp(dst->value, "for") == 0 ||
+        strcmp(dst->value, "while") == 0 ||
+        strcmp(dst->value, "do") == 0 ||
+        strcmp(dst->value, "goto") == 0 ||
+        strcmp(dst->value, "void") == 0 ||
+        strcmp(dst->value, "int") == 0 ||
+        strcmp(dst->value, "float") == 0 ||
+        strcmp(dst->value, "double") == 0 ||
+        strcmp(dst->value, "char") == 0 ||
+        strcmp(dst->value, "const") == 0 ||
+        strcmp(dst->value, "static") == 0 ||
+        strcmp(dst->value, "struct") == 0 ||
+        strcmp(dst->value, "union") == 0 ||
+        strcmp(dst->value, "enum") == 0 ||
+        strcmp(dst->value, "typedef") == 0)
+    {
+        // Add underscore prefix for C keywords
+        memmove(dst->value + 1, dst->value, dst->length + 1);
+        dst->value[0] = '_';
+        dst->length++;
+    }
 }
 
 static void write_asset_type_struct(stream_t* stream, list_t* assets, type_t type)
 {
     if (list_count(assets) == 0)
-    {
         return;
-    }
     
     const char* type_name = asset_type_to_string(type);
-    if (!type_name || strcmp(type_name, "unknown") == 0)
-    {
+    if (type_name == NULL)
         return;
-    }
-    
+   
     // Write struct opening
-    stream_write_raw_cstr(stream, "    struct {\n");
+    stream_write_raw_cstr(stream, "    struct\n    {\n");
     
     // Write each asset field
-    for (size_t i = 0; i < list_count(assets); i++)
+    for (size_t i = 0, c = list_count(assets); i < c; i++)
     {
-        asset_entry_impl_t* entry = (asset_entry_impl_t*)list_get(assets, i);
-        stream_write_raw_cstr(stream, "        noz_%s_t* %s;\n", type_name, entry->var_name.value);
+        asset_entry_t* entry = (asset_entry_t*)list_get(assets, i);
+        stream_write_raw_cstr(stream, "        %s_t* %s;\n", type_name, entry->var_name.value);
     }
     
     // Write struct closing with collection name (plural)
@@ -424,7 +481,7 @@ static void organize_assets_by_type(manifest_generator_t* generator)
     // Sort assets by type
     for (size_t i = 0, c = list_count(generator->asset_entries); i < c; i++)
     {
-        asset_entry_impl_t* entry = (asset_entry_impl_t*)list_get(generator->asset_entries, i);
+        asset_entry_t* entry = (asset_entry_t*)list_get(generator->asset_entries, i);
         type_t asset_type = asset_signature_to_type(entry->signature);
         
         switch (asset_type) {
@@ -453,18 +510,31 @@ static void organize_assets_by_type(manifest_generator_t* generator)
     }
     
     // Generate the g_assets structure
-    stream_write_raw_cstr(stream, "// Global asset structure\n");
-    stream_write_raw_cstr(stream, "struct {\n");
+    stream_write_raw_cstr(stream, "// @assets\n");
+    stream_write_raw_cstr(stream, "struct\n{\n");
     
-    // Generate structures for each asset type
-    write_asset_type_struct(stream, textures, type_texture);
-    write_asset_type_struct(stream, meshes, type_mesh);
-    write_asset_type_struct(stream, sounds, type_sound);
-    write_asset_type_struct(stream, shaders, type_shader);
-    write_asset_type_struct(stream, materials, type_material);
-    write_asset_type_struct(stream, fonts, type_font);
+    // Check if we have any assets at all
+    bool has_any_assets = list_count(textures) > 0 || list_count(meshes) > 0 || 
+                          list_count(sounds) > 0 || list_count(shaders) > 0 || 
+                          list_count(materials) > 0 || list_count(fonts) > 0;
     
-    stream_write_raw_cstr(stream, "} g_assets;\n");
+    if (has_any_assets)
+    {
+        // Generate structures for each asset type
+        write_asset_type_struct(stream, textures, type_texture);
+        write_asset_type_struct(stream, meshes, type_mesh);
+        write_asset_type_struct(stream, sounds, type_sound);
+        write_asset_type_struct(stream, shaders, type_shader);
+        write_asset_type_struct(stream, materials, type_material);
+        write_asset_type_struct(stream, fonts, type_font);
+    }
+    else
+    {
+        // Add dummy member to avoid empty struct error
+        stream_write_raw_cstr(stream, "    void* _dummy; // Placeholder for empty asset structure\n");
+    }
+    
+    stream_write_raw_cstr(stream, "} g_assets;\n\n");
     
     // Clean up
     object_free(textures);

@@ -23,4 +23,4 @@ static allocator_t default_allocator = {
 	.realloc = default_realloc
 };
 
-extern allocator_t* g_default_allocator = &default_allocator;
+allocator_t* g_default_allocator = &default_allocator;
