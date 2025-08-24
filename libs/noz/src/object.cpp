@@ -11,7 +11,13 @@ typedef struct ObjectImpl
     Allocator* allocator;
 } object_impl_t;
 
-static inline object_impl_t* Impl(const void* o) 
+static_assert(OBJECT_BASE_SIZE == sizeof(ObjectImpl));
+static_assert(OBJECT_OFFSET_TYPE == offsetof(ObjectImpl, type));
+static_assert(OBJECT_OFFSET_BASE == offsetof(ObjectImpl, base_type));
+static_assert(OBJECT_OFFSET_SIZE == offsetof(ObjectImpl, size));
+static_assert(OBJECT_OFFSET_ALLOCATOR == offsetof(ObjectImpl, allocator));
+
+static object_impl_t* Impl(const void* o)
 {
     return (object_impl_t*)o;
 }

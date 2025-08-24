@@ -41,7 +41,7 @@ SDL_GPUSampler* sampler_factory_sampler(Texture* texture)
     SDL_GPUSamplerCreateInfo sampler_info = {};
     sampler_info.min_filter = to_sdl_filter(options.min_filter);
     sampler_info.mag_filter = to_sdl_filter(options.mag_filter);
-    sampler_info.mipmap_mode = (options.min_filter == texture_filter_nearest)
+    sampler_info.mipmap_mode = (options.min_filter == TEXTURE_FILTER_NEAREST)
         ? SDL_GPU_SAMPLERMIPMAPMODE_NEAREST
         : SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
     sampler_info.address_mode_u = to_sdl_clamp(options.clamp_u);
@@ -69,9 +69,9 @@ SDL_GPUFilter to_sdl_filter(TextureFilter filter)
 {
     switch (filter)
     {
-    case texture_filter_nearest:
+    case TEXTURE_FILTER_NEAREST:
         return SDL_GPU_FILTER_NEAREST;
-    case texture_filter_linear:
+    case TEXTURE_FILTER_LINEAR:
         return SDL_GPU_FILTER_LINEAR;
     default:
         return SDL_GPU_FILTER_LINEAR;
@@ -82,11 +82,11 @@ SDL_GPUSamplerAddressMode to_sdl_clamp(TextureClamp mode)
 {
     switch (mode)
     {
-    case texture_clamp_repeat:
+    case TEXTURE_CLAMP_REPEAT:
         return SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
-    case texture_clamp_clamp:
+    case TEXTURE_CLAMP_CLAMP:
         return SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-    case texture_clamp_repeat_mirrored:
+    case TEXTURE_CLAMP_REPEAT_MIRRORED:
         return SDL_GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT;
     default:
         return SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;

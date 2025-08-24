@@ -32,28 +32,28 @@ struct RendererTraits
 
 enum TextureFilter
 {
-    texture_filter_nearest,
-    texture_filter_linear
+    TEXTURE_FILTER_NEAREST,
+    TEXTURE_FILTER_LINEAR
 };
 
 enum TextureClamp
 {
-    texture_clamp_repeat,
-    texture_clamp_clamp,
-    texture_clamp_repeat_mirrored
+    TEXTURE_CLAMP_REPEAT,
+    TEXTURE_CLAMP_CLAMP,
+    TEXTURE_CLAMP_REPEAT_MIRRORED
 };
 
 enum TextureFormat
 {
-    texture_format_rgba8,
-    texture_format_rgba16f,
-    texture_format_r8
+    TEXTURE_FORMAT_RGBA8,
+    TEXTURE_FORMAT_RGBA16F,
+    TEXTURE_FORMAT_R8
 };
 
 Texture* LoadTexture(Allocator* allocator, name_t* path);
 Texture* AllocTexture(Allocator* allocator, void* data, size_t width, size_t height, TextureFormat format, const name_t* name);
 Texture* AllocTexture(Allocator* allocator, int width, int height, TextureFormat format, const name_t* name);
-int texture_bytes_per_pixel(TextureFormat format);
+int GetBytesPerPixel(TextureFormat format);
 ivec2 GetSize(Texture* texture);
 
 // @font
@@ -64,26 +64,26 @@ Shader* LoadShader(Allocator* allocator, const name_t* name);
 const name_t* GetName(Shader* shader);
 
 // @material
-Material* material_alloc(Allocator* allocator, Shader* shader, name_t* name);
+Material* AllocMaterial(Allocator* allocator, Shader* shader, name_t* name);
 name_t* material_name(Material* material);
 Shader* material_shader(Material* material);
 void material_set_texture(Material* material, Texture* texture, size_t index);
 
 // @mesh
-Mesh* mesh_alloc_raw(
-	Allocator* allocator,
-	size_t vertex_count,
+Mesh* AllocMesh(
+    Allocator* allocator,
+    size_t vertex_count,
     vec3* positions,
     vec3* normals,
     vec2* uvs,
-	uint8_t* bone_indices,
+    uint8_t* bone_indices,
     size_t index_count,
-	uint16_t* indices,
+    uint16_t* indices,
     name_t* name);
-Mesh* mesh_alloc_from_mesh_builder(Allocator* allocator, MeshBuilder* builder, name_t* name);
+Mesh* AllocMesh(Allocator* allocator, MeshBuilder* builder, name_t* name);
 
 // @mesh_builder
-MeshBuilder* mesh_builder_alloc(Allocator* allocator, int max_vertices, int max_indices);
+MeshBuilder* AllocMeshBuilder(Allocator* allocator, int max_vertices, int max_indices);
 void mesh_builder_clear(MeshBuilder* builder);
 vec3* mesh_builder_positions(MeshBuilder* builder);
 vec3* mesh_builder_normals(MeshBuilder* builder);

@@ -192,13 +192,13 @@ void ImportShader(path_t* source_path, path_t* output_path, Props* config)
     free(source);
 }
 
-bool shader_importer_can_import(path_t* path)
+bool CanImportAsShader(path_t* path)
 {
     // path_has_extension expects extension without the dot
     return path_has_extension(path, "hlsl");
 }
 
-bool shader_importer_does_depend_on(path_t* source_path, path_t* dependency_path)
+bool DoesShaderDependOn(path_t* source_path, path_t* dependency_path)
 {
     // For now, shader files don't have dependencies
     // This could be extended to check for #include files
@@ -206,12 +206,12 @@ bool shader_importer_does_depend_on(path_t* source_path, path_t* dependency_path
 }
 
 static asset_importer_traits_t g_shader_importer_traits = {
-    .can_import = shader_importer_can_import,
+    .can_import = CanImportAsShader,
     .import_func = ImportShader,
-    .does_depend_on = shader_importer_does_depend_on
+    .does_depend_on = DoesShaderDependOn
 };
 
-asset_importer_traits_t* shader_importer_create()
+asset_importer_traits_t* GetShaderImporterTraits()
 {
     return &g_shader_importer_traits;
 }

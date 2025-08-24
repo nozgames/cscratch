@@ -57,7 +57,7 @@ inline size_t material_fragment_uniform_data_size(material_impl_t* impl)
 }
 #endif
 
-Material* material_alloc(Allocator* allocator, Shader* shader, name_t* name)
+Material* AllocMaterial(Allocator* allocator, Shader* shader, name_t* name)
 {
 	material_impl_t* impl = Impl(Alloc(allocator, sizeof(material_impl_t*), type_material));
     if (!impl)

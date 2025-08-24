@@ -46,7 +46,7 @@ static Mesh* AllocMesh(Allocator* allocator, name_t* name, size_t vertex_count, 
     return (Mesh*)impl;
 }
 
-Mesh* mesh_alloc_raw(
+Mesh* AllocMesh(
     Allocator* allocator,
     size_t vertex_count,
     vec3* positions,

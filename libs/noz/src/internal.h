@@ -159,7 +159,7 @@ void RenderMesh(Mesh* mesh, SDL_GPURenderPass* pass);
 // @texture
 void InitTexture(RendererTraits* traits, SDL_GPUDevice* dev);
 void ShutdownTexture();
-SDL_GPUTexture* texture_gpu_texture(Texture* texture);
+SDL_GPUTexture* GetGPUTexture(Texture* texture);
 sampler_options_t GetSamplerOptions(Texture* texture);
 
 // @shader

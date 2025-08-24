@@ -19,7 +19,7 @@ typedef struct mesh_builder_impl
     bool is_full;
 } mesh_builder_impl_t;
 
-MeshBuilder* mesh_builder_alloc(Allocator* allocator, int max_vertices, int max_indices)
+MeshBuilder* AllocMeshBuilder(Allocator* allocator, int max_vertices, int max_indices)
 {
 	mesh_builder_impl_t* impl = to_impl(Alloc(allocator, sizeof(mesh_builder_impl_t), type_mesh_builder));
     if (!impl)
@@ -663,11 +663,11 @@ void mesh_builder::add_cone(
 }
 #endif
 
-Mesh* mesh_alloc_from_mesh_builder(Allocator* allocator, MeshBuilder* builder, name_t* name)
+Mesh* AllocMesh(Allocator* allocator, MeshBuilder* builder, name_t* name)
 {
     assert(builder);
 	mesh_builder_impl_t* impl = to_impl(builder);
-    return mesh_alloc_raw(
+    return AllocMesh(
         allocator,
 		impl->vertex_count,
         impl->positions,

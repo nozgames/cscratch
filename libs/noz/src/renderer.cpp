@@ -245,8 +245,8 @@ SDL_GPURenderPass* renderer_begin_pass(bool clear, color_t clear_color, bool msa
 
     // TODO: handle msaa to a target texture
     SDL_GPUTexture* gpu_texture = target
-        ? texture_gpu_texture(target)
-        : texture_gpu_texture(g_renderer.linear_back_buffer);
+        ? GetGPUTexture(target)
+        : GetGPUTexture(g_renderer.linear_back_buffer);
 
     renderer_begin_pass_gpu(gpu_texture, clear, clear_color);
     return g_renderer.render_pass;
@@ -325,7 +325,7 @@ void renderer_bind_texture(SDL_GPUCommandBuffer* cb, Texture* texture, int index
     // Main pass: bind diffuse texture and shadow map
     SDL_GPUTextureSamplerBinding binding = {0};
     binding.sampler = sampler_factory_sampler(actual_texture);
-    binding.texture = texture_gpu_texture(actual_texture);
+    binding.texture = GetGPUTexture(actual_texture);
     SDL_BindGPUFragmentSamplers(g_renderer.render_pass, index, &binding, 1);
 }
 
@@ -416,7 +416,7 @@ static void UpdateBackBuffer()
     name_t name;
 	name_set(&name, "linear");
     g_renderer.linear_back_buffer =
-        AllocTexture(nullptr, size.x, size.y, texture_format_rgba16f, &name);
+        AllocTexture(nullptr, size.x, size.y, TEXTURE_FORMAT_RGBA16F, &name);
 }
 
 static void InitGammaPass()
@@ -426,13 +426,13 @@ static void InitGammaPass()
     name_set(&gamma_name, "gamma");
     name_set(&shader_name, "shaders/gamma");
 
-    MeshBuilder* builder = mesh_builder_alloc(nullptr, 4, 6);
+    MeshBuilder* builder = AllocMeshBuilder(nullptr, 4, 6);
     mesh_builder_add_quad(builder, VEC3_FORWARD, VEC3_RIGHT, 1, 1, VEC3_ZERO);
-	Mesh* mesh =  mesh_alloc_from_mesh_builder(nullptr, builder, &gamma_name);
+	Mesh* mesh =  AllocMesh(nullptr, builder, &gamma_name);
 	Free(builder);
     g_renderer.gamma_mesh = mesh;
 
-    g_renderer.gamma_material = material_alloc(nullptr, LoadShader(nullptr, &shader_name), &gamma_name);
+    g_renderer.gamma_material = AllocMaterial(nullptr, LoadShader(nullptr, &shader_name), &gamma_name);
 
     // For now, just stub this out since gamma_mesh and gamma_material are commented out
     // TODO: Implement gamma pass when needed

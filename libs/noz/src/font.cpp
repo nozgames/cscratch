@@ -145,7 +145,7 @@ Font* font_load_from_stream(Allocator* allocator, stream_t* stream, name_t* name
     stream_read_bytes(stream, atlas_data, atlas_data_size);
     Free(stream);
 
-    impl->texture = AllocTexture(allocator, atlas_data, impl->atlas_width, impl->atlas_height, texture_format_r8, name);
+    impl->texture = AllocTexture(allocator, atlas_data, impl->atlas_width, impl->atlas_height, TEXTURE_FORMAT_R8, name);
     free(atlas_data);
 
     if (!impl->texture)
@@ -158,7 +158,7 @@ Font* font_load_from_stream(Allocator* allocator, stream_t* stream, name_t* name
     name_t shader_name;
     name_set(&material_name, "font");
     name_set(&shader_name, "shaders/text");
-    impl->material = material_alloc(allocator, LoadShader(allocator, &shader_name), &material_name);
+    impl->material = AllocMaterial(allocator, LoadShader(allocator, &shader_name), &material_name);
     if (!impl->material)
     {
         Free((Font*)impl);

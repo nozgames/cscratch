@@ -5,7 +5,7 @@
 #include <noz/platform.h>
 #include <signal.h>
 
-asset_importer_traits_t* shader_importer_create();
+asset_importer_traits_t* GetShaderImporterTraits();
 
 typedef struct import_job
 {
@@ -38,7 +38,7 @@ void signal_handler(int sig)
 int main(int argc, char* argv[])
 {
     // Initialize importers array
-    asset_importer_traits_t* importers[] = {shader_importer_create(), NULL};
+    asset_importer_traits_t* importers[] = {GetShaderImporterTraits(), NULL};
 
     // Set up signal handler for Ctrl-C
     signal(SIGINT, signal_handler);

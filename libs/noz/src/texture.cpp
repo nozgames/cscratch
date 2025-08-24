@@ -36,11 +36,11 @@ SDL_GPUTextureFormat ToSDL(const TextureFormat format)
 {
     switch (format)
     {
-    case texture_format_rgba8:
+    case TEXTURE_FORMAT_RGBA8:
         return SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-    case texture_format_rgba16f:
+    case TEXTURE_FORMAT_RGBA16F:
         return SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
-    case texture_format_r8:
+    case TEXTURE_FORMAT_R8:
         return SDL_GPU_TEXTUREFORMAT_R8_UNORM;
     default:
         return SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
@@ -70,11 +70,11 @@ Texture* LoadTexture(Allocator* allocator, const name_t* name)
     impl->handle = nullptr;
     impl->size.x = 0;
     impl->size.y = 0;
-    impl->sampler_options.min_filter = texture_filter_linear;
-    impl->sampler_options.mag_filter = texture_filter_linear;
-    impl->sampler_options.clamp_u = texture_clamp_clamp;
-    impl->sampler_options.clamp_v = texture_clamp_clamp;
-    impl->sampler_options.clamp_w = texture_clamp_clamp;
+    impl->sampler_options.min_filter = TEXTURE_FILTER_LINEAR;
+    impl->sampler_options.mag_filter = TEXTURE_FILTER_LINEAR;
+    impl->sampler_options.clamp_u = TEXTURE_CLAMP_CLAMP;
+    impl->sampler_options.clamp_v = TEXTURE_CLAMP_CLAMP;
+    impl->sampler_options.clamp_w = TEXTURE_CLAMP_CLAMP;
     impl->sampler_options.compare_op = SDL_GPU_COMPAREOP_INVALID;
     CopyName(&impl->name, name);
 
@@ -175,9 +175,9 @@ SDL_GPUTexture* GetGPUTexture(Texture* texture)
 
 sampler_options_t GetSamplerOptions(Texture* texture)
 {
-    static sampler_options_t default_options = {texture_filter_linear, texture_filter_linear,
-                                                texture_clamp_clamp,   texture_clamp_clamp,
-                                                texture_clamp_clamp,   SDL_GPU_COMPAREOP_INVALID};
+    static sampler_options_t default_options = {TEXTURE_FILTER_LINEAR, TEXTURE_FILTER_LINEAR,
+                                                TEXTURE_CLAMP_CLAMP,   TEXTURE_CLAMP_CLAMP,
+                                                TEXTURE_CLAMP_CLAMP,   SDL_GPU_COMPAREOP_INVALID};
 
     if (!texture)
         return default_options;
@@ -417,25 +417,15 @@ int GetBytesPerPixel(TextureFormat format)
 {
     switch (format)
     {
-    case texture_format_rgba8:
+    case TEXTURE_FORMAT_RGBA8:
         return 4;
-    case texture_format_rgba16f:
+    case TEXTURE_FORMAT_RGBA16F:
         return 8;
-    case texture_format_r8:
+    case TEXTURE_FORMAT_R8:
         return 1;
     default:
         return 4; // Default to RGBA
     }
-}
-
-SDL_GPUTexture* texture_gpu_texture(Texture* texture)
-{
-    return GetGPUTexture(texture);
-}
-
-int texture_bytes_per_pixel(TextureFormat format)
-{
-    return GetBytesPerPixel(format);
 }
 
 void InitTexture(RendererTraits* traits, SDL_GPUDevice* dev)
