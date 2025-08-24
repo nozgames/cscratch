@@ -3,6 +3,7 @@ build/
 out/
 
 # Visual Studio generated files
+.idea
 .vs/
 *.vcxproj.user
 *.vcxproj.filters
