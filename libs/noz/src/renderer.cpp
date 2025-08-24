@@ -56,7 +56,7 @@ void init_shadow_pass(const renderer_traits* traits)
         return;
 
     // Create shadow map using D32_FLOAT format for depth writing and sampling
-    SDL_GPUTextureCreateInfo shadow_info = {0};
+    SDL_GPUTextureCreateInfo shadow_info = {};
     shadow_info.type = SDL_GPU_TEXTURETYPE_2D;
     shadow_info.format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT; // Depth format for depth-stencil target
     shadow_info.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
@@ -73,7 +73,7 @@ void init_shadow_pass(const renderer_traits* traits)
         Exit(SDL_GetError());
 
     // Create shadow sampler with depth comparison
-    SDL_GPUSamplerCreateInfo shadow_sampler_info = {0};
+    SDL_GPUSamplerCreateInfo shadow_sampler_info = {};
     shadow_sampler_info.min_filter = SDL_GPU_FILTER_LINEAR;
     shadow_sampler_info.mag_filter = SDL_GPU_FILTER_LINEAR;
     shadow_sampler_info.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
@@ -131,7 +131,7 @@ void renderer_begin_frame()
         SDL_PropertiesID depthProps = SDL_CreateProperties();
         SDL_SetFloatProperty(depthProps, SDL_PROP_GPU_TEXTURE_CREATE_D3D12_CLEAR_DEPTH_FLOAT, 1.0f);
 
-        SDL_GPUTextureCreateInfo depthInfo = { 0 };
+        SDL_GPUTextureCreateInfo depthInfo = {};
         depthInfo.type = SDL_GPU_TEXTURETYPE_2D;
         depthInfo.format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
         depthInfo.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET;
@@ -163,7 +163,7 @@ void renderer_begin_frame()
         }
 
         // Create MSAA color texture - use 16-bit float to match render target format
-        SDL_GPUTextureCreateInfo msaaColorInfo = { 0 };
+        SDL_GPUTextureCreateInfo msaaColorInfo = {};
         msaaColorInfo.type = SDL_GPU_TEXTURETYPE_2D;
         msaaColorInfo.format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
         msaaColorInfo.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
@@ -183,7 +183,7 @@ void renderer_begin_frame()
         SDL_PropertiesID msaaDepthProps = SDL_CreateProperties();
         SDL_SetFloatProperty(msaaDepthProps, SDL_PROP_GPU_TEXTURE_CREATE_D3D12_CLEAR_DEPTH_FLOAT, 1.0f);
 
-        SDL_GPUTextureCreateInfo msaaDepthInfo = { 0 };
+        SDL_GPUTextureCreateInfo msaaDepthInfo = {};
         msaaDepthInfo.type = SDL_GPU_TEXTURETYPE_2D;
         msaaDepthInfo.format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
         msaaDepthInfo.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET;

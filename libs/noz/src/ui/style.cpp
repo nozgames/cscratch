@@ -173,7 +173,7 @@ void style_serialize(const style_t* style, stream_t* stream)
 
 void style_merge(style_t* dst, const style_t* src)
 {
-#define STYLE_MERGE(n) if ((int)src->##n.parameter.keyword >= (int)dst->n.parameter.keyword) dst->n = src->##n
+#define STYLE_MERGE(n) if (src->n.parameter.keyword >= dst->n.parameter.keyword) dst->n = src->n
     STYLE_MERGE(flex_direction);
     STYLE_MERGE(color);
     STYLE_MERGE(background_color);

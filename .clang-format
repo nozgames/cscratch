@@ -14,5 +14,5 @@ IndentWidth: 4
 BreakBeforeBraces: Allman
 PointerAlignment: Left
 AllowShortFunctionsOnASingleLine: None
-
+UseTab: Never
 

@@ -191,7 +191,7 @@ static void mesh_upload(mesh_impl* impl)
     vertex_info.props = 0;
     impl->vertex_buffer = SDL_CreateGPUBuffer(g_device, &vertex_info);
 
-    SDL_GPUTransferBufferCreateInfo vertex_transfer_info = {0};
+    SDL_GPUTransferBufferCreateInfo vertex_transfer_info = {};
     vertex_transfer_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     vertex_transfer_info.size = vertex_info.size;
     vertex_transfer_info.props = 0;
@@ -217,7 +217,7 @@ static void mesh_upload(mesh_impl* impl)
     index_info.props = 0;
     impl->index_buffer = SDL_CreateGPUBuffer(g_device, &index_info);
 
-    SDL_GPUTransferBufferCreateInfo index_transfer_info = {0};
+    SDL_GPUTransferBufferCreateInfo index_transfer_info = {};
     index_transfer_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     index_transfer_info.size = index_info.size;
     index_transfer_info.props = 0;

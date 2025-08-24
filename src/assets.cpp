@@ -5,6 +5,7 @@
 
 // @includes
 #include <noz/noz.h>
+#include <memory.h>
 
 // @constants
 #define ASSET_TOTAL_MEMORY 45708

@@ -76,22 +76,22 @@ static SDL_GPUGraphicsPipeline* create_pipeline(shader_t* shader, const SDL_GPUV
     // Create pipeline directly using the shader's compiled shaders
     uint32_t vertexStride = vertex_stride(attributes, attribute_count);
 
-    SDL_GPUVertexBufferDescription vertex_buffer_desc = {0};
+    SDL_GPUVertexBufferDescription vertex_buffer_desc = {};
     vertex_buffer_desc.pitch = vertexStride;
     vertex_buffer_desc.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
 
-    SDL_GPUVertexInputState vertex_input_state = {0};
+    SDL_GPUVertexInputState vertex_input_state = {};
     vertex_input_state.vertex_buffer_descriptions = &vertex_buffer_desc;
     vertex_input_state.num_vertex_buffers = 1;
     vertex_input_state.vertex_attributes = attributes;
     vertex_input_state.num_vertex_attributes = (uint32_t)attribute_count;
 
-    SDL_GPUColorTargetDescription color_target = {0};
+    SDL_GPUColorTargetDescription color_target = {};
     if (!shadow) {
         color_target.format = SDL_GetGPUSwapchainTextureFormat(g_device, g_window);
     }
 
-    SDL_GPUGraphicsPipelineCreateInfo pipeline_create_info = {0};
+    SDL_GPUGraphicsPipelineCreateInfo pipeline_create_info = {};
     pipeline_create_info.vertex_shader = shader_gpu_vertex_shader(shader);
     pipeline_create_info.fragment_shader = shader_gpu_fragment_shader(shader);
     pipeline_create_info.vertex_input_state = vertex_input_state;
@@ -131,7 +131,7 @@ static SDL_GPUGraphicsPipeline* create_pipeline(shader_t* shader, const SDL_GPUV
 
     // Configure color targets and blend state (only for non-shadow shaders)
     if (!shadow) {
-        SDL_GPUColorTargetBlendState blend_state = {0};
+        SDL_GPUColorTargetBlendState blend_state = {};
         blend_state.enable_blend = shader_blend_enabled(shader);
         if (blend_state.enable_blend) {
             SDL_GPUBlendFactor src_blend = shader_gpu_src_blend(shader);

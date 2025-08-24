@@ -4,7 +4,7 @@
 
 #define INITIAL_CACHE_SIZE 64
 
-struct texture_impl 
+struct texture_impl
 {
     OBJECT_BASE;
     name_t name;
@@ -13,18 +13,29 @@ struct texture_impl
     ivec2 size;
 };
 
-static SDL_GPUDevice* g_device = NULL;
-static map_t* g_texture_cache = NULL;
+static SDL_GPUDevice* g_device = nullptr;
+static map_t* g_texture_cache = nullptr;
 
-static void texture_create_from_memory_impl(texture_impl* impl, void* data, size_t width, size_t height, int channels, bool generate_mipmaps);
+static void texture_create_from_memory_impl(
+    texture_impl* impl,
+    void* data,
+    size_t width,
+    size_t height,
+    int channels,
+    bool generate_mipmaps);
 static void texture_load_impl(allocator_t* allocator, texture_impl* impl);
 static void texture_destroy_impl(texture_impl* impl);
 int texture_format_bytes_per_pixel(texture_format format);
-static inline texture_impl* to_impl(texture_t* t) { return (texture_impl*)to_object((object_t*)t, type_texture); }
+
+static inline texture_impl* to_impl(texture_t* t)
+{
+    return (texture_impl*)to_object((object_t*)t, type_texture);
+}
 
 SDL_GPUTextureFormat to_sdl(texture_format format)
 {
-    switch (format) {
+    switch (format)
+    {
     case texture_format_rgba8:
         return SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
     case texture_format_rgba16f:
@@ -51,12 +62,12 @@ texture_t* texture_load(allocator_t* allocator, name_t* name)
     // Create new texture
     texture = (texture_t*)object_alloc(allocator, sizeof(texture_impl), type_texture);
     if (!texture)
-        return NULL;
+        return nullptr;
 
-	texture_impl* impl = to_impl(texture);
+    texture_impl* impl = to_impl(texture);
     map_set(g_texture_cache, key, texture);
-    
-    impl->handle = NULL;
+
+    impl->handle = nullptr;
     impl->size.x = 0;
     impl->size.y = 0;
     impl->sampler_options.min_filter = texture_filter_linear;
@@ -65,7 +76,7 @@ texture_t* texture_load(allocator_t* allocator, name_t* name)
     impl->sampler_options.clamp_v = texture_clamp_clamp;
     impl->sampler_options.clamp_w = texture_clamp_clamp;
     impl->sampler_options.compare_op = SDL_GPU_COMPAREOP_INVALID;
-	name_copy(&impl->name, name);
+    name_copy(&impl->name, name);
 
     // Handle special "white" texture
     if (name_eq_cstr(name, "white"))
@@ -85,16 +96,15 @@ texture_t* texture_alloc(allocator_t* allocator, int width, int height, texture_
     assert(height > 0);
     assert(name);
     assert(g_device);
-       
+
     texture_t* texture = (texture_t*)object_alloc(allocator, sizeof(texture_impl), type_texture);
     if (!texture)
-        return NULL;
-    
+        return nullptr;
+
     texture_impl* impl = (texture_impl*)to_impl(texture);
     impl->size.x = width;
     impl->size.y = height;
-	name_copy(&impl->name, name);
-
+    name_copy(&impl->name, name);
 
     SDL_GPUTextureCreateInfo texture_info = {};
     texture_info.type = SDL_GPU_TEXTURETYPE_2D;
@@ -114,16 +124,18 @@ texture_t* texture_alloc(allocator_t* allocator, int width, int height, texture_
     return texture;
 }
 
-texture_t* texture_alloc(allocator_t* allocator, void* data, size_t width, size_t height, texture_format format, name_t* name)
+texture_t* texture_alloc(allocator_t* allocator, void* data, size_t width, size_t height, texture_format format,
+                         name_t* name)
 {
     assert(data);
     assert(name);
-    
+
     texture_t* texture = (texture_t*)object_alloc(allocator, sizeof(texture_impl), type_texture);
     if (!texture)
-        return NULL;
-    
-    texture_create_from_memory_impl(to_impl(texture), data, width, height, texture_format_bytes_per_pixel(format), false);
+        return nullptr;
+
+    texture_create_from_memory_impl(to_impl(texture), data, width, height, texture_format_bytes_per_pixel(format),
+                                    false);
     return (texture_t*)texture;
 }
 
@@ -159,20 +171,17 @@ SDL_GPUTexture* texture_gpu_handle(texture_t* texture)
 
 sampler_options_t texture_sampler_options(texture_t* texture)
 {
-    static sampler_options_t default_options = {
-        texture_filter_linear,
-        texture_filter_linear,
-        texture_clamp_clamp,
-        texture_clamp_clamp,
-        texture_clamp_clamp,
-        SDL_GPU_COMPAREOP_INVALID
-    };
-    
-    if (!texture) return default_options;
+    static sampler_options_t default_options = {texture_filter_linear, texture_filter_linear,
+                                                texture_clamp_clamp,   texture_clamp_clamp,
+                                                texture_clamp_clamp,   SDL_GPU_COMPAREOP_INVALID};
+
+    if (!texture)
+        return default_options;
     return to_impl(texture)->sampler_options;
 }
 
-static void texture_create_from_memory_impl(texture_impl* impl, void* data, size_t width, size_t height, int channels, bool generate_mipmaps)
+static void texture_create_from_memory_impl(texture_impl* impl, void* data, size_t width, size_t height, int channels,
+                                            bool generate_mipmaps)
 {
     assert(impl);
     assert(data);
@@ -182,9 +191,9 @@ static void texture_create_from_memory_impl(texture_impl* impl, void* data, size
     assert(g_device);
 
     // Handle different channel formats
-    uint8_t* rgba_data = NULL;
+    uint8_t* rgba_data = nullptr;
     bool allocated_rgba = false;
-    
+
     if (channels == 1)
     {
         // Single channel - use as-is for R8_UNORM
@@ -206,7 +215,7 @@ static void texture_create_from_memory_impl(texture_impl* impl, void* data, size
             rgba_data[i * 4 + 0] = rgb_src[i * 3 + 0]; // R
             rgba_data[i * 4 + 1] = rgb_src[i * 3 + 1]; // G
             rgba_data[i * 4 + 2] = rgb_src[i * 3 + 2]; // B
-            rgba_data[i * 4 + 3] = 255;                 // A
+            rgba_data[i * 4 + 3] = 255;                // A
         }
         data = rgba_data;
         channels = 4;
@@ -227,7 +236,8 @@ static void texture_create_from_memory_impl(texture_impl* impl, void* data, size
     SDL_GPUTransferBuffer* transfer_buffer = SDL_CreateGPUTransferBuffer(g_device, &transfer_info);
     if (!transfer_buffer)
     {
-        if (allocated_rgba) free(rgba_data);
+        if (allocated_rgba)
+            free(rgba_data);
         return;
     }
 
@@ -236,7 +246,8 @@ static void texture_create_from_memory_impl(texture_impl* impl, void* data, size
     if (!mapped)
     {
         SDL_ReleaseGPUTransferBuffer(g_device, transfer_buffer);
-        if (allocated_rgba) free(rgba_data);
+        if (allocated_rgba)
+            free(rgba_data);
         return;
     }
     SDL_memcpy(mapped, data, size);
@@ -248,11 +259,11 @@ static void texture_create_from_memory_impl(texture_impl* impl, void* data, size
     {
         // Calculate maximum number of mipmap levels
         size_t max_dim = (width > height) ? width : height;
-        num_levels = 1 + (uint32_t)floor(log2((double)max_dim));
+        num_levels = 1 + (u32)floor(log2((double)max_dim));
     }
 
     // Create GPU texture with appropriate format based on channel count
-    SDL_GPUTextureCreateInfo texture_info = {0};
+    SDL_GPUTextureCreateInfo texture_info = {};
     texture_info.type = SDL_GPU_TEXTURETYPE_2D;
     texture_info.format = (channels == 1) ? SDL_GPU_TEXTUREFORMAT_R8_UNORM : SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
     texture_info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
@@ -269,7 +280,8 @@ static void texture_create_from_memory_impl(texture_impl* impl, void* data, size
     if (!impl->handle)
     {
         SDL_ReleaseGPUTransferBuffer(g_device, transfer_buffer);
-        if (allocated_rgba) free(rgba_data);
+        if (allocated_rgba)
+            free(rgba_data);
         return;
     }
 
@@ -277,7 +289,8 @@ static void texture_create_from_memory_impl(texture_impl* impl, void* data, size
     if (!cb)
     {
         SDL_ReleaseGPUTransferBuffer(g_device, transfer_buffer);
-        if (allocated_rgba) free(rgba_data);
+        if (allocated_rgba)
+            free(rgba_data);
         return;
     }
 
@@ -297,8 +310,9 @@ static void texture_create_from_memory_impl(texture_impl* impl, void* data, size
 
     impl->size.x = (int)width;
     impl->size.y = (int)height;
-    
-    if (allocated_rgba) free(rgba_data);
+
+    if (allocated_rgba)
+        free(rgba_data);
 }
 
 static void texture_load_impl(allocator_t* allocator, texture_impl* impl)
@@ -306,7 +320,7 @@ static void texture_load_impl(allocator_t* allocator, texture_impl* impl)
     path_t texture_path;
     asset_path(&texture_path, &impl->name, "texture");
     stream_t* stream = stream_load_from_file(allocator, &texture_path);
-    if (!stream) 
+    if (!stream)
         return;
 
     // Validate file signature
@@ -353,7 +367,7 @@ static void texture_load_impl(allocator_t* allocator, texture_impl* impl)
         // TODO: Upload all mip levels to GPU
         for (uint32_t level = 0; level < num_mip_levels; ++level)
         {
-            /*uint32_t mip_width =*/ stream_read_uint32(stream);
+            /*uint32_t mip_width =*/stream_read_uint32(stream);
             /*uint32_t mip_height = */ stream_read_uint32(stream);
             uint32_t mip_data_size = stream_read_uint32(stream);
 
@@ -361,13 +375,13 @@ static void texture_load_impl(allocator_t* allocator, texture_impl* impl)
             {
                 // todo: use allocator
                 u8* mip_data = (u8*)malloc(mip_data_size);
-                if (mip_data) 
+                if (mip_data)
                 {
                     stream_read_bytes(stream, mip_data, mip_data_size);
                     texture_create_from_memory_impl(impl, mip_data, width, height, (format == 1) ? 4 : 3, true);
                     free(mip_data);
                 }
-                else 
+                else
                 {
                     // Skip data if allocation failed
                     stream_set_position(stream, stream_position(stream) + mip_data_size);
@@ -382,17 +396,16 @@ static void texture_load_impl(allocator_t* allocator, texture_impl* impl)
     }
     else
     {
-        int channels = (format == 1) ? 4 : 3;
-        size_t data_size = width * height * channels;
-        u8* texture_data = (u8*)malloc(data_size);
-        if (texture_data) 
+        const int channels = (format == 1) ? 4 : 3;
+        const size_t data_size = width * height * channels;
+        if (const auto texture_data = (u8*)malloc(data_size))
         {
             stream_read_bytes(stream, texture_data, data_size);
             texture_create_from_memory_impl(impl, texture_data, width, height, channels, false);
             free(texture_data);
         }
     }
-    
+
     object_free(stream);
 }
 
@@ -424,11 +437,11 @@ int texture_bytes_per_pixel(texture_format format)
 void texture_init(renderer_traits* traits, SDL_GPUDevice* dev)
 {
     g_device = dev;
-    g_texture_cache = map_alloc(NULL, traits->max_textures);
+    g_texture_cache = map_alloc(nullptr, traits->max_textures);
 }
 
 void texture_uninit()
 {
-    g_texture_cache = NULL;
-    g_device = NULL;
+    g_texture_cache = nullptr;
+    g_device = nullptr;
 }

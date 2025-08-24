@@ -80,17 +80,16 @@ static void UpdateScreenSize()
 // @init
 void InitApplication(ApplicationTraits* traits)
 {
-    if (!traits)
-		traits = &g_default_traits;
+    traits = traits ? traits : &g_default_traits;
 
     g_application.title = traits->title;
 
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD) != 1)
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD) != 1)
         return;
 
-	Uint32 windowFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+    Uint32 windowFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
 
-	memset(&g_application, 0, sizeof(Application));
+    memset(&g_application, 0, sizeof(Application));
     g_application.window = SDL_CreateWindow(traits->title, traits->width, traits->height, windowFlags);
     if (!g_application.window)
     {

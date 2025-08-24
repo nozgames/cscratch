@@ -6,12 +6,12 @@
 
 #include "allocator.h"
 
-#define OBJECT_BASE_SIZE (sizeof(uint16_t) * 2 + sizeof(void*))
+#define OBJECT_BASE_SIZE (sizeof(u16) * 2 + sizeof(void*) + sizeof(u32))
 #define OBJECT_BASE char __object[OBJECT_BASE_SIZE]
 #define OBJECT_OFFSET_TYPE (0)
-#define OBJECT_OFFSET_BASE (sizeof(uint16_t))
-#define OBJECT_OFFSET_SIZE (sizeof(uint16_t) * 2)
-#define OBJECT_OFFSET_ALLOCATOR (sizeof(uint16_t) * 2 + sizeof(uint32_t))
+#define OBJECT_OFFSET_BASE (sizeof(u16))
+#define OBJECT_OFFSET_SIZE (sizeof(u16) * 2)
+#define OBJECT_OFFSET_ALLOCATOR (sizeof(u16) * 2 + sizeof(u32))
 
 
 typedef int16_t type_t;

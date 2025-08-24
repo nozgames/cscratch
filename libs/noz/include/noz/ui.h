@@ -82,7 +82,7 @@ typedef struct style_flex_direction
     flex_direction_t value;
 } style_flex_direction_t;
 
-typedef struct style
+struct style_t
 {
     style_flex_direction_t flex_direction;
     style_length_t width;
@@ -98,7 +98,7 @@ typedef struct style
     style_length_t padding_left;
     style_length_t padding_bottom;
     style_length_t padding_right;
-} style_t;
+};
 
 
 void style_deserialize_into(stream_t* stream, style_t* style);
