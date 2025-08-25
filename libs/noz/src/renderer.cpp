@@ -311,10 +311,10 @@ void EndRenderPassGPU()
 void BindDefaultTextureGPU(int index)
 {
     assert(g_renderer.device);
-    BindTextureGPU(g_renderer.command_buffer, g_renderer.default_texture, sampler_register_user0 + index);
+    BindTextureGPU(g_renderer.default_texture, g_renderer.command_buffer, sampler_register_user0 + index);
 }
 
-void BindTextureGPU(SDL_GPUCommandBuffer* cb, Texture* texture, int index)
+void BindTextureGPU(Texture* texture, SDL_GPUCommandBuffer* cb, int index)
 {
     if (g_renderer.shadow_pass)
         return;
@@ -397,7 +397,7 @@ static void ResetRenderState()
     g_renderer.pipeline = nullptr;
 
     for (int i = 0; i < (int)(sampler_register_count); i++)
-        BindTextureGPU(g_renderer.command_buffer, g_renderer.default_texture, i);
+        BindTextureGPU(g_renderer.default_texture, g_renderer.command_buffer, i);
 }
 
 static void UpdateBackBuffer()
@@ -408,39 +408,46 @@ static void UpdateBackBuffer()
     if (g_renderer.linear_back_buffer && GetSize(g_renderer.linear_back_buffer) == size)
         return;
 
-    name_t name;
-	name_set(&name, "linear");
     g_renderer.linear_back_buffer =
-        CreateTexture(nullptr, size.x, size.y, TEXTURE_FORMAT_RGBA16F, &name);
+        CreateTexture(nullptr, size.x, size.y, TEXTURE_FORMAT_RGBA16F, "linear");
 }
 
 static void InitGammaPass()
 {
-    name_t gamma_name;
-    name_t shader_name;
-    name_set(&gamma_name, "gamma");
-    name_set(&shader_name, "shaders/gamma");
-
     MeshBuilder* builder = CreateMeshBuilder(nullptr, 4, 6);
     AddQuad(builder, VEC3_FORWARD, VEC3_RIGHT, 1, 1, VEC3_ZERO);
-	Mesh* mesh =  CreateMesh(nullptr, builder, &gamma_name);
-	Destroy(builder);
-    g_renderer.gamma_mesh = mesh;
+    g_renderer.gamma_mesh = CreateMesh(nullptr, builder, "gamma");
+    Destroy(builder);
+}
 
-    g_renderer.gamma_material = CreateMaterial(nullptr, LoadShader(nullptr, &shader_name), &gamma_name);
+void SetGammaPassShader(Shader* shader)
+{
+    assert(shader);
 
-    // For now, just stub this out since gamma_mesh and gamma_material are commented out
-    // TODO: Implement gamma pass when needed
+    if (g_renderer.gamma_material)
+        Destroy(g_renderer.gamma_material);
+
+    g_renderer.gamma_material = CreateMaterial(nullptr, shader);
+}
+
+void SetShadowPassShader(Shader* shader)
+{
+    assert(shader);
+
+    g_renderer.shadow_shader = shader;
 }
 
 SDL_GPURenderPass* BeginGammaPassGPU()
 {
+    if (!g_renderer.gamma_material)
+        Exit("missing gamma shader");
+
     return BeginPassGPU(g_renderer.swap_chain_texture, false, color_transparent);
 }
 
 static void RenderGammaPass()
 {
-    static mat4 ident = identity<mat4>();
+    static auto ident = identity<mat4>();
 
     SetTexture(g_renderer.gamma_material, g_renderer.linear_back_buffer, 0);
 
@@ -474,12 +481,12 @@ void InitRenderer(RendererTraits* traits, SDL_Window* window)
     InitMesh(traits, g_renderer.device);
     InitRenderBuffer(traits);
     InitSamplerFactory(traits, g_renderer.device);
-    InitPipelineFactory(window, g_renderer.device);
+    InitPipelineFactory(traits, window, g_renderer.device);
     InitGammaPass();
     InitShadowPass(traits);
 
     //g_renderer.shadow_shader = load_shader("shaders/shadow");
-    //g_renderer.default_texture = load_texture("white");
+    g_renderer.default_texture = CreateTexture(nullptr, &color_white, 1, 1, TEXTURE_FORMAT_RGBA8, "white");
 }
 
 void ShutdownRenderer()

@@ -51,21 +51,13 @@ enum TextureFormat
     TEXTURE_FORMAT_R8
 };
 
-Texture* CreateTexture(Allocator* allocator, void* data, size_t width, size_t height, TextureFormat format, const name_t* name);
-Texture* CreateTexture(Allocator* allocator, int width, int height, TextureFormat format, const name_t* name);
+Texture* CreateTexture(Allocator* allocator, void* data, size_t width, size_t height, TextureFormat format, const char* name);
+Texture* CreateTexture(Allocator* allocator, int width, int height, TextureFormat format, const char* name);
 int GetBytesPerPixel(TextureFormat format);
 ivec2 GetSize(Texture* texture);
 
-// @font
-Font* LoadFont(Allocator* allocator, name_t* name);
-
-// @shader
-Shader* LoadShader(Allocator* allocator, const name_t* name);
-const name_t* GetName(Shader* shader);
-
 // @material
-Material* CreateMaterial(Allocator* allocator, Shader* shader, name_t* name);
-name_t* GetName(Material* material);
+Material* CreateMaterial(Allocator* allocator, Shader* shader);
 Shader* GetShader(Material* material);
 void SetTexture(Material* material, Texture* texture, size_t index);
 
@@ -79,8 +71,8 @@ Mesh* CreateMesh(
     u8* bone_indices,
     size_t index_count,
     u16* indices,
-    name_t* name);
-Mesh* CreateMesh(Allocator* allocator, MeshBuilder* builder, name_t* name);
+    const char* name);
+Mesh* CreateMesh(Allocator* allocator, MeshBuilder* builder, const char* name);
 
 // @mesh_builder
 MeshBuilder* CreateMeshBuilder(Allocator* allocator, int max_vertices, int max_indices);
@@ -122,6 +114,10 @@ void AddQuad(
     vec2 uv_color,
     vec3 normal,
     uint8_t bone_index);
+
+// @renderer
+void SetGammaPassShader(Shader* shader);
+void SetShadowPassShader(Shader* shader);
 
 // @render_buffer
 void ClearRenderCommands();

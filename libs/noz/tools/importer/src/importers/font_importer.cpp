@@ -57,7 +57,6 @@ static void WriteFontData(
     // Write asset header
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE_FONT;
-    header.runtime_size = atlasData.size() + glyphs.size() * 64 + 256; // Estimate
     header.version = 1;
     header.flags = 0;
     WriteAssetHeader(stream, &header);

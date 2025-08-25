@@ -8,7 +8,6 @@ bool ReadAssetHeader(Stream* stream, AssetHeader* header)
     
     // Read header fields
     header->signature = ReadU32(stream);
-    header->runtime_size = ReadU32(stream);
     header->version = ReadU32(stream);
     header->flags = ReadU32(stream);
     
@@ -21,7 +20,6 @@ bool WriteAssetHeader(Stream* stream, AssetHeader* header)
     
     // Write header fields
     WriteU32(stream, header->signature);
-    WriteU32(stream, header->runtime_size);
     WriteU32(stream, header->version);
     WriteU32(stream, header->flags);
     

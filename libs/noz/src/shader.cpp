@@ -16,6 +16,9 @@ struct ShaderImpl
     SDL_GPUBlendFactor src_blend;
     SDL_GPUBlendFactor dst_blend;
     SDL_GPUCullMode cull;
+    const char* name;
+    size_t uniform_data_size;
+    ShaderUniformBuffer* uniforms;
 };
 
 static SDL_GPUDevice* g_device = nullptr;
@@ -44,11 +47,9 @@ static void shader_destroy_impl(ShaderImpl* impl)
 
 Object* LoadShader(Allocator* allocator, Stream* stream, AssetHeader* header, const char* name)
 {
-    if (!stream || !header)
-        return nullptr;
-
-    // Header already validated by LoadAsset
-    // Version is in header->version
+    assert(stream);
+    assert(header);
+    assert(name);
 
     auto* shader = (Shader*)CreateObject(allocator, sizeof(ShaderImpl), TYPE_SHADER);
     if (!shader)
@@ -64,23 +65,21 @@ Object* LoadShader(Allocator* allocator, Stream* stream, AssetHeader* header, co
     impl->src_blend = SDL_GPU_BLENDFACTOR_ONE;
     impl->dst_blend = SDL_GPU_BLENDFACTOR_ZERO;
     impl->cull = SDL_GPU_CULLMODE_NONE;
+    impl->name = name;
 
-    // Read bytecode lengths
+    // Read the vertex shader
     auto vertex_bytecode_length = ReadU32(stream);
-    auto* vertex_bytecode = (u8*)Alloc(allocator, vertex_bytecode_length);
+    auto* vertex_bytecode = (u8*)Alloc(nullptr, vertex_bytecode_length);
     if (!vertex_bytecode) 
-    {
-        Destroy(stream);
         return nullptr;
-    }
     ReadBytes(stream, vertex_bytecode, vertex_bytecode_length);
 
+    // Read the fragment shader
     auto fragment_bytecode_length = ReadU32(stream);
-    auto* fragment_bytecode = (u8*)Alloc(allocator, fragment_bytecode_length);
+    auto* fragment_bytecode = (u8*)Alloc(nullptr, fragment_bytecode_length);
     if (!fragment_bytecode) 
     {
-        free(vertex_bytecode);
-        Destroy(stream);
+        Free(nullptr, vertex_bytecode);
         return nullptr;
     }
     ReadBytes(stream, fragment_bytecode, fragment_bytecode_length);
@@ -92,6 +91,7 @@ Object* LoadShader(Allocator* allocator, Stream* stream, AssetHeader* header, co
     impl->src_blend = (SDL_GPUBlendFactor)ReadU32(stream);
     impl->dst_blend = (SDL_GPUBlendFactor)ReadU32(stream);
     impl->cull = (SDL_GPUCullMode)ReadU32(stream);
+    impl->uniforms = (ShaderUniformBuffer*)(impl + 1);
 
     // Note: stream destruction handled by caller
 
@@ -114,8 +114,8 @@ Object* LoadShader(Allocator* allocator, Stream* stream, AssetHeader* header, co
 
     if (!impl->fragment)
     {
-        free(vertex_bytecode);
-        free(fragment_bytecode);
+        Free(allocator, vertex_bytecode);
+        Free(allocator, fragment_bytecode);
         return nullptr;
     }
 
@@ -136,75 +136,118 @@ Object* LoadShader(Allocator* allocator, Stream* stream, AssetHeader* header, co
     impl->vertex = SDL_CreateGPUShader(g_device, &vertex_create_info);
     SDL_DestroyProperties(vertex_create_info.props);
 
-    free(vertex_bytecode);
-    free(fragment_bytecode);
+    Free(allocator, vertex_bytecode);
+    Free(allocator, fragment_bytecode);
 
     if (!impl->vertex)
         return nullptr;
 
-    return (Object*)shader;
+    return shader;
 }
 
-// Shader property getter functions with new naming convention
-SDL_GPUShader* shader_gpu_vertex_shader(Shader* shader)
+SDL_GPUShader* GetGPUVertexShader(Shader* shader)
 {
     return Impl(shader)->vertex;
 }
 
-SDL_GPUShader* shader_gpu_fragment_shader(Shader* shader)
+SDL_GPUShader* GetGPUFragmentShader(Shader* shader)
 {
     return Impl(shader)->fragment;
 }
 
-SDL_GPUCullMode shader_gpu_cull_mode(Shader* shader)
+SDL_GPUCullMode GetGPUCullMode(Shader* shader)
 {
     return Impl(shader)->cull;
 }
 
-bool shader_blend_enabled(Shader* shader)
+bool IsBlendEnabled(Shader* shader)
 {
     return (Impl(shader)->flags & shader_flags_blend) != 0;
 }
 
-SDL_GPUBlendFactor shader_gpu_src_blend(Shader* shader)
+SDL_GPUBlendFactor GetGPUSrcBlend(Shader* shader)
 {
     return Impl(shader)->src_blend;
 }
 
-SDL_GPUBlendFactor shader_gpu_dst_blend(Shader* shader)
+SDL_GPUBlendFactor GetGPUDstBlend(Shader* shader)
 {
     return Impl(shader)->dst_blend;
 }
 
-bool shader_depth_test_enabled(Shader* shader)
+bool IsDepthTestEnabled(Shader* shader)
 {
     return (Impl(shader)->flags & shader_flags_depth_test) != 0;
 }
 
-bool shader_depth_write_enabled(Shader* shader)
+bool IsDepthWriteEnabled(Shader* shader)
 {
     return (Impl(shader)->flags & shader_flags_depth_write) != 0;
 }
 
-int shader_vertex_uniform_count(Shader* shader)
+int GetVertexUniformCount(Shader* shader)
 {
     return Impl(shader)->vertex_uniform_count;
 }
 
-int shader_fragment_uniform_count(Shader* shader)
+int GetFragmentUniformCount(Shader* shader)
 {
     return Impl(shader)->fragment_uniform_count;
 }
 
-int shader_sampler_count(Shader* shader)
+int GetSamplerCount(Shader* shader)
 {
     return Impl(shader)->sampler_count;
 }
 
-const name_t* GetName(Shader* shader)
+const char* GetGPUName(Shader* shader)
 {
-    // Names are no longer stored in shaders
-    return nullptr;
+    return Impl(shader)->name;
+}
+
+size_t GetUniformDataSize(Shader* shader)
+{
+    return Impl(shader)->uniform_data_size;
+}
+
+ShaderUniformBuffer GetVertexUniformBuffer(Shader* shader, int index)
+{
+    assert(index >=0 && index < Impl(shader)->vertex_uniform_count);
+    return Impl(shader)->uniforms[index];
+}
+
+ShaderUniformBuffer GetFragmentUniformBuffer(Shader* shader, int index)
+{
+    auto impl = Impl(shader);
+    assert(index >=0 && index < impl->fragment_uniform_count);
+    return impl->uniforms[index + impl->vertex_uniform_count];
+}
+
+void PushUniformDataGPU(Shader* shader, SDL_GPUCommandBuffer* cb, u8* data)
+{
+    auto impl = Impl(shader);
+
+    // vertex
+    for (int i=0, c=impl->vertex_uniform_count; i<c; i++)
+    {
+        auto [size, offset] = impl->uniforms[i];
+        SDL_PushGPUVertexUniformData(
+            cb,
+            vertex_register_user0 + i,
+            data + offset,
+            size);
+    }
+
+    // fragment
+    for (int i=0, c=impl->fragment_uniform_count; i<c; i++)
+    {
+        auto [size, offset] = impl->uniforms[i + impl->vertex_uniform_count];
+        SDL_PushGPUFragmentUniformData(
+            cb,
+            fragment_register_user0 + i,
+            data + offset,
+            size);
+    }
 }
 
 void InitShader(RendererTraits* traits, SDL_GPUDevice* device)

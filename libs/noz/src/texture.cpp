@@ -175,7 +175,7 @@ static void CreateTexture(
         free(rgba_data);
 }
 
-Texture* CreateTexture(Allocator* allocator, int width, int height, TextureFormat format, const name_t* name)
+Texture* CreateTexture(Allocator* allocator, int width, int height, TextureFormat format, const char* name)
 {
     assert(width > 0);
     assert(height > 0);
@@ -201,7 +201,7 @@ Texture* CreateTexture(Allocator* allocator, int width, int height, TextureForma
     texture_info.sample_count = SDL_GPU_SAMPLECOUNT_1;
     texture_info.props = SDL_CreateProperties();
 
-    SDL_SetStringProperty(texture_info.props, SDL_PROP_GPU_TEXTURE_CREATE_NAME_STRING, name->value);
+    SDL_SetStringProperty(texture_info.props, SDL_PROP_GPU_TEXTURE_CREATE_NAME_STRING, name);
     impl->handle = SDL_CreateGPUTexture(g_device, &texture_info);
     SDL_DestroyProperties(texture_info.props);
 
@@ -214,7 +214,7 @@ Texture* CreateTexture(
     size_t width,
     size_t height,
     TextureFormat format,
-    const name_t* name)
+    const char* name)
 {
     assert(data);
     assert(name);
@@ -223,7 +223,7 @@ Texture* CreateTexture(
     if (!texture)
         return nullptr;
 
-    CreateTexture(Impl(texture), data, width, height, GetBytesPerPixel(format), false, name->value);
+    CreateTexture(Impl(texture), data, width, height, GetBytesPerPixel(format), false, name);
     return texture;
 }
 
@@ -268,15 +268,11 @@ SamplerOptions GetSamplerOptions(Texture* texture)
     return Impl(texture)->sampler_options;
 }
 
-Object* LoadTexture(Allocator* allocator, Stream* stream, const char* name)
+Object* LoadTexture(Allocator* allocator, Stream* stream, AssetHeader* header, const char* name)
 {
     assert(stream);
     assert(name);
-
-    // Read version
-    uint32_t version = ReadU32(stream);
-    if (version != 1)
-        return nullptr;
+    assert(header);
 
     // Read texture data
     uint32_t format = ReadU32(stream);
@@ -353,7 +349,7 @@ Object* LoadTexture(Allocator* allocator, Stream* stream, const char* name)
         }
     }
 
-    return (Object*)texture;
+    return texture;
 }
 
 

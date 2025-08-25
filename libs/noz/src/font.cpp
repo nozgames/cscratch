@@ -135,9 +135,7 @@ Object* LoadFont(Allocator* allocator, Stream* stream, AssetHeader* header, cons
     ReadBytes(stream, atlas_data, atlas_data_size);
     // Note: stream destruction handled by caller
 
-    name_t tex_name;
-    name_set(&tex_name, name ? name : "font_atlas");
-    impl->texture = CreateTexture(allocator, atlas_data, impl->atlas_width, impl->atlas_height, TEXTURE_FORMAT_R8, &tex_name);
+    impl->texture = CreateTexture(allocator, atlas_data, impl->atlas_width, impl->atlas_height, TEXTURE_FORMAT_R8, name);
     free(atlas_data);
 
     if (!impl->texture)

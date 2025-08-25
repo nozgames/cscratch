@@ -182,6 +182,9 @@ Props* Props::Load(const char* content, size_t content_length)
         if (!ReadLine(tok, &line))
             break;
 
+        if (line.length == 0)
+            continue;
+
         auto line_str = ToString(line);
         if (line_str[0] == '[' && line_str[line_str.length() - 1] == ']')
         {
@@ -239,7 +242,8 @@ std::unordered_map<std::string, std::string>& Props::GetOrAddGroup(const char* g
 std::vector<std::string> Props::GetKeys(const char* group) const
 {
     auto& props = GetGroup(group);
-    std::vector<std::string> keys(props.size());
+    std::vector<std::string> keys;
+    keys.reserve(props.size());
     for (const auto& pair : props)
         keys.push_back(pair.first);
     return keys;
@@ -247,7 +251,8 @@ std::vector<std::string> Props::GetKeys(const char* group) const
 
 std::vector<std::string> Props::GetGroups() const
 {
-    std::vector<std::string> keys(_properties.size());
+    std::vector<std::string> keys;
+    keys.reserve(_properties.size());
     for (const auto& pair : _properties)
         keys.push_back(pair.first);
 

@@ -19,18 +19,19 @@ struct MeshBuilderImpl
 
 static MeshBuilderImpl* Impl(MeshBuilder* b) { return (MeshBuilderImpl*)Cast(b, TYPE_MESH_BUILDER); }
 
-MeshBuilderImpl* CreateMeshBuilderImpl(Allocator* allocator, int max_vertices, int max_indices)
+MeshBuilder* CreateMeshBuilder(Allocator* allocator, int max_vertices, int max_indices)
 {
-    auto* impl = Impl((MeshBuilder*)CreateObject(allocator, sizeof(MeshBuilderImpl), TYPE_MESH_BUILDER));
-    if (!impl)
+    auto* builder = (MeshBuilder*)CreateObject(allocator, sizeof(MeshBuilderImpl), TYPE_MESH_BUILDER);
+    if (!builder)
         return nullptr;
-    
+
+    auto impl = Impl(builder);
     impl->vertex_max = max_vertices;
     impl->index_max = max_indices;
     impl->vertex_count = 0;
     impl->index_count = 0;
     
-    // Allocate arrays
+    // TODO: do block alloc instead with the object above
     impl->positions = (vec3*)Alloc(allocator, sizeof(vec3) * max_vertices);
     impl->normals = (vec3*)Alloc(allocator, sizeof(vec3) * max_vertices);
     impl->uv0 = (vec2*)Alloc(allocator, sizeof(vec2) * max_vertices);
@@ -47,7 +48,7 @@ MeshBuilderImpl* CreateMeshBuilderImpl(Allocator* allocator, int max_vertices, i
         return nullptr;
     }
     
-    return impl;
+    return builder;
 }
 
 // todo: destructor
@@ -125,10 +126,10 @@ void mesh_builder_add_vertex(
 
     size_t index = impl->vertex_count;
     impl->vertex_count++;
-	impl->positions[index] = position;
-	impl->normals[index] = normal;
-	impl->uv0[index] = uv;
-	impl->bones[index] = bone_index;
+    impl->positions[index] = position;
+    impl->normals[index] = normal;
+    impl->uv0[index] = uv;
+    impl->bones[index] = bone_index;
 }
 
 void AddIndex(MeshBuilder* builder, uint16_t index)
@@ -235,11 +236,11 @@ void AddPyramid(MeshBuilder* builder, vec3 start, vec3 end, float size, uint8_t 
     up = vec3_normalize(vec3_cross(right, direction));
 
     auto hsize = size * 0.5f;
-	right = vec3_muls(right, hsize);
-	up = vec3_muls(up, hsize);
+    right = vec3_muls(right, hsize);
+    up = vec3_muls(up, hsize);
 
-	vec3 right_sub_up = vec3_sub(right, up);
-	vec3 right_add_up = vec3_add(right, up);
+    vec3 right_sub_up = vec3_sub(right, up);
+    vec3 right_add_up = vec3_add(right, up);
 
     AddTriangle(
         builder,
@@ -282,29 +283,29 @@ void AddRaw(
     uint16_t* indices)
 {
     MeshBuilderImpl* impl = Impl(builder);
-	impl->is_full = impl->is_full && (impl->vertex_count + vertex_count >= impl->vertex_max || impl->index_count + index_count >= impl->index_max);
+    impl->is_full = impl->is_full && (impl->vertex_count + vertex_count >= impl->vertex_max || impl->index_count + index_count >= impl->index_max);
     if (impl->is_full)
         return;
 
-	size_t vertex_start = impl->vertex_count;
-	memcpy(impl->positions + impl->vertex_count, positions, sizeof(vec3) * vertex_count);
-	memcpy(impl->normals + impl->vertex_count, normals, sizeof(vec3) * vertex_count);
-	memcpy(impl->uv0 + impl->vertex_count, uv0, sizeof(vec2) * vertex_count);
+    size_t vertex_start = impl->vertex_count;
+    memcpy(impl->positions + impl->vertex_count, positions, sizeof(vec3) * vertex_count);
+    memcpy(impl->normals + impl->vertex_count, normals, sizeof(vec3) * vertex_count);
+    memcpy(impl->uv0 + impl->vertex_count, uv0, sizeof(vec2) * vertex_count);
 
     for (size_t i = 0; i < vertex_count; ++i)
-		impl->bones[vertex_start + i] = bone_index;
+        impl->bones[vertex_start + i] = bone_index;
 
     for (size_t i = 0; i < index_count; ++i)
     {
         impl->indices[impl->index_count] = indices[i] + (uint16_t)vertex_start;
         impl->index_count++;
-	}
+    }
 }
 
 void AddCube(MeshBuilder* builder, vec3 center, vec3 size, uint8_t bone_index)
 {
 #if 0
-	MeshBuilderImpl* impl = Impl(builder);
+    MeshBuilderImpl* impl = Impl(builder);
 
     vec3 half_size = vec3_muls(size, 0.5f);
 
@@ -327,7 +328,7 @@ void AddCube(MeshBuilder* builder, vec3 center, vec3 size, uint8_t bone_index)
         (vec3) { 0.0f,  0.0f,  1.0f }, // Front face
         (vec3) { 0.0f,  0.0f,  1.0f },
         (vec3) { 0.0f,  0.0f,  1.0f },
-		(vec3) { 0.0f,  0.0f,  1.0f }
+        (vec3) { 0.0f,  0.0f,  1.0f }
     };
 
     vec3 uvs[8] = {
@@ -338,8 +339,8 @@ void AddCube(MeshBuilder* builder, vec3 center, vec3 size, uint8_t bone_index)
         (vec3) { 0.0f, 0.0f, 0.0f },
         (vec3) { 1.0f, 0.0f, 0.0f },
         (vec3) { 1.0f, 1.0f, 0.0f },
-		(vec3) { 0.0f, 1.0f, 0.0f }
-	};
+        (vec3) { 0.0f, 1.0f, 0.0f }
+    };
 
     uint16_t indices[36] = {
         0, 1, 2, 0, 2, 3, // Back face
@@ -347,7 +348,7 @@ void AddCube(MeshBuilder* builder, vec3 center, vec3 size, uint8_t bone_index)
         4, 0, 3, 4, 3, 7, // Left face
         1, 5, 6, 1, 6, 2, // Right face
         3, 2, 6, 3, 6, 7, // Top face
-		4, 5, 1, 4, 1, 0  // Bottom face
+        4, 5, 1, 4, 1, 0  // Bottom face
     };
 #endif
 }
@@ -663,12 +664,14 @@ void mesh_builder::add_cone(
 }
 #endif
 
-Mesh* CreateMesh(Allocator* allocator, MeshBuilder* builder, name_t* name)
+Mesh* CreateMesh(Allocator* allocator, MeshBuilder* builder, const char* name)
 {
+    assert(builder);
+    assert(name);
     MeshBuilderImpl* impl = Impl(builder);
     return CreateMesh(
         allocator,
-		impl->vertex_count,
+        impl->vertex_count,
         impl->positions,
         impl->normals,
         impl->uv0,
@@ -676,7 +679,7 @@ Mesh* CreateMesh(Allocator* allocator, MeshBuilder* builder, name_t* name)
         impl->index_count,
         impl->indices,
         name
-	);
+    );
 }
 
 #if 0

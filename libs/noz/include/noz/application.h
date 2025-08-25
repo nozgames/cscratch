@@ -7,19 +7,20 @@ struct ApplicationTraits
     const char* title;
     int width;
     int height;
+    size_t scratch_size;
     RendererTraits renderer;
 };
 
 void InitDefaults(ApplicationTraits* traits);
 
 void InitApplication(ApplicationTraits* traits);
-void ShutdownApplication(void);
-bool UpdateApplication(void);
-void BeginRenderFrame(void);
-void EndRenderFrame(void);
+void ShutdownApplication();
+bool UpdateApplication();
+void BeginRenderFrame();
+void EndRenderFrame();
 
 void Exit(const char* format, ...);
-inline void ExitOutOfMemory() { Exit("out_of_memory"); }
+void ExitOutOfMemory(const char* message=nullptr);
 
-ivec2 GetScreenSize(void);
-float GetScreenAspectRatio(void);
+ivec2 GetScreenSize();
+float GetScreenAspectRatio();

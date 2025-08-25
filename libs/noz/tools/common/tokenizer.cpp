@@ -113,6 +113,7 @@ bool ExpectQuotedString(Tokenizer& tok, Token* result)
         if (c == quote_char)
         {
             EndToken(tok, result, TOKEN_TYPE_STRING);
+            result->length--;
             return true;
         }
 
@@ -147,7 +148,8 @@ bool ExpectIdentifier(Tokenizer& tok, Token* result)
 
     BeginToken(tok, result);
 
-    while (IsIdentifier(PeekChar(tok), false));
+    while (IsIdentifier(PeekChar(tok), false))
+        NextChar(tok);
 
     EndToken(tok, result, TOKEN_TYPE_STRING);
 
@@ -340,7 +342,7 @@ static bool IsDelimiter(char c)
 {
     return c == '(' || c == ')' || c == '{' || c == '}' ||
            c == '[' || c == ']' || c == ';' || c == ':' ||
-           c == ',' || c == '.';
+           c == ',' || c == '.' || c == '#';
 }
 
 static bool IsIdentifier(char c, bool first_char)

@@ -5,21 +5,23 @@
 // @traits
 static ApplicationTraits g_default_traits = 
 {
-	.title = "noz",
-	.width = 800,
-	.height = 600,
-	.renderer = 
-	{
-		.max_textures = 32,
+    .title = "noz",
+    .width = 800,
+    .height = 600,
+    .scratch_size = 8 * noz::MB,
+    .renderer = 
+    {
+        .max_textures = 32,
         .max_shaders = 32,
         .max_samplers = 16,
+        .max_pipelines = 64,
         .max_meshes = 256,
         .max_fonts = 8,
         .max_frame_commands = 2048,
         .max_frame_objects = 128,
         .max_frame_transforms = 1024,
         .shadow_map_size = 2048,
-	}
+    }
 };
 
 // @impl
@@ -63,6 +65,14 @@ void Exit(const char* format, ...)
     }
     
     exit(1);
+}
+
+void ExitOutOfMemory(const char* message)
+{
+    if (message)
+        Exit("out_of_memory: %s", message);
+    else
+        Exit("out_of_memory");
 }
 
 static void UpdateScreenSize()

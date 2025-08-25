@@ -7,39 +7,43 @@
 #include <noz/noz.h>
 #include "assets.h"
 
-// @constants
-#define ASSET_TOTAL_MEMORY 5312332
-
 // @globals
 static arena_allocator_t* g_asset_allocator = nullptr;
 
 // @assets
-Assets Assets = {};
+LoadedAssets Assets = {};
 
 // @init
-bool LoadAssets()
+bool LoadAssets(size_t arena_size)
 {
     if (g_asset_allocator != nullptr)
         return false; // Already initialized
 
-    g_asset_allocator = arena_allocator_create(ASSET_TOTAL_MEMORY);
-    if (!g_asset_allocator)
-        return false;
+    if (arena_size > 0)
+    {
+        g_asset_allocator = arena_allocator_create(arena_size);
+        if (!g_asset_allocator)
+            return false;
+    }
 
-    NOZ_ASSET_LOAD(Font, "fonts/Roboto-Black", Assets.fonts.roboto_black);
-    NOZ_ASSET_LOAD(Shader, "shaders/border_effect", Assets.shaders.border_effect);
-    NOZ_ASSET_LOAD(Shader, "shaders/default", Assets.shaders._default);
-    NOZ_ASSET_LOAD(Shader, "shaders/gamma", Assets.shaders.gamma);
-    NOZ_ASSET_LOAD(Shader, "shaders/gizmo", Assets.shaders.gizmo);
-    NOZ_ASSET_LOAD(Shader, "shaders/lit", Assets.shaders.lit);
-    NOZ_ASSET_LOAD(Shader, "shaders/shadow", Assets.shaders.shadow);
-    NOZ_ASSET_LOAD(Shader, "shaders/text", Assets.shaders.text);
-    NOZ_ASSET_LOAD(Shader, "shaders/ui", Assets.shaders.ui);
-    NOZ_ASSET_LOAD(Shader, "shaders/vignette", Assets.shaders.vignette);
-    NOZ_ASSET_LOAD(Texture, "textures/grid", Assets.textures.grid);
-    NOZ_ASSET_LOAD(Texture, "textures/icons/meshes/buildings/extractor", Assets.textures.icons.meshes.buildings.extractor);
-    NOZ_ASSET_LOAD(Texture, "textures/icons/meshes/buildings/Stone", Assets.textures.icons.meshes.buildings.stone);
-    NOZ_ASSET_LOAD(Texture, "textures/palette", Assets.textures.palette);
+    NOZ_LOAD_FONT("fonts/Roboto-Black", Assets.fonts.roboto_black);
+    NOZ_LOAD_SHADER("shaders/border_effect", Assets.shaders.border_effect);
+    NOZ_LOAD_SHADER("shaders/default", Assets.shaders._default);
+    NOZ_LOAD_SHADER("shaders/gamma", Assets.shaders.gamma);
+    NOZ_LOAD_SHADER("shaders/gizmo", Assets.shaders.gizmo);
+    NOZ_LOAD_SHADER("shaders/lit", Assets.shaders.lit);
+    NOZ_LOAD_SHADER("shaders/shadow", Assets.shaders.shadow);
+    NOZ_LOAD_SHADER("shaders/text", Assets.shaders.text);
+    NOZ_LOAD_SHADER("shaders/ui", Assets.shaders.ui);
+    NOZ_LOAD_SHADER("shaders/vignette", Assets.shaders.vignette);
+    NOZ_LOAD_TEXTURE("textures/grid", Assets.textures.grid);
+    NOZ_LOAD_TEXTURE("textures/icons/meshes/buildings/extractor", Assets.textures.icons.meshes.buildings.extractor);
+    NOZ_LOAD_TEXTURE("textures/icons/meshes/buildings/Stone", Assets.textures.icons.meshes.buildings.stone);
+    NOZ_LOAD_TEXTURE("textures/palette", Assets.textures.palette);
+
+    // Setup renderer globals from config
+    SetShadowPassShader(Assets.shaders.shadow);
+    SetGammaPassShader(Assets.shaders.gamma);
 
     return true;
 }

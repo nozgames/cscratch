@@ -4,24 +4,24 @@
 //
 
 // @fonts
-// Assets.fonts.roboto_black
+// LoadedAssets.fonts.roboto_black
 //
 // @shaders
-// Assets.shaders.border_effect
-// Assets.shaders._default
-// Assets.shaders.gamma
-// Assets.shaders.gizmo
-// Assets.shaders.lit
-// Assets.shaders.shadow
-// Assets.shaders.text
-// Assets.shaders.ui
-// Assets.shaders.vignette
+// LoadedAssets.shaders.border_effect
+// LoadedAssets.shaders._default
+// LoadedAssets.shaders.gamma
+// LoadedAssets.shaders.gizmo
+// LoadedAssets.shaders.lit
+// LoadedAssets.shaders.shadow
+// LoadedAssets.shaders.text
+// LoadedAssets.shaders.ui
+// LoadedAssets.shaders.vignette
 //
 // @textures
-// Assets.textures.grid
-// Assets.textures.icons.meshes.buildings.extractor
-// Assets.textures.icons.meshes.buildings.stone
-// Assets.textures.palette
+// LoadedAssets.textures.grid
+// LoadedAssets.textures.icons.meshes.buildings.extractor
+// LoadedAssets.textures.icons.meshes.buildings.stone
+// LoadedAssets.textures.palette
 //
 
 #pragma once
@@ -34,7 +34,7 @@ struct Font;
 struct Material;
 struct Sound;
 
-struct Assets
+struct LoadedAssets
 {
     struct
     {
@@ -70,7 +70,7 @@ struct Assets
     } textures;
 };
 
-extern Assets Assets;
+extern LoadedAssets Assets;
 
-bool LoadAssets();
+bool LoadAssets(size_t arena_size = 0);
 void UnloadAssets();

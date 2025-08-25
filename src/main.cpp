@@ -2,9 +2,11 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
+#include "assets.h"
 int main(int argc, char* argv[])
 {
     InitApplication(nullptr);
+    LoadAssets();
 
     while (UpdateApplication())
     {
@@ -17,5 +19,6 @@ int main(int argc, char* argv[])
         EndRenderFrame();
     }
 
+    UnloadAssets();
     ShutdownApplication();
 }

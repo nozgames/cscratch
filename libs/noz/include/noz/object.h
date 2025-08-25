@@ -8,11 +8,17 @@
 #include "types.h"
 
 #define OBJECT_BASE_SIZE (sizeof(u16) * 2 + sizeof(void*) + sizeof(u32))
-#define OBJECT_BASE char __object[OBJECT_BASE_SIZE]
+#define OBJECT_BASE ObjectBase __object
 #define OBJECT_OFFSET_TYPE (0)
 #define OBJECT_OFFSET_BASE (sizeof(u16))
 #define OBJECT_OFFSET_SIZE (sizeof(u16) * 2)
 #define OBJECT_OFFSET_ALLOCATOR (sizeof(u16) * 2 + sizeof(u32))
+
+struct ObjectBase
+{
+    u8 data[OBJECT_BASE_SIZE];
+};
+
 
 struct Object {};
 

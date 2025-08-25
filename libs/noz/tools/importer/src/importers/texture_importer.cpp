@@ -99,7 +99,6 @@ static void WriteTextureData(
     // Write asset header
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE_TEXTURE;
-    header.runtime_size = width * height * channels + 256; // Estimate
     header.version = 1;
     header.flags = 0;
     WriteAssetHeader(stream, &header);
@@ -172,7 +171,6 @@ static void WriteTextureWithMipmaps(
     // Write asset header
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE_TEXTURE;
-    header.runtime_size = total_size + 256; // Add overhead
     header.version = 1;
     header.flags = 0;
     WriteAssetHeader(stream, &header);

@@ -20,7 +20,6 @@ struct AssetEntry
 {
     std::string path;
     uint32_t signature;
-    size_t runtime_size;
     size_t file_size;
     std::string var_name;
 };
@@ -34,7 +33,6 @@ struct PathNode
 struct ManifestGenerator
 {
     std::vector<AssetEntry> asset_entries;
-    size_t total_memory;
     fs::path output_dir;
     Stream* manifest_stream;
     const std::vector<AssetImporterTraits*>* importers;
@@ -49,6 +47,7 @@ static void OrganizeAssetsByType(ManifestGenerator* generator);
 static void ScanAssetFile(const fs::path& file_path, ManifestGenerator* generator);
 static type_t ToTypeFromSignature(asset_signature_t signature, const std::vector<AssetImporterTraits*>& importers);
 static const char* ToStringFromSignature(asset_signature_t signature, const std::vector<AssetImporterTraits*>& importers);
+static const char* ToMacroFromSignature(asset_signature_t signature, const std::vector<AssetImporterTraits*>& importers);
 static void GenerateRendererSetupCalls(ManifestGenerator* generator, Stream* stream);
 
 bool GenerateAssetManifest(const fs::path& output_directory, const fs::path& manifest_output_path, const std::vector<AssetImporterTraits*>& importers, Props* config)
@@ -73,7 +72,6 @@ bool GenerateAssetManifest(const fs::path& output_directory, const fs::path& man
         return false;
     }
 
-    generator.total_memory = 0;
 
     // Check if output directory exists
     if (!fs::exists(generator.output_dir))
@@ -186,9 +184,9 @@ static void GenerateAssetsHeader(ManifestGenerator* generator, const fs::path& h
             const char* type_name = ToStringFromSignature(entry.signature, *generator->importers);
             if (type_name)
             {
-                // Convert asset path to access path (e.g., "textures/icons/button" -> "Assets.textures.icons.button")
+                // Convert asset path to access path (e.g., "textures/icons/button" -> "LoadedAssets.textures.icons.button")
                 fs::path asset_path(entry.path);
-                std::string access_path = "Assets";
+                std::string access_path = "LoadedAssets";
                 
                 auto parent_path = asset_path.parent_path();
                 for (const auto& part : parent_path)
@@ -251,8 +249,8 @@ static void GenerateAssetsHeader(ManifestGenerator* generator, const fs::path& h
         current->assets.push_back(modified_entry);
     }
     
-    // Write Assets struct
-    WriteCSTR(header_stream, "struct Assets\n{\n");
+    // Write LoadedAssets struct
+    WriteCSTR(header_stream, "struct LoadedAssets\n{\n");
     if (generator->asset_entries.empty())
     {
         WriteCSTR(header_stream, "    void* _dummy;\n");
@@ -263,8 +261,8 @@ static void GenerateAssetsHeader(ManifestGenerator* generator, const fs::path& h
     }
     WriteCSTR(header_stream, "};\n\n");
     
-    WriteCSTR(header_stream, "extern Assets Assets;\n\n");
-    WriteCSTR(header_stream, "bool LoadAssets();\n");
+    WriteCSTR(header_stream, "extern LoadedAssets Assets;\n\n");
+    WriteCSTR(header_stream, "bool LoadAssets(size_t arena_size = 0);\n");
     WriteCSTR(header_stream, "void UnloadAssets();\n");
     
     // Save header file
@@ -272,23 +270,21 @@ static void GenerateAssetsHeader(ManifestGenerator* generator, const fs::path& h
     Destroy(header_stream);
 }
 
-static bool ReadAssetHeader(const fs::path& file_path, uint32_t* signature, size_t* runtime_size)
+static bool ReadAssetHeader(const fs::path& file_path, uint32_t* signature)
 {
     Stream* stream = LoadStream(nullptr, file_path);
     if (!stream)
         return false;
 
-    // Read asset header (16 bytes)
-    if (GetSize(stream) < 16)
+    // Read asset header
+    AssetHeader header;
+    if (!ReadAssetHeader(stream, &header))
     {
         Destroy(stream);
         return false;
     }
 
-    // Read header fields
-    *signature = ReadU32(stream);
-    *runtime_size = ReadU32(stream);
-    // Skip version and flags for manifest generation
+    *signature = header.signature;
 
     Destroy(stream);
     return true;
@@ -338,16 +334,12 @@ static void ScanAssetFile(const fs::path& file_path, ManifestGenerator* generato
     // Generate variable name from path (without extension)
     entry.var_name = PathToVarName(entry.path);
 
-    // Read asset header to get signature and runtime size
-    if (!ReadAssetHeader(file_path, &entry.signature, &entry.runtime_size))
+    // Read asset header to get signature
+    if (!ReadAssetHeader(file_path, &entry.signature))
     {
         printf("WARNING: Failed to read asset header for: %s\n", file_path.string().c_str());
         entry.signature = 0;
-        entry.runtime_size = entry.file_size; // Fallback to file size
     }
-
-    // Add to total memory requirement
-    generator->total_memory += entry.runtime_size;
     
     // Add entry to the list
     generator->asset_entries.push_back(entry);
@@ -366,36 +358,37 @@ static void GenerateManifestCode(ManifestGenerator* generator)
         "#include <noz/noz.h>\n"
         "#include \"assets.h\"\n\n");
 
-    WriteCSTR(stream, "// @constants\n");
-    WriteCSTR(stream, "#define ASSET_TOTAL_MEMORY %zu\n\n", generator->total_memory);
     WriteCSTR(stream, "// @globals\n");
     WriteCSTR(stream, "static arena_allocator_t* g_asset_allocator = nullptr;\n\n");
     WriteCSTR(stream, "// @assets\n");
-    WriteCSTR(stream, "Assets Assets = {};\n\n");
+    WriteCSTR(stream, "LoadedAssets Assets = {};\n\n");
 
     OrganizeAssetsByType(generator);
 
     WriteCSTR(stream,
         "// @init\n"
-        "bool LoadAssets()\n"
+        "bool LoadAssets(size_t arena_size)\n"
         "{\n"
         "    if (g_asset_allocator != nullptr)\n"
         "        return false; // Already initialized\n\n"
-        "    g_asset_allocator = arena_allocator_create(ASSET_TOTAL_MEMORY);\n"
-        "    if (!g_asset_allocator)\n"
-        "        return false;\n\n");
+        "    if (arena_size > 0)\n"
+        "    {\n"
+        "        g_asset_allocator = arena_allocator_create(arena_size);\n"
+        "        if (!g_asset_allocator)\n"
+        "            return false;\n"
+        "    }\n\n");
     
     for (const auto& entry : generator->asset_entries)
     {
-        const char* type_name = ToStringFromSignature(entry.signature, *generator->importers);
-        if (!type_name)
+        const char* macro_name = ToMacroFromSignature(entry.signature, *generator->importers);
+        if (!macro_name)
             continue;
 
         // Convert backslashes to forward slashes for the asset path
         std::string normalized_path = entry.path;
         std::replace(normalized_path.begin(), normalized_path.end(), '\\', '/');
 
-        // Build nested access path (e.g., assets.textures.icons.myicon)
+        // Build nested access path (e.g., Assets.textures.icons.myicon)
         fs::path asset_path(entry.path);
         std::string access_path = "Assets";
         
@@ -410,8 +403,8 @@ static void GenerateManifestCode(ManifestGenerator* generator)
 
         WriteCSTR(
             stream,
-            "    NOZ_ASSET_LOAD(%s, \"%s\", %s);\n",
-            type_name,
+            "    %s(\"%s\", %s);\n",
+            macro_name,
             normalized_path.c_str(),
             access_path.c_str());
     }
@@ -447,7 +440,6 @@ static void write_asset_structure(ManifestGenerator* generator)
         "{\n"
         "    char* path;\n"
         "    uint32_t signature;\n"
-        "    size_t runtime_size;\n"
         "    size_t file_size;\n"
         "} asset_info_t;\n\n");
 
@@ -471,10 +463,9 @@ static void write_asset_structure(ManifestGenerator* generator)
         std::replace(normalized_path.begin(), normalized_path.end(), '\\', '/');
 
         snprintf(buffer, sizeof(buffer), 
-            "    { \"%s\", 0x%08X, %zu, %zu },\n",
+            "    { \"%s\", 0x%08X, %zu },\n",
             normalized_path.c_str(),
             entry.signature,
-            entry.runtime_size,
             entry.file_size);
 
         WriteCSTR(stream, "%s", buffer);
@@ -617,6 +608,48 @@ static type_t ToTypeFromSignature(asset_signature_t signature, const std::vector
     return TYPE_UNKNOWN;
 }
 
+static const char* ToMacroFromSignature(asset_signature_t signature, const std::vector<AssetImporterTraits*>& importers)
+{
+    static std::map<asset_signature_t, std::string> macro_cache;
+    
+    for (const auto* importer : importers)
+    {
+        if (importer && importer->signature == signature)
+        {
+            // Check cache first
+            if (macro_cache.find(signature) != macro_cache.end())
+            {
+                return macro_cache[signature].c_str();
+            }
+            
+            // Build macro name: NOZ_LOAD_ + uppercase type name
+            std::string type_name = importer->type_name;
+            std::string macro_name = "NOZ_LOAD_";
+            
+            // Convert type name to uppercase and handle special cases
+            for (char c : type_name)
+            {
+                if (std::islower(c))
+                    macro_name += std::toupper(c);
+                else if (std::isupper(c))
+                {
+                    // Insert underscore before uppercase letters (except first)
+                    if (macro_name.size() > 9) // 9 = length of "NOZ_LOAD_"
+                        macro_name += '_';
+                    macro_name += c;
+                }
+                else
+                    macro_name += c;
+            }
+            
+            // Cache and return
+            macro_cache[signature] = macro_name;
+            return macro_cache[signature].c_str();
+        }
+    }
+    return nullptr;
+}
+
 static const char* ToStringFromSignature(asset_signature_t signature, const std::vector<AssetImporterTraits*>& importers)
 {
     for (const auto* importer : importers)
@@ -640,60 +673,31 @@ static void GenerateRendererSetupCalls(ManifestGenerator* generator, Stream* str
         
     WriteCSTR(stream, "\n    // Setup renderer globals from config\n");
     
-    // Parse [noz] section
-    // Look for specific renderer globals we support
-    const char* shader_keys[] = {
-        "shadow_shader",
-        "lit_shader", 
-        "default_shader",
-        "ui_shader",
-        "text_shader",
-        "gizmo_shader",
-        nullptr
+    static std::vector<std::pair<std::string, std::string>> globals = {
+        { "shadow_shader", "SetShadowPassShader" },
+        { "gamma_shader", "SetGammaPassShader" }
     };
-    
-    for (const char** key_ptr = shader_keys; *key_ptr != nullptr; ++key_ptr)
-    {
-        const char* key = *key_ptr;
 
-        if (generator->config->HasKey("noz", key))
-        {
-            auto asset_path = generator->config->GetString("noz", key, "");
-            if (!asset_path.empty())
-            {
-                // Convert asset path to access path (e.g., "shaders/shadow" -> "Assets.shaders.shadow")
-                fs::path path(asset_path);
-                std::string access_path = "Assets";
+    for (auto& global : globals)
+    {
+        if (!generator->config->HasKey("noz", global.first.c_str()))
+            continue;
+
+        auto asset_path = generator->config->GetString("noz", global.first.c_str(), "");
+        if (asset_path.empty())
+            continue;
+
+        // Convert asset path to access path (e.g., "shaders/shadow" -> "Assets.shaders.shadow")
+        fs::path path(asset_path);
+        std::string access_path = "Assets";
+
+        auto parent_path = path.parent_path();
+        for (const auto& part : parent_path)
+            access_path += "." + part.string();
+
+        std::string var_name = PathToVarName(path.filename().string());
+        access_path += "." + var_name;
                 
-                auto parent_path = path.parent_path();
-                for (const auto& part : parent_path)
-                {
-                    access_path += "." + part.string();
-                }
-                
-                std::string var_name = PathToVarName(path.filename().string());
-                access_path += "." + var_name;
-                
-                // Generate appropriate function call based on the key
-                std::string function_name;
-                if (strcmp(key, "shadow_shader") == 0)
-                    function_name = "SetShadowShader";
-                else if (strcmp(key, "lit_shader") == 0)
-                    function_name = "SetLitShader";
-                else if (strcmp(key, "default_shader") == 0)
-                    function_name = "SetDefaultShader";
-                else if (strcmp(key, "ui_shader") == 0)
-                    function_name = "SetUIShader";
-                else if (strcmp(key, "text_shader") == 0)
-                    function_name = "SetTextShader";
-                else if (strcmp(key, "gizmo_shader") == 0)
-                    function_name = "SetGizmoShader";
-                
-                if (!function_name.empty())
-                {
-                    WriteCSTR(stream, "    %s(%s);\n", function_name.c_str(), access_path.c_str());
-                }
-            }
-        }
+        WriteCSTR(stream, "    %s(%s);\n", global.second.c_str(), access_path.c_str());
     }
 }

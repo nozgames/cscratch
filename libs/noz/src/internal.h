@@ -4,10 +4,6 @@
 #pragma once
 
 #include <SDL3/SDL.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <stddef.h>
-
 #include <noz/noz.h>
 #include <noz/color.h>
 
@@ -110,6 +106,10 @@ typedef struct animation_track
     int data_offset;
 } animation_track_t;
 
+// @allocator
+void InitAllocator();
+void ShutdownAllocator();
+
 // @renderer
 void InitRenderer(RendererTraits* traits, SDL_Window* window);
 void ShutdownRenderer();
@@ -119,9 +119,9 @@ SDL_GPURenderPass* BeginPassGPU(bool clear, color_t clear_color, bool msaa, Text
 SDL_GPURenderPass* BeginShadowPassGPU();
 SDL_GPURenderPass* BeginGammaPassGPU();
 void EndRenderPassGPU();
-void BindTextureGPU(SDL_GPUCommandBuffer* cb, Texture* texture, int index);
+void BindTextureGPU(Texture* texture, SDL_GPUCommandBuffer* cb, int index);
 void BindShaderGPU(Shader* shader);
-void BindMaterialGPU(Material* material);
+void BindMaterialGPU(Material* material, SDL_GPUCommandBuffer* cb);
 void BindDefaultTextureGPU(int texture_index);
 
 // @render_buffer
@@ -137,7 +137,7 @@ void ShutdownSamplerFactory();
 SDL_GPUSampler* GetGPUSampler(Texture* texture);
 
 // @pipeline_factory
-void InitPipelineFactory(SDL_Window* window, SDL_GPUDevice* device);
+void InitPipelineFactory(RendererTraits* traits, SDL_Window* window, SDL_GPUDevice* device);
 void ShutdownPipelineFactory();
 SDL_GPUGraphicsPipeline* GetGPUPipeline(Shader* shader, bool msaa, bool shadow);
 
@@ -153,22 +153,31 @@ SDL_GPUTexture* GetGPUTexture(Texture* texture);
 SamplerOptions GetSamplerOptions(Texture* texture);
 
 // @shader
+struct ShaderUniformBuffer
+{
+    u32 size;
+    u32 offset;
+};
+
 void InitShader(RendererTraits* traits, SDL_GPUDevice* device);
 void ShutdownShader();
+const char* GetGPUName(Shader* shader);
 
-// New naming convention
-SDL_GPUShader* shader_gpu_vertex_shader(Shader* shader);
-SDL_GPUShader* shader_gpu_fragment_shader(Shader* shader);
-SDL_GPUCullMode shader_gpu_cull_mode(Shader* shader);
-bool shader_blend_enabled(Shader* shader);
-SDL_GPUBlendFactor shader_gpu_src_blend(Shader* shader);
-SDL_GPUBlendFactor shader_gpu_dst_blend(Shader* shader);
-bool shader_depth_test_enabled(Shader* shader);
-bool shader_depth_write_enabled(Shader* shader);
-int shader_vertex_uniform_count(Shader* shader);
-int shader_fragment_uniform_count(Shader* shader);
-int shader_sampler_count(Shader* shader);
-const name_t* GetName(Shader* shader);
+SDL_GPUShader* GetGPUVertexShader(Shader* shader);
+SDL_GPUShader* GetGPUFragmentShader(Shader* shader);
+SDL_GPUCullMode GetGPUCullMode(Shader* shader);
+bool IsBlendEnabled(Shader* shader);
+SDL_GPUBlendFactor GetGPUSrcBlend(Shader* shader);
+SDL_GPUBlendFactor GetGPUDstBlend(Shader* shader);
+bool IsDepthTestEnabled(Shader* shader);
+bool IsDepthWriteEnabled(Shader* shader);
+int GetVertexUniformCount(Shader* shader);
+int GetFragmentUniformCount(Shader* shader);
+int GetSamplerCount(Shader* shader);
+size_t GetUniformDataSize(Shader* shader);
+void PushUniformDataGPU(Shader* shader, SDL_GPUCommandBuffer* cb, u8* data);
+ShaderUniformBuffer GetVertexUniformBuffer(Shader* shader, int index);
+ShaderUniformBuffer GetFragmentUniformBuffer(Shader* shader, int index);
 
 // @font
 void InitFont(RendererTraits* traits, SDL_GPUDevice* device);

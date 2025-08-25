@@ -137,7 +137,7 @@ void ClearRenderCommands()
     g_render_buffer->command_count = 0;
     g_render_buffer->transform_count = 0;
     g_render_buffer->is_shadow_pass = false;
-	g_render_buffer->is_full = false;
+    g_render_buffer->is_full = false;
     
     // add identity transform by default for all meshes with no bones
     g_render_buffer->transforms[0] = identity<mat4>();
@@ -154,7 +154,7 @@ void BeginRenderPass(bool clear, color_t clear_color, bool msaa, Texture* target
                 .color = clear_color,
                 .msaa = msaa,
                 .target = target}}};
-	AddRenderCommand(&cmd);
+    AddRenderCommand(&cmd);
 }
 
 void BeginShadowPass(mat4 light_view, mat4 light_projection)
@@ -181,7 +181,7 @@ void BindDefaultTexture(int texture_index)
         .type = command_type_bind_default_texture,
         .data = {
             .bind_default_texture = {
-				.index = texture_index}} };
+                .index = texture_index}} };
     AddRenderCommand(&cmd);
 }
 
@@ -224,8 +224,8 @@ void BindTransform(const mat4& transform)
         .type = command_type_bind_transform,
         .data = {
             .bind_transform = {
-				.transform = transform}} };
-	AddRenderCommand(&cmd);
+                .transform = transform}} };
+    AddRenderCommand(&cmd);
 }
 
 //void render_buffer_bind_transform(render_buffer_t rb, const entity& entity)
@@ -253,7 +253,7 @@ void BindBoneTransforms(const mat4* bones, size_t bone_count)
 
     memcpy(
         g_render_buffer->transforms + g_render_buffer->transform_count,
-		bones,
+        bones,
         bone_count * sizeof(mat4));
     g_render_buffer->transform_count += bone_count;
 
@@ -266,7 +266,7 @@ void render_buffer_bind_color(color_t color)
         .type = command_type_bind_color,
         .data = {
             .bind_color = {
-				.color = {color.r, color.g, color.b, color.a}}} };
+                .color = {color.r, color.g, color.b, color.a}}} };
     AddRenderCommand(&cmd);
 }
 
@@ -277,7 +277,7 @@ void DrawMesh(Mesh* mesh)
         .type = command_type_draw_mesh,
         .data = {
             .draw_mesh = {
-				.mesh = mesh}} };
+                .mesh = mesh}} };
     AddRenderCommand(&cmd);
 }
 
@@ -286,14 +286,14 @@ void ExecuteRenderCommands(SDL_GPUCommandBuffer* cb)
     SDL_GPURenderPass* pass = nullptr;
 
     RenderCommand* commands = g_render_buffer->commands;
-	size_t command_count = g_render_buffer->command_count;
+    size_t command_count = g_render_buffer->command_count;
     for (size_t command_index=0; command_index < command_count; ++command_index)
     {
-		RenderCommand* command = commands + command_index;
+        RenderCommand* command = commands + command_index;
         switch (command->type)
         {
         case command_type_bind_material:
-            BindMaterialGPU(command->data.bind_material.material);
+            BindMaterialGPU(command->data.bind_material.material, cb);
             break;
 
         case command_type_bind_transform:
@@ -385,7 +385,7 @@ void ExecuteRenderCommands(SDL_GPUCommandBuffer* cb)
         const vec3& diffuse_color,
         float shadow_bias)
     {
-		impl()->commands.emplace_back
+        impl()->commands.emplace_back
         (
             command_type_bind_light,
             command::bind_light
@@ -396,7 +396,7 @@ void ExecuteRenderCommands(SDL_GPUCommandBuffer* cb)
                 diffuse_intensity,
                 direction,
                 shadow_bias
-			});
+            });
     }
 
 
@@ -405,7 +405,7 @@ void ExecuteRenderCommands(SDL_GPUCommandBuffer* cb)
 
     void render_buffer::set_viewport(int x, int y, int width, int height)
     {
-		impl()->commands.emplace_back(command_type_set_viewport, command::set_viewport { x, y, width, height });
+        impl()->commands.emplace_back(command_type_set_viewport, command::set_viewport { x, y, width, height });
     }
 
     void render_buffer::set_scissor(int x, int y, int width, int height)
@@ -418,7 +418,7 @@ void ExecuteRenderCommands(SDL_GPUCommandBuffer* cb)
 void InitRenderBuffer(RendererTraits* traits)
 {
     size_t commands_size = traits->max_frame_commands * sizeof(RenderCommand);
-	size_t transforms_size = traits->max_frame_transforms * sizeof(mat4);
+    size_t transforms_size = traits->max_frame_transforms * sizeof(mat4);
     size_t buffer_size = sizeof(RenderBuffer) + commands_size + transforms_size;
     
     g_render_buffer = (RenderBuffer*)malloc(buffer_size);
@@ -428,8 +428,8 @@ void InitRenderBuffer(RendererTraits* traits)
         return;
     }        
 
-	memset(g_render_buffer, 0, buffer_size);
-	g_render_buffer->commands = (RenderCommand*)((char*)g_render_buffer + sizeof(RenderBuffer));
+    memset(g_render_buffer, 0, buffer_size);
+    g_render_buffer->commands = (RenderCommand*)((char*)g_render_buffer + sizeof(RenderBuffer));
     g_render_buffer->transforms = (mat4*)((char*)g_render_buffer->commands + commands_size);
     g_render_buffer->command_count_max = traits->max_frame_commands;
     g_render_buffer->transform_count_max = traits->max_frame_transforms;

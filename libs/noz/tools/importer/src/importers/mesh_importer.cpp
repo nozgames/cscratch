@@ -73,7 +73,6 @@ static void WriteMeshData(
     // Write asset header
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE_MESH;
-    header.runtime_size = mesh->position_count * sizeof(mesh_vertex) + mesh->index_count * sizeof(uint16_t) + 256; // Estimate
     header.version = 1;
     header.flags = 0;
     WriteAssetHeader(stream, &header);
@@ -128,9 +127,8 @@ void ImportMesh(const fs::path& source_path, Stream* output_stream, Props* confi
     const fs::path& src_path = source_path;
     
     // Check if mesh import is enabled in meta file
-    bool importMesh = meta->GetBool("mesh", "skip_mesh", false);
-    if (!importMesh)
-        throw std::runtime_error("Mesh import disabled in meta file");
+    if (meta->GetBool("mesh", "skip_mesh", false))
+        return;
 
     // Load GLTF/GLB file
     gltf_t* gltf = gltf_alloc(nullptr);

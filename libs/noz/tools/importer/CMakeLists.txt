@@ -93,7 +93,8 @@ add_executable(importer ${SOURCE_FILES})
 target_include_directories(importer PRIVATE
         ${CMAKE_SOURCE_DIR}/libs/noz/external
         ${CMAKE_SOURCE_DIR}/libs/noz/include
-        ${CMAKE_SOURCE_DIR}/libs/noz/tools/common)
+        ${CMAKE_SOURCE_DIR}/libs/noz/tools/common
+        ${sdl3_shadercross_SOURCE_DIR}/external/SPIRV-Cross)
 
 # Link libraries
 target_link_libraries(importer PRIVATE

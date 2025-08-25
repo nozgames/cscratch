@@ -74,8 +74,7 @@ static void WriteStyleSheetData(
 {
     // Write asset header
     AssetHeader header = {};
-    header.signature = ASSET_SIGNATURE_STYLESHEET;
-    header.runtime_size = styles.size() * 256 + 512; // Rough estimate
+    header.signature = ASSET_SIGNATURE_STYLE_SHEET;
     header.version = 1;
     header.flags = 0;
     WriteAssetHeader(stream, &header);
@@ -228,7 +227,7 @@ static const char* g_stylesheet_extensions[] = {
 static AssetImporterTraits g_stylesheet_importer_traits = {
     .type_name = "StyleSheet",
     .type = TYPE_STYLE_SHEET,
-    .signature = ASSET_SIGNATURE_STYLESHEET,
+    .signature = ASSET_SIGNATURE_STYLE_SHEET,
     .file_extensions = g_stylesheet_extensions,
     .import_func = ImportStyleSheet,
     .does_depend_on = DoesStyleSheetDependOn

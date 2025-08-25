@@ -87,17 +87,17 @@ static SDL_GPUGraphicsPipeline* CreateGPUPipeline(
         color_target.format = SDL_GetGPUSwapchainTextureFormat(g_device, g_window);
 
     SDL_GPUGraphicsPipelineCreateInfo pipeline_create_info = {};
-    pipeline_create_info.vertex_shader = shader_gpu_vertex_shader(shader);
-    pipeline_create_info.fragment_shader = shader_gpu_fragment_shader(shader);
+    pipeline_create_info.vertex_shader = GetGPUVertexShader(shader);
+    pipeline_create_info.fragment_shader = GetGPUFragmentShader(shader);
     pipeline_create_info.vertex_input_state = vertex_input_state;
     pipeline_create_info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
     pipeline_create_info.props = SDL_CreateProperties();
 
-    SDL_SetStringProperty(pipeline_create_info.props, SDL_PROP_GPU_GRAPHICSPIPELINE_CREATE_NAME_STRING, GetName(shader)->value);
+    SDL_SetStringProperty(pipeline_create_info.props, SDL_PROP_GPU_GRAPHICSPIPELINE_CREATE_NAME_STRING, GetGPUName(shader));
 
     // Set rasterizer state based on shader properties
     pipeline_create_info.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-    pipeline_create_info.rasterizer_state.cull_mode = shader_gpu_cull_mode(shader);
+    pipeline_create_info.rasterizer_state.cull_mode = GetGPUCullMode(shader);
     pipeline_create_info.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
 
     // Set multisample state based on current render target
@@ -106,8 +106,8 @@ static SDL_GPUGraphicsPipeline* CreateGPUPipeline(
     pipeline_create_info.multisample_state.enable_mask = false;
 
     // Get pipeline properties from shader
-    bool depth_test = shader_depth_test_enabled(shader);
-    bool depth_write = shader_depth_write_enabled(shader);
+    bool depth_test = IsDepthTestEnabled(shader);
+    bool depth_write = IsDepthWriteEnabled(shader);
 
     pipeline_create_info.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_LESS_OR_EQUAL;
     pipeline_create_info.depth_stencil_state.back_stencil_state.fail_op = SDL_GPU_STENCILOP_KEEP;
@@ -127,10 +127,10 @@ static SDL_GPUGraphicsPipeline* CreateGPUPipeline(
     // Configure color targets and blend state (only for non-shadow shaders)
     if (!shadow) {
         SDL_GPUColorTargetBlendState blend_state = {};
-        blend_state.enable_blend = shader_blend_enabled(shader);
+        blend_state.enable_blend = IsBlendEnabled(shader);
         if (blend_state.enable_blend) {
-            SDL_GPUBlendFactor src_blend = shader_gpu_src_blend(shader);
-            SDL_GPUBlendFactor dst_blend = shader_gpu_dst_blend(shader);
+            SDL_GPUBlendFactor src_blend = GetGPUSrcBlend(shader);
+            SDL_GPUBlendFactor dst_blend = GetGPUDstBlend(shader);
             blend_state.enable_blend = true;
             blend_state.src_color_blendfactor = src_blend;
             blend_state.dst_color_blendfactor = dst_blend;
@@ -185,6 +185,9 @@ SDL_GPUGraphicsPipeline* GetGPUPipeline(Shader* shader, bool msaa, bool shadow)
         return nullptr;
 
     pipeline = (Pipeline*)SetValue(g_cache, key, nullptr);
+    if (!pipeline)
+        ExitOutOfMemory("pipeline limit exceeded");
+
     pipeline->gpu_pipeline = gpu_pipeline;
     return pipeline->gpu_pipeline;
 }

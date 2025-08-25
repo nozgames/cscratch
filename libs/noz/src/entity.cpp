@@ -5,11 +5,20 @@
 struct EntityImpl
 {
     OBJECT_BASE;
-    vec3 position;
-    mat4 local_to_world;
-    mat4 world_to_local;
-    bool local_to_world_dirty;
-    bool world_to_local_dirty;
+    vec3 local_position = vec3(0.0f);
+    vec3 local_scale = vec3(1.0f);
+    quat local_rotation = quat(1.0f, 0.0f, 0.0f, 0.0f);
+    mat4 local_to_world = glm::identity<mat4>();
+    mat4 world_to_local = glm::identity<mat4>();
+    bool local_to_world_dirty = true;
+    bool world_to_local_dirty = true;
+    bool enabled = true;
+    uint32_t version = 1;
+
+    // todo
+    // vector<entity> children;
+    // linked_list<entity_impl>::node render_node{ this };
+    // const entity_traits* traits = nullptr;
 };
 
 static_assert(ENTITY_BASE_SIZE == sizeof(EntityImpl));
@@ -29,18 +38,13 @@ Entity* CreateEntity(Allocator* allocator, size_t entity_size, type_t type_id)
     return (Entity*)impl;
 }
 
-const vec3& GetPosition(Entity* entity)
+vec3 GetPosition(Entity* entity)
 {
-    GetAllocator(entity);
-
-    return Impl(entity)->position;
+    return vec3(GetLocalToWorld(entity)[3]);
 }
 
-void entity_set_position(Entity* e, float x, float y, float z)
+void SetPosition(Entity* e, float x, float y, float z)
 {
-    EntityImpl* impl = Impl(e);
-    impl->position = {x, y, z};
-    MarkDirty(e);
 }
 
 const mat4& GetWorldToLocal(Entity* e)
