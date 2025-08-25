@@ -78,37 +78,18 @@ static void WriteCompiledShader(
     WriteU32(output_stream, (uint32_t)fragment_spirv_size);
     WriteBytes(output_stream, fragment_spirv, fragment_spirv_size);
     
-    // Use SDL_ShaderCross reflection to get accurate resource counts and buffer info
-    int vertex_uniform_count = 0;
-    int fragment_uniform_count = 0; 
-    int sampler_count = 0;
-    
     // Use SPIRV reflection to get accurate uniform buffer information
     auto reflection = ReflectShaderUniforms(vertex_spirv, vertex_spirv_size, fragment_spirv, fragment_spirv_size);
 
     // Use reflection data directly
-    vertex_uniform_count = (int)reflection.vertex_buffers.size();
-    fragment_uniform_count = (int)reflection.fragment_buffers.size();
-    sampler_count = reflection.sampler_count;
+    int vertex_uniform_count = (int)reflection.vertex_buffers.size();
+    int fragment_uniform_count = (int)reflection.fragment_buffers.size();
+    int sampler_count = reflection.sampler_count;
     
     WriteI32(output_stream, vertex_uniform_count);
     WriteI32(output_stream, fragment_uniform_count);
     WriteI32(output_stream, sampler_count);
-    
-    // Write vertex uniform buffer information
-    for (const auto& ub : reflection.vertex_buffers)
-    {
-        WriteU32(output_stream, ub.size);
-        WriteU32(output_stream, ub.offset);
-    }
-    
-    // Write fragment uniform buffer information
-    for (const auto& ub : reflection.fragment_buffers)
-    {
-        WriteU32(output_stream, ub.size);
-        WriteU32(output_stream, ub.offset);
-    }
-    
+
     // Parse shader flags from meta file
     shader_flags_t flags = shader_flags_none;
     if (meta.GetBool("shader", "depth_test", true))
@@ -144,7 +125,21 @@ static void WriteCompiledShader(
     WriteU32(output_stream, (uint32_t)src_blend_factor);
     WriteU32(output_stream, (uint32_t)dst_blend_factor);
     WriteU32(output_stream, (uint32_t)cull_mode);
-    
+
+    // Write vertex uniform buffer information
+    for (const auto& ub : reflection.vertex_buffers)
+    {
+        WriteU32(output_stream, ub.size);
+        WriteU32(output_stream, ub.offset);
+    }
+
+    // Write fragment uniform buffer information
+    for (const auto& ub : reflection.fragment_buffers)
+    {
+        WriteU32(output_stream, ub.size);
+        WriteU32(output_stream, ub.offset);
+    }
+
     // Clean up
     SDL_free(vertex_spirv);
     SDL_free(fragment_spirv);

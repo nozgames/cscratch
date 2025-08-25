@@ -189,10 +189,10 @@ void AddQuad(
     vec3 normal = cross(forward, right);
     forward = forward * hh;
     right = right * hw;
-    vec3 a = forward - right;
-    vec3 b = forward - right;
-    vec3 c = right - forward;
-    vec3 d = (right * -1.0f) - forward;
+    vec3 a =  forward - right;
+    vec3 b =  forward + right;
+    vec3 c = -forward + right;
+    vec3 d = -forward - right;
     AddQuad(builder, a, b, c, d, color_uv, normal, 0);
 }
 

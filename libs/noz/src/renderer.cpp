@@ -415,7 +415,7 @@ static void UpdateBackBuffer()
 static void InitGammaPass()
 {
     MeshBuilder* builder = CreateMeshBuilder(nullptr, 4, 6);
-    AddQuad(builder, VEC3_FORWARD, VEC3_RIGHT, 1, 1, VEC3_ZERO);
+    AddQuad(builder, VEC3_RIGHT, VEC3_UP, 2, 2, VEC3_ZERO);
     g_renderer.gamma_mesh = CreateMesh(nullptr, builder, "gamma");
     Destroy(builder);
 }
@@ -447,13 +447,8 @@ SDL_GPURenderPass* BeginGammaPassGPU()
 
 static void RenderGammaPass()
 {
-    static auto ident = identity<mat4>();
-
     SetTexture(g_renderer.gamma_material, g_renderer.linear_back_buffer, 0);
-
     BeginGammaPass();
-    BindCamera(ident, ident);
-    BindTransform(ident);
     BindMaterial(g_renderer.gamma_material);
     DrawMesh(g_renderer.gamma_mesh);
     EndRenderPass();

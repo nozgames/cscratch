@@ -13,7 +13,6 @@ int main(int argc, char* argv[])
         BeginRenderFrame();
 
         BeginRenderPass(true, color_blue, false, nullptr);
-
         EndRenderPass();
 
         EndRenderFrame();

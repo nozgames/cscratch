@@ -56,7 +56,9 @@ void* SetValue(Map& map, u64 key, void* value)
         map.count++;
     }
 
-    auto data = (u8*)map.data + key_index + map.data_stride;
+    map.keys[key_index] = key;
+
+    auto data = (u8*)map.data + key_index * map.data_stride;
     if (value)
         memcpy(data, value, map.data_stride);
     return data;

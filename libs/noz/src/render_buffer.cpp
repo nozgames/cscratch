@@ -228,11 +228,6 @@ void BindTransform(const mat4& transform)
     AddRenderCommand(&cmd);
 }
 
-//void render_buffer_bind_transform(render_buffer_t rb, const entity& entity)
-//{
-//    rb.impl()->commands.emplace_back(command_type_bind_transform, command::bind_transform{get_local_to_world(entity)});
-//}
-
 void BindBoneTransforms(const mat4* bones, size_t bone_count)
 {
     if (bone_count == 0)
@@ -347,7 +342,7 @@ void ExecuteRenderCommands(SDL_GPUCommandBuffer* cb)
             break;
 
         case command_type_begin_gamma_pass:
-            pass = BeginShadowPassGPU();
+            pass = BeginGammaPassGPU();
             break;
 
         case command_type_end_pass:

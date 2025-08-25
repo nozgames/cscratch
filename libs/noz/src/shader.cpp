@@ -93,6 +93,8 @@ Object* LoadShader(Allocator* allocator, Stream* stream, AssetHeader* header, co
     impl->cull = (SDL_GPUCullMode)ReadU32(stream);
     impl->uniforms = (ShaderUniformBuffer*)(impl + 1);
 
+    ReadBytes(stream, impl->uniforms, (impl->vertex_uniform_count + impl->fragment_uniform_count) * sizeof(ShaderUniformBuffer));
+
     // Note: stream destruction handled by caller
 
     // Create fragment shader
@@ -108,7 +110,7 @@ Object* LoadShader(Allocator* allocator, Stream* stream, AssetHeader* header, co
     fragment_create_info.num_uniform_buffers = impl->fragment_uniform_count + (u32)fragment_register_user0;
     fragment_create_info.props = SDL_CreateProperties();
 
-    SDL_SetStringProperty(fragment_create_info.props, SDL_PROP_GPU_SHADER_CREATE_NAME_STRING, name ? name : "shader");
+    SDL_SetStringProperty(fragment_create_info.props, SDL_PROP_GPU_SHADER_CREATE_NAME_STRING, name);
     impl->fragment = SDL_CreateGPUShader(g_device, &fragment_create_info);
     SDL_DestroyProperties(fragment_create_info.props);
 
@@ -132,7 +134,7 @@ Object* LoadShader(Allocator* allocator, Stream* stream, AssetHeader* header, co
     vertex_create_info.num_uniform_buffers = impl->vertex_uniform_count + (u32)vertex_register_user0;
     vertex_create_info.props = SDL_CreateProperties();
 
-    SDL_SetStringProperty(vertex_create_info.props, SDL_PROP_GPU_SHADER_CREATE_NAME_STRING, name ? name : "shader");
+    SDL_SetStringProperty(vertex_create_info.props, SDL_PROP_GPU_SHADER_CREATE_NAME_STRING, name);
     impl->vertex = SDL_CreateGPUShader(g_device, &vertex_create_info);
     SDL_DestroyProperties(vertex_create_info.props);
 

@@ -56,7 +56,10 @@ SDL_GPUSampler* GetGPUSampler(Texture* texture)
 
     auto* sampler = (Sampler*)GetValue(g_cache, key);
     if (sampler != nullptr)
+    {
+        assert(sampler->gpu_sampler);
         return sampler->gpu_sampler;
+    }
 
     // Create new sampler
     SDL_GPUSamplerCreateInfo sampler_info = {};
@@ -74,12 +77,18 @@ SDL_GPUSampler* GetGPUSampler(Texture* texture)
 
     SDL_GPUSampler* gpu_sampler = SDL_CreateGPUSampler(g_device, &sampler_info);
     if (!gpu_sampler)
+    {
+        ExitOutOfMemory("failed to create sampler");
         return nullptr;
+    }
 
     // Store in cache
     sampler = (Sampler*)SetValue(g_cache, key);
     if (!sampler)
+    {
+        ExitOutOfMemory("exceeded sampler cache");
         return nullptr;
+    }
 
     sampler->gpu_sampler = gpu_sampler;
     return sampler->gpu_sampler;

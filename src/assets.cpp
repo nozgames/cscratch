@@ -8,7 +8,7 @@
 #include "assets.h"
 
 // @globals
-static arena_allocator_t* g_asset_allocator = nullptr;
+static Allocator* g_asset_allocator = nullptr;
 
 // @assets
 LoadedAssets Assets = {};
@@ -21,7 +21,7 @@ bool LoadAssets(size_t arena_size)
 
     if (arena_size > 0)
     {
-        g_asset_allocator = arena_allocator_create(arena_size);
+        g_asset_allocator = CreateArenaAllocator(arena_size);
         if (!g_asset_allocator)
             return false;
     }
@@ -53,7 +53,7 @@ void UnloadAssets()
 {
     if (g_asset_allocator != nullptr)
     {
-        arena_allocator_destroy(g_asset_allocator);
+        Destroy(g_asset_allocator);
         g_asset_allocator = nullptr;
         
         // Clear all asset pointers

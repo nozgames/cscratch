@@ -359,7 +359,7 @@ static void GenerateManifestCode(ManifestGenerator* generator)
         "#include \"assets.h\"\n\n");
 
     WriteCSTR(stream, "// @globals\n");
-    WriteCSTR(stream, "static arena_allocator_t* g_asset_allocator = nullptr;\n\n");
+    WriteCSTR(stream, "static Allocator* g_asset_allocator = nullptr;\n\n");
     WriteCSTR(stream, "// @assets\n");
     WriteCSTR(stream, "LoadedAssets Assets = {};\n\n");
 
@@ -373,7 +373,7 @@ static void GenerateManifestCode(ManifestGenerator* generator)
         "        return false; // Already initialized\n\n"
         "    if (arena_size > 0)\n"
         "    {\n"
-        "        g_asset_allocator = arena_allocator_create(arena_size);\n"
+        "        g_asset_allocator = CreateArenaAllocator(arena_size);\n"
         "        if (!g_asset_allocator)\n"
         "            return false;\n"
         "    }\n\n");
@@ -421,7 +421,7 @@ static void GenerateManifestCode(ManifestGenerator* generator)
         "{\n"
         "    if (g_asset_allocator != nullptr)\n"
         "    {\n"
-        "        arena_allocator_destroy(g_asset_allocator);\n"
+        "        Destroy(g_asset_allocator);\n"
         "        g_asset_allocator = nullptr;\n"
         "        \n"
         "        // Clear all asset pointers\n"
