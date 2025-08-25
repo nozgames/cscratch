@@ -41,7 +41,6 @@ struct ManifestGenerator
     Props* config;
 };
 
-static bool ReadAssetHeader(const fs::path& file_path, uint32_t* signature, size_t* runtime_size);
 static void GenerateManifestCode(ManifestGenerator* generator);
 static void GenerateAssetsHeader(ManifestGenerator* generator, const fs::path& header_path);
 static std::string PathToVarName(const std::string& path);
@@ -273,6 +272,28 @@ static void GenerateAssetsHeader(ManifestGenerator* generator, const fs::path& h
     Destroy(header_stream);
 }
 
+static bool ReadAssetHeader(const fs::path& file_path, uint32_t* signature, size_t* runtime_size)
+{
+    Stream* stream = LoadStream(nullptr, file_path);
+    if (!stream)
+        return false;
+
+    // Read asset header (16 bytes)
+    if (GetSize(stream) < 16)
+    {
+        Destroy(stream);
+        return false;
+    }
+
+    // Read header fields
+    *signature = ReadU32(stream);
+    *runtime_size = ReadU32(stream);
+    // Skip version and flags for manifest generation
+
+    Destroy(stream);
+    return true;
+}
+
 static void ScanAssetFile(const fs::path& file_path, ManifestGenerator* generator)
 {
     // Check for known asset extensions
@@ -330,28 +351,6 @@ static void ScanAssetFile(const fs::path& file_path, ManifestGenerator* generato
     
     // Add entry to the list
     generator->asset_entries.push_back(entry);
-}
-
-static bool ReadAssetHeader(const fs::path& file_path, uint32_t* signature, size_t* runtime_size)
-{
-    Stream* stream = LoadStream(nullptr, file_path);
-    if (!stream)
-        return false;
-
-    // Read asset header (16 bytes)
-    if (GetSize(stream) < 16)
-    {
-        Destroy(stream);
-        return false;
-    }
-
-    // Read header fields
-    *signature = ReadU32(stream);
-    *runtime_size = ReadU32(stream);
-    // Skip version and flags for manifest generation
-    
-    Destroy(stream);
-    return true;
 }
 
 static void GenerateManifestCode(ManifestGenerator* generator)
@@ -636,7 +635,7 @@ static void GenerateRendererSetupCalls(ManifestGenerator* generator, Stream* str
         return;
     
     // Check if [noz] section exists
-    if (!HasKey(generator->config, "noz"))
+    if (!generator->config->HasGroup("noz"))
         return;
         
     WriteCSTR(stream, "\n    // Setup renderer globals from config\n");
@@ -656,12 +655,11 @@ static void GenerateRendererSetupCalls(ManifestGenerator* generator, Stream* str
     for (const char** key_ptr = shader_keys; *key_ptr != nullptr; ++key_ptr)
     {
         const char* key = *key_ptr;
-        std::string full_key = "noz." + std::string(key);
-        
-        if (HasKey(generator->config, full_key.c_str()))
+
+        if (generator->config->HasKey("noz", key))
         {
-            const char* asset_path = GetString(generator->config, full_key.c_str(), "");
-            if (asset_path && asset_path[0] != '\0')
+            auto asset_path = generator->config->GetString("noz", key, "");
+            if (!asset_path.empty())
             {
                 // Convert asset path to access path (e.g., "shaders/shadow" -> "Assets.shaders.shadow")
                 fs::path path(asset_path);

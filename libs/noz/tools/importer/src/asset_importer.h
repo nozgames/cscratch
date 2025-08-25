@@ -5,7 +5,7 @@
 #pragma once
 
 #include <filesystem>
-#include <string>
+#include <props.h>
 
 struct AssetImporterTraits
 {

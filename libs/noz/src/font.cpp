@@ -18,23 +18,21 @@ struct FontGlyph
 struct FontImpl
 {
     OBJECT_BASE;
-    name_t name;
     Material* material;
     Texture* texture;
     float baseline;
-	uint32_t original_font_size;
+    uint32_t original_font_size;
     float descent;
     float ascent;
     float line_height;
-	int atlas_width;
-	int atlas_height;
+    int atlas_width;
+    int atlas_height;
     FontGlyph glyphs[MAX_GLYPHS];     // Fixed array for glyphs (advance == 0 means no glyph)
     uint16_t kerning_index[MAX_KERNING];  // Index into kerning_values array (0xFFFF = no kerning)
     float* kerning_values;                 // Dynamic array of actual kerning values
     uint16_t kerning_count;                // Number of kerning pairs
 };
 
-static Map* g_font_cache = nullptr;
 static SDL_GPUDevice* g_device = nullptr;
 
 inline FontImpl* Impl(Font* f) { return (FontImpl*)Cast(f, TYPE_FONT); }
@@ -51,27 +49,19 @@ static void font_destroy_impl(FontImpl* impl)
 }
 #endif
 
-Font* LoadFont(Allocator* allocator, Stream* stream, name_t* name)
+Object* LoadFont(Allocator* allocator, Stream* stream, AssetHeader* header, const char* name)
 {
-    // Read header
-    if (!ReadFileSignature(stream, "FONT", 4))
-    {
-        Destroy(stream);
+    if (!stream || !header)
         return nullptr;
-    }
-
-    uint32_t version = ReadU32(stream);
-    if (version != 1)
-    {
-        Destroy(stream);
-        return nullptr;
-    }
+        
+    // Header already validated by LoadAsset
+    // Version is in header->version
 
     auto* impl = (FontImpl*)CreateObject(allocator, sizeof(FontImpl), TYPE_FONT);
     if (!impl)
         return nullptr;
 
-    SetName(&impl->name, name);
+    // Name no longer stored in font
 
     // Arrays are already zeroed by object_create
     // Initialize kerning index to 0xFFFF (no kerning)
@@ -143,9 +133,11 @@ Font* LoadFont(Allocator* allocator, Stream* stream, name_t* name)
     }
 
     ReadBytes(stream, atlas_data, atlas_data_size);
-    Destroy(stream);
+    // Note: stream destruction handled by caller
 
-    impl->texture = CreateTexture(allocator, atlas_data, impl->atlas_width, impl->atlas_height, TEXTURE_FORMAT_R8, name);
+    name_t tex_name;
+    name_set(&tex_name, name ? name : "font_atlas");
+    impl->texture = CreateTexture(allocator, atlas_data, impl->atlas_width, impl->atlas_height, TEXTURE_FORMAT_R8, &tex_name);
     free(atlas_data);
 
     if (!impl->texture)
@@ -154,50 +146,14 @@ Font* LoadFont(Allocator* allocator, Stream* stream, name_t* name)
         return nullptr;
     }
 
-    name_t material_name;
-    name_t shader_name;
-    name_set(&material_name, "font");
-    name_set(&shader_name, "shaders/text");
-    impl->material = CreateMaterial(allocator, LoadShader(allocator, &shader_name), &material_name);
-    if (!impl->material)
-    {
-        Destroy((Font*)impl);
-        return nullptr;
-    }
+    // Create material with text shader  
+    // TODO: Need to properly load the text shader and create material
+    // For now, skip material creation
+    impl->material = nullptr;
 
-    SetTexture(impl->material, impl->texture, 0);
-
-    return (Font*)impl;
+    return (Object*)impl;
 }
 
-Font* LoadFont(Allocator* allocator, name_t* name)
-{
-    assert(g_device);
-    assert(g_font_cache);
-    assert(name);
-
-    uint64_t key = Hash(name);
-
-    // Check if font exists in cache
-    auto font = (Font*)GetValue(g_font_cache, key);
-    if (font)
-        return font;
-
-    // Build asset name with extension
-    std::string asset_name = std::string(name->value) + ".font";
-    Stream* stream = LoadAssetStream(allocator, asset_name.c_str());
-    if (!stream)
-        return nullptr;
-
-    font = LoadFont(allocator, stream, name);
-
-    if (font)
-        SetValue(g_font_cache, key, font);
-
-    Destroy(stream);
-
-    return font;
-}
 
 const FontGlyph* GetGlyph(Font* font, char ch)
 {
@@ -259,13 +215,10 @@ Material* GetMaterial(Font* font)
 
 void InitFont(RendererTraits* traits, SDL_GPUDevice* device)
 {
-    g_font_cache = CreateMap(nullptr, traits->max_fonts);
     g_device = device;
 }
 
 void ShutdownFont()
 {
-    Destroy(g_font_cache);
-    g_font_cache = nullptr;
     g_device = nullptr;
 }

@@ -17,7 +17,6 @@ struct MeshImpl
     bounds3 bounds;
 };
 
-static Map* g_mesh_cache = nullptr;
 static SDL_GPUDevice* g_device = nullptr;
 
 static void UploadMesh(MeshImpl* impl);
@@ -258,16 +257,11 @@ bounds3 GetBounds(Mesh* mesh)
 
 void InitMesh(RendererTraits* traits, SDL_GPUDevice* device)
 {
-    assert(!g_mesh_cache);
     g_device = device;
-    g_mesh_cache = CreateMap(nullptr, traits->max_meshes);
 }
 
 void ShutdownMesh()
 {
-    assert(g_mesh_cache);
-    Destroy(g_mesh_cache);
-    g_mesh_cache = nullptr;
     g_device = nullptr;
 }
 

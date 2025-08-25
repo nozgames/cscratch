@@ -147,7 +147,7 @@ void ShutdownMesh();
 void DrawMeshGPU(Mesh* mesh, SDL_GPURenderPass* pass);
 
 // @texture
-void InitTexture(RendererTraits* traits, SDL_GPUDevice* dev);
+void InitTexture(RendererTraits* traits, SDL_GPUDevice* device);
 void ShutdownTexture();
 SDL_GPUTexture* GetGPUTexture(Texture* texture);
 SamplerOptions GetSamplerOptions(Texture* texture);
@@ -174,6 +174,7 @@ const name_t* GetName(Shader* shader);
 void InitFont(RendererTraits* traits, SDL_GPUDevice* device);
 void ShutdownFont();
 Material* GetMaterial(Font* font);
+
 
 // @animation
 void animation_evaluate_frame(

@@ -233,7 +233,7 @@ static void WriteTextureWithMipmaps(
     }
 }
 
-void ImportTexture(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta_props)
+void ImportTexture(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
 {
     fs::path src_path = source_path;
     
@@ -247,13 +247,13 @@ void ImportTexture(const fs::path& source_path, Stream* output_stream, Props* co
     }
     
     // Parse texture properties from meta props (with defaults)
-    std::string min_filter = GetString(meta_props, "min_filter", "linear");
-    std::string mag_filter = GetString(meta_props, "mag_filter", "linear");
-    std::string clamp_u = GetString(meta_props, "clamp_u", "clamp_to_edge");
-    std::string clamp_v = GetString(meta_props, "clamp_v", "clamp_to_edge");
-    std::string clamp_w = GetString(meta_props, "clamp_w", "clamp_to_edge");
-    bool generate_mipmaps = GetBool(meta_props, "mipmaps", false);
-    bool convert_from_srgb = GetBool(meta_props, "srgb", false);
+    std::string min_filter = meta->GetString("texture", "min_filter", "linear");
+    std::string mag_filter = meta->GetString("texture", "mag_filter", "linear");
+    std::string clamp_u = meta->GetString("texture", "clamp_u", "clamp_to_edge");
+    std::string clamp_v = meta->GetString("texture", "clamp_v", "clamp_to_edge");
+    std::string clamp_w = meta->GetString("texture", "clamp_w", "clamp_to_edge");
+    bool generate_mipmaps = meta->GetBool("texture", "mipmaps", false);
+    bool convert_from_srgb = meta->GetBool("texture", "srgb", false);
     
     // Convert to RGBA if needed
     std::vector<uint8_t> rgba_data;

@@ -2,10 +2,6 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "internal.h"
-#include "noz/stream.h"
-#include <string.h>
-
 bool ReadAssetHeader(Stream* stream, AssetHeader* header)
 {
     if (!stream || !header) return false;
@@ -52,6 +48,19 @@ type_t ToType(asset_signature_t signature)
     }
 }
 
+const char* GetExtensionFromSignature(asset_signature_t signature)
+{
+    // Convert signature to 4 character string (little endian to big endian)
+    static char ext[6];  // ".xxxx\0"
+    ext[0] = '.';
+    ext[1] = tolower((signature >> 24) & 0xFF);
+    ext[2] = tolower((signature >> 16) & 0xFF);
+    ext[3] = tolower((signature >> 8) & 0xFF);
+    ext[4] = tolower(signature & 0xFF);
+    ext[5] = '\0';
+    
+    return ext;
+}
 
 void SetAssetPath(Path* dst, const name_t* name, const char* ext)
 {
@@ -76,11 +85,10 @@ void SetAssetPath(Path* dst, const name_t* name, const char* ext)
     path_set_extension(dst, ext);
 }
 
-Stream* LoadAssetStream(Allocator* allocator, const char* asset_name)
+Stream* LoadAssetStream(Allocator* allocator, const char* asset_name, asset_signature_t signature)
 {
-    if (!asset_name)
-        return nullptr;
-    
+    assert(asset_name);
+
     const char* base_path = SDL_GetBasePath();
     std::filesystem::path asset_path;
     
@@ -95,6 +103,30 @@ Stream* LoadAssetStream(Allocator* allocator, const char* asset_name)
     }
     
     asset_path /= asset_name;
-    
+    asset_path += GetExtensionFromSignature(signature);
+
     return LoadStream(allocator, asset_path);
 }
+
+Object* LoadAsset(Allocator* allocator, const char* asset_name, asset_signature_t signature, AssetLoaderFunc loader)
+{
+    if (!asset_name || !loader)
+        return nullptr;
+
+    Stream* stream = LoadAssetStream(allocator, asset_name, signature);
+    if (!stream)
+        return nullptr;
+    
+    AssetHeader header = {};
+    if (!ReadAssetHeader(stream, &header) || !ValidateAssetHeader(&header, signature))
+    {
+        Destroy(stream);
+        return nullptr;
+    }
+
+    auto asset = loader(allocator, stream, &header, asset_name);
+    Destroy(stream);
+    
+    return asset;
+}
+

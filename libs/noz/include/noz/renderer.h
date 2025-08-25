@@ -20,6 +20,7 @@ struct RendererTraits
     size_t max_textures;
     size_t max_shaders;
     size_t max_samplers;
+    size_t max_pipelines;
     size_t max_meshes;
     size_t max_fonts;
     size_t max_frame_commands;
@@ -50,7 +51,6 @@ enum TextureFormat
     TEXTURE_FORMAT_R8
 };
 
-Texture* LoadTexture(Allocator* allocator, name_t* path);
 Texture* CreateTexture(Allocator* allocator, void* data, size_t width, size_t height, TextureFormat format, const name_t* name);
 Texture* CreateTexture(Allocator* allocator, int width, int height, TextureFormat format, const name_t* name);
 int GetBytesPerPixel(TextureFormat format);

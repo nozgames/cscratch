@@ -29,14 +29,28 @@ bool ReadAssetHeader(Stream* stream, AssetHeader* header);
 bool WriteAssetHeader(Stream* stream, AssetHeader* header);
 bool ValidateAssetHeader(AssetHeader* header, uint32_t expected_signature);
 type_t ToType(asset_signature_t signature);
+const char* GetExtensionFromSignature(asset_signature_t signature);
 void SetAssetPath(Path* dst, const name_t* name, const char* ext);
 Stream* LoadAssetStream(Allocator* allocator, const char* asset_name);
 
-// Asset loading macro - creates a name_t and calls the appropriate load function
-// Usage: NOZ_ASSET_LOAD(shader, "shaders/border_effect", g_assets.shaders.border_effect);
-#define NOZ_ASSET_LOAD(type, path, member) \
+// Forward declare the loader function type
+typedef struct Object Object;
+typedef Object* (*AssetLoaderFunc)(Allocator* allocator, Stream* stream, AssetHeader* header, const char* name);
+
+// Asset loader functions - take stream and return Object*
+Object* LoadTexture(Allocator* allocator, Stream* stream, AssetHeader* header, const char* name);
+Object* LoadShader(Allocator* allocator, Stream* stream, AssetHeader* header, const char* name);
+Object* LoadFont(Allocator* allocator, Stream* stream, AssetHeader* header, const char* name);
+Object* LoadMesh(Allocator* allocator, Stream* stream, AssetHeader* header, const char* name);
+Object* LoadMaterial(Allocator* allocator, Stream* stream, AssetHeader* header, const char* name);
+Object* LoadStyleSheet(Allocator* allocator, Stream* stream, const char* name);
+
+// Generic asset loading function
+Object* LoadAsset(Allocator* allocator, const char* asset_name, asset_signature_t signature, AssetLoaderFunc loader);
+
+// Asset loading macro - loads an asset using the new stream-based system
+// Usage: NOZ_ASSET_LOAD(TEXTURE, "textures/grid", g_assets.textures.grid, LoadTexture);
+#define NOZ_ASSET_LOAD(type, path, member, loader_func) \
     do { \
-        name_t asset_name; \
-        name_set(&asset_name, path); \
-        member = Load##type##(g_asset_allocator, &asset_name); \
+        member = (type*)LoadAsset(g_asset_allocator, path, ASSET_SIGNATURE_##type, loader_func); \
     } while(0)

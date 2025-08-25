@@ -23,7 +23,7 @@ constexpr type_t TYPE_FONT = -802;
 constexpr type_t TYPE_MESH = -803;
 constexpr type_t TYPE_SOUND = -804;
 constexpr type_t TYPE_TEXTURE = -805;
-constexpr type_t TYPE_STYLESHEET = -806;
+constexpr type_t TYPE_STYLE_SHEET = -806;
 
 // @scene
 constexpr type_t TYPE_ENTITY = -700;

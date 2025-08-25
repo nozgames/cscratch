@@ -4,6 +4,9 @@
 
 #pragma once
 
+// @types
+struct StyleSheet : Object {};
+
 // @style
 
 typedef u32 PseudoState;
@@ -99,8 +102,13 @@ struct Style
     StyleLength padding_right;
 };
 
-
+const Style& GetDefaultStyle();
 void DeserializeStyle(Stream* stream, Style* style);
 Style DeserializeStyle(Stream* stream);
 void SerializeStyle(const Style* style, Stream* stream);
 void MergeStyles(Style* dst, const Style* src);
+
+
+// @stylesheet
+const Style& GetStyle(StyleSheet* sheet, const name_t* name);
+bool HasStyle(StyleSheet* sheet, const name_t* name);

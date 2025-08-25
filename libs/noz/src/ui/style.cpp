@@ -20,7 +20,11 @@ static Style g_default_style = {
     .padding_bottom = { STYLE_KEYWORD_INHERIT, STYLE_LENGTH_UNIT_FIXED, 0.0f },
     .padding_right = { STYLE_KEYWORD_INHERIT, STYLE_LENGTH_UNIT_FIXED, 0.0f }
 };
- 
+
+const Style& GetDefaultStyle()
+{
+    return g_default_style;
+}
 
 static bool DeserializeStyleParameter(Stream* stream, StyleParameter* value)
 {

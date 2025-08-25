@@ -4,14 +4,16 @@
 
 #define INITIAL_CACHE_SIZE 64
 
-static Map* g_pipeline_cache = nullptr;
-static SDL_GPUDevice* g_device = nullptr;
-static SDL_Window* g_window = nullptr;
-
 struct Pipeline
 {
     SDL_GPUGraphicsPipeline* gpu_pipeline;
 };
+
+static Map g_cache = {};
+static u64* g_cache_keys = nullptr;
+static Pipeline* g_cache_pipelines = nullptr;
+static SDL_GPUDevice* g_device = nullptr;
+static SDL_Window* g_window = nullptr;
 
 static uint64_t MakeKey(Shader* shader, bool msaa, bool shadow)
 {
@@ -164,12 +166,11 @@ SDL_GPUGraphicsPipeline* GetGPUPipeline(Shader* shader, bool msaa, bool shadow)
     assert(g_window);
     assert(g_device);
     assert(shader);
-    assert(g_pipeline_cache);
 
     auto key = MakeKey(shader, msaa, shadow);
-    auto* impl = (Pipeline*)GetValue(g_pipeline_cache, key);
-    if (impl != nullptr)
-        return impl->gpu_pipeline;
+    auto* pipeline = (Pipeline*)GetValue(g_cache, key);
+    if (pipeline != nullptr)
+        return pipeline->gpu_pipeline;
 
     // Create new pipeline
     SDL_GPUVertexAttribute attributes[] = {
@@ -179,34 +180,32 @@ SDL_GPUGraphicsPipeline* GetGPUPipeline(Shader* shader, bool msaa, bool shadow)
         {3, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT, sizeof(float) * 8}   // bone_index : TEXCOORD3 (semantic 3)
     };
 
-    SDL_GPUGraphicsPipeline* pipeline = CreateGPUPipeline(shader, attributes, 4, msaa, shadow);
-    if (!pipeline)
+    SDL_GPUGraphicsPipeline* gpu_pipeline = CreateGPUPipeline(shader, attributes, 4, msaa, shadow);
+    if (!gpu_pipeline)
         return nullptr;
 
-    // Store in cache
-    impl = (Pipeline*)Alloc(nullptr, sizeof(Pipeline));
-    if (!impl)
-        return nullptr;
-
-    impl->gpu_pipeline = pipeline;
-    SetValue(g_pipeline_cache, key, impl);
-    return pipeline;
+    pipeline = (Pipeline*)SetValue(g_cache, key, nullptr);
+    pipeline->gpu_pipeline = gpu_pipeline;
+    return pipeline->gpu_pipeline;
 }
 
-void InitPipelineFactory(SDL_Window* win, SDL_GPUDevice* dev)
+void InitPipelineFactory(RendererTraits* traits, SDL_Window* win, SDL_GPUDevice* dev)
 {
-    assert(!g_pipeline_cache);
+    assert(!g_device);
 
     g_window = win;
     g_device = dev;
-    g_pipeline_cache = CreateMap(nullptr, INITIAL_CACHE_SIZE);
+    g_cache_keys = (u64*)Alloc(nullptr, sizeof(u64) * traits->max_pipelines);
+    g_cache_pipelines = (Pipeline*)Alloc(nullptr, sizeof(Pipeline) * traits->max_pipelines);
+    g_cache = CreateMap(g_cache_keys, traits->max_pipelines, g_cache_pipelines, sizeof(Pipeline));
 }
 
 void ShutdownPipelineFactory()
 {
-    assert(g_pipeline_cache);
-    Destroy(g_pipeline_cache);
-    g_pipeline_cache = nullptr;
+    assert(g_device);
+    Free(nullptr, g_cache_keys);
+    Free(nullptr, g_cache_pipelines);
+    g_cache = {};
     g_window = nullptr;
     g_device = nullptr;
 }

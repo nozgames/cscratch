@@ -10,13 +10,13 @@ struct Camera : Entity { };
 #define ENTITY_BASE_SIZE 160
 #define ENTITY_BASE char __entity[ENTITY_BASE_SIZE]
 
-inline void* Cast(Object* obj, int16_t type_id)
+inline void* Cast(Object* obj, type_t type_id)
 {
-    assert(obj && *((int16_t*)obj) == type_id);
+    assert(obj && *((type_t*)obj) == type_id);
     return obj;
 }
 
-inline void* CastToBase(Object* obj, int16_t base_id)
+inline void* CastToBase(Object* obj, type_t base_id)
 {
     assert(obj && *(((int16_t*)obj) + 1) == base_id);
     return obj;

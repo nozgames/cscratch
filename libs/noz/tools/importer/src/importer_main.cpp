@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <iostream>
 #include <noz/noz.h>
+#include <noz/asset.h>
 #include <noz/platform.h>
 #include <string>
 #include <vector>
@@ -34,24 +35,7 @@ void ProcessFileChange(const fs::path& file_path, FileChangeType change_type, st
 bool ProcessImportQueue(std::vector<AssetImporterTraits*>& importers);
 
 // Helper function to derive file extension from asset signature
-std::string GetExtensionFromSignature(asset_signature_t signature)
-{
-    // Convert signature to 4 character string (little endian to big endian)
-    char sig_chars[5] = {};
-    sig_chars[0] = (signature >> 24) & 0xFF;
-    sig_chars[1] = (signature >> 16) & 0xFF;
-    sig_chars[2] = (signature >> 8) & 0xFF;
-    sig_chars[3] = signature & 0xFF;
-    
-    // Convert to lowercase extension
-    std::string ext = ".";
-    for (int i = 0; i < 4; i++)
-    {
-        ext += std::tolower(sig_chars[i]);
-    }
-    
-    return ext;
-}
+// GetExtensionFromSignature is now provided by asset.h
 
 void signal_handler(int sig)
 {
@@ -62,104 +46,23 @@ void signal_handler(int sig)
     g_running = false;
 }
 
-int main(int argc, char* argv[])
+static bool LoadConfig()
 {
-    // Initialize importers array - now including all asset importers
-    std::vector importers = {
-        GetShaderImporterTraits(), 
-        GetTextureImporterTraits(),
-        GetFontImporterTraits(),
-        GetMeshImporterTraits(),
-        GetStyleSheetImporterTraits()
-    };
-
-    // Set up signal handler for Ctrl-C
-    signal(SIGINT, signal_handler);
-
     std::filesystem::path config_path = "./importer.cfg";
-    Stream* config_stream = LoadStream(nullptr, config_path);
-    if (config_stream)
+    if (Stream* config_stream = LoadStream(nullptr, config_path))
     {
-        g_config = LoadProps(nullptr, config_stream);
+        g_config = Props::Load(config_stream);
         Destroy(config_stream);
-    }
-    else
-    {
-        g_config = nullptr;
-    }
-    if (!g_config)
-    {
-        printf("missing configuration '%s'\n", config_path.string().c_str());
-        return 1;
-    }
 
-    printf("loaded configuration '%s'\n", config_path.string().c_str());
-
-    // Initialize file watcher
-    InitFileWatcher(500);
-
-    // Get source directories from config
-    if (!HasKey(g_config, "source"))
-    {
-        printf("No [source] section found in config\n");
-        Destroy(g_config);
-        ShutdownFileWatcher();
-        return 1;
-    }
-
-    // Add directories to watch (file watcher will auto-start when first directory is added)
-    printf("Adding directories to watch:\n");
-    size_t source_count = GetListCount(g_config, "source");
-    for (size_t i = 0; i < source_count; i++)
-    {
-        const char* dir = GetListElement(g_config, "source", i, "");
-        printf("  - %s\n", dir);
-        if (!WatchDirectory(fs::path(dir)))
+        if (g_config != nullptr)
         {
-            printf("    WARNING: Failed to add directory '%s'\n", dir);
+            printf("loaded configuration '%s'\n", config_path.string().c_str());
+            return true;
         }
     }
 
-    printf("\nWatching for file changes... Press Ctrl-C to exit\n\n");
-
-    // Main loop - watch for file changes
-    while (g_running)
-    {
-        FileChangeEvent event;
-        while (GetFileChangeEvent(&event))
-        {
-            // Process file changes for import (silently)
-            ProcessFileChange(event.path, event.type, importers);
-        }
-
-        // Process any queued imports
-        bool imports_processed = ProcessImportQueue(importers);
-        
-        // Generate asset manifest if any imports were processed
-        if (imports_processed)
-        {
-            const char* output_dir = GetString(g_config, "output.directory", "assets");
-            const char* manifest_path = GetString(g_config, "output.manifest", "src/assets.cpp");
-            
-            if (GenerateAssetManifest(fs::path(output_dir), fs::path(manifest_path), importers, g_config))
-            {
-                std::cout << "Generated asset manifest: " << manifest_path << std::endl;
-            }
-            else
-            {
-                std::cerr << "Failed to generate asset manifest" << std::endl;
-            }
-        }
-
-        // Sleep briefly to avoid busy waiting
-        thread_sleep_ms(100); // 100ms
-    }
-
-    // Clean up
-    ShutdownFileWatcher();
-    Destroy(g_config);
-    g_import_queue.clear();
-    return 0;
+    printf("missing configuration '%s'\n", config_path.string().c_str());
+    return false;
 }
 
 void ProcessFileChange(const fs::path& file_path, FileChangeType change_type, std::vector<AssetImporterTraits*>& importers)
@@ -232,7 +135,7 @@ bool ProcessImportQueue(std::vector<AssetImporterTraits*>& importers)
         return false;
 
     // Get output directory from config
-    const char* output_dir = GetString(g_config, "output.directory", "assets");
+    auto output_dir = g_config->GetString("output", "directory", "assets");
     
     // Convert to filesystem::path
     fs::path output_path = fs::absolute(fs::path(output_dir));
@@ -287,58 +190,43 @@ bool ProcessImportQueue(std::vector<AssetImporterTraits*>& importers)
                         }
                         
                         // Load .meta file or create default props
-                        fs::path meta_path = fs::path(job.source_path.string() + ".meta");
-                        Props* meta_props = nullptr;
-                        
-                        if (fs::exists(meta_path))
+                        Props* meta = nullptr;
+                        if (auto meta_stream = LoadStream(nullptr, fs::path(job.source_path.string() + ".meta")))
                         {
-                            Stream* meta_stream = LoadStream(nullptr, meta_path);
-                            if (meta_stream)
-                            {
-                                meta_props = LoadProps(nullptr, meta_stream);
-                                Destroy(meta_stream);
-                            }
+                            meta = Props::Load(meta_stream);
+                            Destroy(meta_stream);
                         }
-                        
+
                         // Create default props if meta file failed to load
-                        if (!meta_props)
-                        {
-                            meta_props = CreateProps(nullptr);
-                        }
-                        
+                        if (!meta)
+                            meta = new Props();
+
                         // Call the importer
-                        job.importer->import_func(job.source_path, output_stream, g_config, meta_props);
+                        job.importer->import_func(job.source_path, output_stream, g_config, meta);
                         
-                        // Clean up meta props
-                        Destroy(meta_props);
+                        delete meta;
                         
                         // Build output file path with correct extension
                         fs::path relative_path;
                         bool found_relative = false;
                         
                         // Get source directories from config and find the relative path
-                        size_t source_count = GetListCount(g_config, "source");
-                        for (size_t i = 0; i < source_count; i++)
+                        auto source_list = g_config->GetKeys("source");
+                        for (auto& source_dir_str : source_list)
                         {
-                            const char* source_dir_str = GetListElement(g_config, "source", i, "");
-                            if (source_dir_str[0] != '\0')
+                            fs::path source_dir(source_dir_str);
+                            std::error_code ec;
+                            relative_path = fs::relative(job.source_path, source_dir, ec);
+                            if (!ec && !relative_path.empty() && relative_path.string().find("..") == std::string::npos)
                             {
-                                fs::path source_dir(source_dir_str);
-                                std::error_code ec;
-                                relative_path = fs::relative(job.source_path, source_dir, ec);
-                                if (!ec && !relative_path.empty() && relative_path.string().find("..") == std::string::npos)
-                                {
-                                    found_relative = true;
-                                    break;
-                                }
+                                found_relative = true;
+                                break;
                             }
                         }
                         
                         if (!found_relative)
-                        {
                             relative_path = job.source_path.filename();
-                        }
-                        
+
                         // Build final output path with extension derived from signature
                         fs::path final_path = output_path / relative_path;
                         std::string derived_extension = GetExtensionFromSignature(job.importer->signature);
@@ -384,4 +272,68 @@ bool ProcessImportQueue(std::vector<AssetImporterTraits*>& importers)
     }
     
     return any_imports_processed;
+}
+
+int main(int argc, char* argv[])
+{
+    if (!LoadConfig())
+        return 1;
+
+    std::vector importers = {
+        GetShaderImporterTraits(),
+        GetTextureImporterTraits(),
+        GetFontImporterTraits(),
+        GetMeshImporterTraits(),
+        GetStyleSheetImporterTraits()
+    };
+
+    // Set up signal handler for Ctrl-C
+    signal(SIGINT, signal_handler);
+
+    InitFileWatcher(500);
+
+    // Get source directories from config
+    if (!g_config->HasGroup("source"))
+    {
+        printf("No [source] section found in config\n");
+        ShutdownFileWatcher();
+        return 1;
+    }
+
+    // Add directories to watch (file watcher will auto-start when first directory is added)
+    printf("Adding directories to watch:\n");
+    auto source = g_config->GetKeys("source");
+    for (const auto& source_dir_str : source)
+    {
+        printf("  - %s\n", source_dir_str.c_str());
+        if (!WatchDirectory(fs::path(source_dir_str)))
+            printf("    WARNING: Failed to add directory '%s'\n", source_dir_str.c_str());
+    }
+
+    printf("\nWatching for file changes... Press Ctrl-C to exit\n\n");
+
+    while (g_running)
+    {
+        // Dont spin too fast
+        thread_sleep_ms(100);
+
+        // Enqueue changed files
+        FileChangeEvent event;
+        while (GetFileChangeEvent(&event))
+            ProcessFileChange(event.path, event.type, importers);
+
+        // Process queue
+        if (!ProcessImportQueue(importers))
+            continue;
+
+        // Generate a new asset manifest
+        auto output_dir = g_config->GetString("output", "directory", "assets");
+        auto manifest_path = g_config->GetString("output", "manifest", "src/assets.cpp");
+        GenerateAssetManifest(fs::path(output_dir), fs::path(manifest_path), importers, g_config);
+    }
+
+    // Clean up
+    ShutdownFileWatcher();
+    g_import_queue.clear();
+    return 0;
 }

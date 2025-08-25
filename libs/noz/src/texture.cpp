@@ -14,23 +14,11 @@ struct TextureImpl
 };
 
 static SDL_GPUDevice* g_device = nullptr;
-static Map* g_texture_cache = nullptr;
 
-static void CreateTexture(
-    TextureImpl* impl,
-    void* data,
-    size_t width,
-    size_t height,
-    int channels,
-    bool generate_mipmaps);
-static void LoadTexture(Allocator* allocator, TextureImpl* impl);
 static void texture_destroy_impl(TextureImpl* impl);
 int GetBytesPerPixel(TextureFormat format);
 
-static TextureImpl* Impl(Texture* t)
-{
-    return (TextureImpl*)Cast((Object*)t, TYPE_TEXTURE);
-}
+static TextureImpl* Impl(Texture* t) { return (TextureImpl*)Cast(t, TYPE_TEXTURE); }
 
 SDL_GPUTextureFormat ToSDL(const TextureFormat format)
 {
@@ -46,153 +34,21 @@ SDL_GPUTextureFormat ToSDL(const TextureFormat format)
         return SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
     }
 }
-Texture* LoadTexture(Allocator* allocator, const name_t* name)
-{
-    assert(g_device);
-    assert(g_texture_cache);
-    assert(name);
 
-    const u64 key = Hash(name);
-
-    // cached?
-    auto* texture = (Texture*)GetValue(g_texture_cache, key);
-    if (texture)
-        return texture;
-
-    // Create new texture
-    texture = (Texture*)CreateObject(allocator, sizeof(TextureImpl), TYPE_TEXTURE);
-    if (!texture)
-        return nullptr;
-
-    TextureImpl* impl = Impl(texture);
-    SetValue(g_texture_cache, key, texture);
-
-    impl->handle = nullptr;
-    impl->size.x = 0;
-    impl->size.y = 0;
-    impl->sampler_options.min_filter = TEXTURE_FILTER_LINEAR;
-    impl->sampler_options.mag_filter = TEXTURE_FILTER_LINEAR;
-    impl->sampler_options.clamp_u = TEXTURE_CLAMP_CLAMP;
-    impl->sampler_options.clamp_v = TEXTURE_CLAMP_CLAMP;
-    impl->sampler_options.clamp_w = TEXTURE_CLAMP_CLAMP;
-    impl->sampler_options.compare_op = SDL_GPU_COMPAREOP_INVALID;
-    SetName(&impl->name, name);
-
-    // Handle special "white" texture
-    if (name_eq_cstr(name, "white"))
-    {
-        uint8_t white_pixel[4] = {255, 255, 255, 255};
-        CreateTexture(impl, white_pixel, 1, 1, 4, false);
-        return (Texture*)impl;
-    }
-
-    LoadTexture(allocator, impl);
-    return (Texture*)impl;
-}
-
-Texture* CreateTexture(Allocator* allocator, int width, int height, TextureFormat format, const name_t* name)
-{
-    assert(width > 0);
-    assert(height > 0);
-    assert(name);
-    assert(g_device);
-
-    auto* texture = (Texture*)CreateObject(allocator, sizeof(TextureImpl), TYPE_TEXTURE);
-    if (!texture)
-        return nullptr;
-
-    auto impl = Impl(texture);
-    impl->size.x = width;
-    impl->size.y = height;
-    SetName(&impl->name, name);
-
-    SDL_GPUTextureCreateInfo texture_info = {};
-    texture_info.type = SDL_GPU_TEXTURETYPE_2D;
-    texture_info.format = ToSDL(format);
-    texture_info.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-    texture_info.width = width;
-    texture_info.height = height;
-    texture_info.layer_count_or_depth = 1;
-    texture_info.num_levels = 1;
-    texture_info.sample_count = SDL_GPU_SAMPLECOUNT_1;
-    texture_info.props = SDL_CreateProperties();
-
-    SDL_SetStringProperty(texture_info.props, SDL_PROP_GPU_TEXTURE_CREATE_NAME_STRING, name->value);
-    impl->handle = SDL_CreateGPUTexture(g_device, &texture_info);
-    SDL_DestroyProperties(texture_info.props);
-
-    return texture;
-}
-
-Texture* CreateTexture(
-    Allocator* allocator,
+static void CreateTexture(
+    TextureImpl* impl,
     void* data,
     size_t width,
     size_t height,
-    TextureFormat format,
-    const name_t* name)
-{
-    assert(data);
-    assert(name);
-
-    auto* texture = (Texture*)CreateObject(allocator, sizeof(TextureImpl), TYPE_TEXTURE);
-    if (!texture)
-        return nullptr;
-
-    CreateTexture(Impl(texture), data, width, height, GetBytesPerPixel(format), false);
-    return texture;
-}
-
-#if 0
-static void texture_destroy_impl(TextureImpl* impl)
-{
-    assert(impl);
-    
-    if (impl->handle)
-		SDL_ReleaseGPUTexture(g_device, impl->handle);
-}
-#endif
-
-ivec2 GetSize(Texture* texture)
-{
-    return Impl(texture)->size;
-}
-
-int GetWidth(Texture* texture)
-{
-    return Impl(texture)->size.x;
-}
-
-int GetHeight(Texture* texture)
-{
-    return Impl(texture)->size.y;
-}
-
-SDL_GPUTexture* GetGPUTexture(Texture* texture)
-{
-    return Impl(texture)->handle;
-}
-
-SamplerOptions GetSamplerOptions(Texture* texture)
-{
-    static SamplerOptions default_options = {TEXTURE_FILTER_LINEAR, TEXTURE_FILTER_LINEAR,
-                                                TEXTURE_CLAMP_CLAMP,   TEXTURE_CLAMP_CLAMP,
-                                                TEXTURE_CLAMP_CLAMP,   SDL_GPU_COMPAREOP_INVALID};
-
-    if (!texture)
-        return default_options;
-    return Impl(texture)->sampler_options;
-}
-
-static void CreateTexture(TextureImpl* impl, void* data, size_t width, size_t height, int channels,
-                                            bool generate_mipmaps)
+    int channels,
+    bool generate_mipmaps,
+    const char* name)
 {
     assert(impl);
     assert(data);
     assert(width > 0);
     assert(height > 0);
     assert(channels > 0);
-    assert(g_device);
 
     // Handle different channel formats
     uint8_t* rgba_data = nullptr;
@@ -277,7 +133,7 @@ static void CreateTexture(TextureImpl* impl, void* data, size_t width, size_t he
     texture_info.num_levels = num_levels;
     texture_info.sample_count = SDL_GPU_SAMPLECOUNT_1;
     texture_info.props = SDL_CreateProperties();
-    SDL_SetStringProperty(texture_info.props, SDL_PROP_GPU_TEXTURE_CREATE_NAME_STRING, impl->name.value);
+    SDL_SetStringProperty(texture_info.props, SDL_PROP_GPU_TEXTURE_CREATE_NAME_STRING, name);
 
     impl->handle = SDL_CreateGPUTexture(g_device, &texture_info);
     SDL_DestroyProperties(texture_info.props);
@@ -319,27 +175,108 @@ static void CreateTexture(TextureImpl* impl, void* data, size_t width, size_t he
         free(rgba_data);
 }
 
-static void LoadTexture(Allocator* allocator, TextureImpl* impl)
+Texture* CreateTexture(Allocator* allocator, int width, int height, TextureFormat format, const name_t* name)
 {
-    std::string asset_name = std::string(impl->name.value) + ".texture";
-    Stream* stream = LoadAssetStream(allocator, asset_name.c_str());
-    if (!stream)
-        return;
+    assert(width > 0);
+    assert(height > 0);
+    assert(name);
+    assert(g_device);
 
-    // Validate file signature
-    if (!ReadFileSignature(stream, "NZXT", 4))
-    {
-        Destroy(stream);
-        return;
-    }
+    auto* texture = (Texture*)CreateObject(allocator, sizeof(TextureImpl), TYPE_TEXTURE);
+    if (!texture)
+        return nullptr;
+
+    auto impl = Impl(texture);
+    impl->size.x = width;
+    impl->size.y = height;
+
+    SDL_GPUTextureCreateInfo texture_info = {};
+    texture_info.type = SDL_GPU_TEXTURETYPE_2D;
+    texture_info.format = ToSDL(format);
+    texture_info.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
+    texture_info.width = width;
+    texture_info.height = height;
+    texture_info.layer_count_or_depth = 1;
+    texture_info.num_levels = 1;
+    texture_info.sample_count = SDL_GPU_SAMPLECOUNT_1;
+    texture_info.props = SDL_CreateProperties();
+
+    SDL_SetStringProperty(texture_info.props, SDL_PROP_GPU_TEXTURE_CREATE_NAME_STRING, name->value);
+    impl->handle = SDL_CreateGPUTexture(g_device, &texture_info);
+    SDL_DestroyProperties(texture_info.props);
+
+    return texture;
+}
+
+Texture* CreateTexture(
+    Allocator* allocator,
+    void* data,
+    size_t width,
+    size_t height,
+    TextureFormat format,
+    const name_t* name)
+{
+    assert(data);
+    assert(name);
+
+    auto* texture = (Texture*)CreateObject(allocator, sizeof(TextureImpl), TYPE_TEXTURE);
+    if (!texture)
+        return nullptr;
+
+    CreateTexture(Impl(texture), data, width, height, GetBytesPerPixel(format), false, name->value);
+    return texture;
+}
+
+#if 0
+static void texture_destroy_impl(TextureImpl* impl)
+{
+    assert(impl);
+    
+    if (impl->handle)
+		SDL_ReleaseGPUTexture(g_device, impl->handle);
+}
+#endif
+
+ivec2 GetSize(Texture* texture)
+{
+    return Impl(texture)->size;
+}
+
+int GetWidth(Texture* texture)
+{
+    return Impl(texture)->size.x;
+}
+
+int GetHeight(Texture* texture)
+{
+    return Impl(texture)->size.y;
+}
+
+SDL_GPUTexture* GetGPUTexture(Texture* texture)
+{
+    return Impl(texture)->handle;
+}
+
+SamplerOptions GetSamplerOptions(Texture* texture)
+{
+    static SamplerOptions default_options = {TEXTURE_FILTER_LINEAR, TEXTURE_FILTER_LINEAR,
+                                                TEXTURE_CLAMP_CLAMP,   TEXTURE_CLAMP_CLAMP,
+                                                TEXTURE_CLAMP_CLAMP,   SDL_GPU_COMPAREOP_INVALID};
+
+    if (!texture)
+        return default_options;
+    return Impl(texture)->sampler_options;
+}
+
+Object* LoadTexture(Allocator* allocator, Stream* stream, const char* name)
+{
+    assert(stream);
+    assert(name);
 
     // Read version
     uint32_t version = ReadU32(stream);
     if (version != 1)
-    {
-        Destroy(stream);
-        return;
-    }
+        return nullptr;
 
     // Read texture data
     uint32_t format = ReadU32(stream);
@@ -348,10 +285,17 @@ static void LoadTexture(Allocator* allocator, TextureImpl* impl)
 
     // Validate format
     if (format > 1)
-    {
-        Destroy(stream);
-        return;
-    }
+        return nullptr;
+
+    // Create texture object
+    auto* texture = (Texture*)CreateObject(allocator, sizeof(TextureImpl), TYPE_TEXTURE);
+    if (!texture)
+        return nullptr;
+
+    TextureImpl* impl = Impl(texture);
+    impl->handle = nullptr;
+    impl->size.x = width;
+    impl->size.y = height;
 
     // Read sampler options
     impl->sampler_options.min_filter = (TextureFilter)ReadU8(stream);
@@ -381,7 +325,7 @@ static void LoadTexture(Allocator* allocator, TextureImpl* impl)
                 if (mip_data)
                 {
                     ReadBytes(stream, mip_data, mip_data_size);
-                    CreateTexture(impl, mip_data, width, height, (format == 1) ? 4 : 3, true);
+                    CreateTexture(impl, mip_data, width, height, (format == 1) ? 4 : 3, true, name);
                     free(mip_data);
                 }
                 else
@@ -404,13 +348,14 @@ static void LoadTexture(Allocator* allocator, TextureImpl* impl)
         if (const auto texture_data = (u8*)malloc(data_size))
         {
             ReadBytes(stream, texture_data, data_size);
-            CreateTexture(impl, texture_data, width, height, channels, false);
+            CreateTexture(impl, texture_data, width, height, channels, false, name);
             free(texture_data);
         }
     }
 
-    Destroy(stream);
+    return (Object*)texture;
 }
+
 
 int GetBytesPerPixel(TextureFormat format)
 {
@@ -427,14 +372,12 @@ int GetBytesPerPixel(TextureFormat format)
     }
 }
 
-void InitTexture(RendererTraits* traits, SDL_GPUDevice* dev)
+void InitTexture(RendererTraits* traits, SDL_GPUDevice* device)
 {
-    g_device = dev;
-    g_texture_cache = CreateMap(nullptr, traits->max_textures);
+    g_device = device;
 }
 
 void ShutdownTexture()
 {
-    g_texture_cache = nullptr;
     g_device = nullptr;
 }

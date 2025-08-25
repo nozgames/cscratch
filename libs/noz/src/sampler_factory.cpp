@@ -4,65 +4,22 @@
 
 #define INITIAL_CACHE_SIZE 32
 
-
 struct Sampler
 {
     SDL_GPUSampler* gpu_sampler;
 };
 
-static Map* g_sampler_cache = nullptr;
 static SDL_GPUDevice* g_device = nullptr;
+static Sampler* g_cache_samplers = nullptr;
+static u64* g_cache_keys = nullptr;
+static Map g_cache = {};
 
 static u64 Hash(const SamplerOptions* options)
 {
     return Hash((void*)options, sizeof(SamplerOptions));
 }
 
-SDL_GPUFilter to_sdl_filter(TextureFilter filter);
-SDL_GPUSamplerAddressMode to_sdl_clamp(TextureClamp clamp);
-
-SDL_GPUSampler* GetGPUSampler(Texture* texture)
-{
-    assert(g_device);
-    assert(g_sampler_cache);
-    assert(texture);
-
-    SamplerOptions options = GetSamplerOptions(texture);
-    u64 key = Hash(&options);
-
-    auto* sampler = (Sampler*)GetValue(g_sampler_cache, key);
-    if (sampler)
-        return sampler->gpu_sampler;
-
-    // Create new sampler
-    SDL_GPUSamplerCreateInfo sampler_info = {};
-    sampler_info.min_filter = to_sdl_filter(options.min_filter);
-    sampler_info.mag_filter = to_sdl_filter(options.mag_filter);
-    sampler_info.mipmap_mode = (options.min_filter == TEXTURE_FILTER_NEAREST)
-        ? SDL_GPU_SAMPLERMIPMAPMODE_NEAREST
-        : SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
-    sampler_info.address_mode_u = to_sdl_clamp(options.clamp_u);
-    sampler_info.address_mode_v = to_sdl_clamp(options.clamp_v);
-    sampler_info.address_mode_w = to_sdl_clamp(options.clamp_w);
-    sampler_info.enable_compare = sampler_info.compare_op != SDL_GPU_COMPAREOP_INVALID;
-    sampler_info.compare_op = options.compare_op;
-    sampler_info.props = 0;
-
-    SDL_GPUSampler* gpu_sampler = SDL_CreateGPUSampler(g_device, &sampler_info);
-    if (!gpu_sampler)
-        return nullptr;
-
-    // Store in cache
-    sampler = (Sampler*)Alloc(nullptr, sizeof(Sampler));
-    if (!sampler)
-        return nullptr;
-
-    sampler->gpu_sampler = gpu_sampler;
-    SetValue(g_sampler_cache, key, sampler);
-    return sampler->gpu_sampler;
-}
-
-SDL_GPUFilter to_sdl_filter(TextureFilter filter)
+SDL_GPUFilter ToSDL(TextureFilter filter)
 {
     switch (filter)
     {
@@ -74,7 +31,7 @@ SDL_GPUFilter to_sdl_filter(TextureFilter filter)
     }
 }
 
-SDL_GPUSamplerAddressMode to_sdl_clamp(TextureClamp mode)
+SDL_GPUSamplerAddressMode ToSDL(TextureClamp mode)
 {
     switch (mode)
     {
@@ -89,19 +46,63 @@ SDL_GPUSamplerAddressMode to_sdl_clamp(TextureClamp mode)
     }
 }
 
+SDL_GPUSampler* GetGPUSampler(Texture* texture)
+{
+    assert(g_device);
+    assert(texture);
+
+    SamplerOptions options = GetSamplerOptions(texture);
+    u64 key = Hash(&options);
+
+    auto* sampler = (Sampler*)GetValue(g_cache, key);
+    if (sampler != nullptr)
+        return sampler->gpu_sampler;
+
+    // Create new sampler
+    SDL_GPUSamplerCreateInfo sampler_info = {};
+    sampler_info.min_filter = ToSDL(options.min_filter);
+    sampler_info.mag_filter = ToSDL(options.mag_filter);
+    sampler_info.mipmap_mode = (options.min_filter == TEXTURE_FILTER_NEAREST)
+        ? SDL_GPU_SAMPLERMIPMAPMODE_NEAREST
+        : SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+    sampler_info.address_mode_u = ToSDL(options.clamp_u);
+    sampler_info.address_mode_v = ToSDL(options.clamp_v);
+    sampler_info.address_mode_w = ToSDL(options.clamp_w);
+    sampler_info.enable_compare = sampler_info.compare_op != SDL_GPU_COMPAREOP_INVALID;
+    sampler_info.compare_op = options.compare_op;
+    sampler_info.props = 0;
+
+    SDL_GPUSampler* gpu_sampler = SDL_CreateGPUSampler(g_device, &sampler_info);
+    if (!gpu_sampler)
+        return nullptr;
+
+    // Store in cache
+    sampler = (Sampler*)SetValue(g_cache, key);
+    if (!sampler)
+        return nullptr;
+
+    sampler->gpu_sampler = gpu_sampler;
+    return sampler->gpu_sampler;
+}
+
 void InitSamplerFactory(RendererTraits* traits, SDL_GPUDevice* dev)
 {
-    assert(!g_sampler_cache);
     g_device = dev;
-    g_sampler_cache = CreateMap(nullptr, traits->max_samplers);
+    g_cache_keys = (u64*)Alloc(nullptr, sizeof(u64) * traits->max_samplers);
+    g_cache_samplers = (Sampler*)Alloc(nullptr, sizeof(Sampler*) * traits->max_samplers);
+    g_cache = CreateMap(g_cache_keys, traits->max_samplers, g_cache_samplers, sizeof(Sampler));
 }
 
 void ShutdownSamplerFactory()
 {
-    assert(g_sampler_cache);
-    //Enumerate(g_sampler_cache,
+    assert(g_cache_samplers);
+    assert(g_cache_keys);
 
-    Destroy(g_sampler_cache);
-    g_sampler_cache = nullptr;
+    Free(nullptr, g_cache_samplers);
+    Free(nullptr, g_cache_keys);
+
+    g_cache_samplers = nullptr;
+    g_cache_keys = nullptr;
+    g_cache = {};
     g_device = nullptr;
 }
