@@ -7,6 +7,8 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
+#include <memory>
 
 // Forward declarations
 struct cgltf_data;
@@ -19,9 +21,9 @@ struct cgltf_primitive;
 struct cgltf_accessor;
 
 // @types
-typedef struct gltf_bone
+struct GLTFBone
 {
-    name_t name;
+    std::string name;
     int index;
     int parent_index;
     mat4 world_to_local;
@@ -31,63 +33,73 @@ typedef struct gltf_bone
     vec3 scale;
     float length;
     vec3 direction;
-} gltf_bone_t;
+};
 
-typedef struct gltf_animation
+struct GLTFAnimation
 {
     int frame_count;
     int frame_stride;
-    List* tracks;  // list of animation_track_t
-    float* data;
-    size_t data_size;
-} gltf_animation_t;
+    std::vector<void*> tracks;  // vector of animation_track_t
+    std::vector<float> data;
+};
 
-typedef struct gltf_mesh
+struct GLTFMesh
 {
-    vec3* positions;
-    size_t position_count;
-    vec3* normals;
-    size_t normal_count;
-    vec2* uvs;
-    size_t uv_count;
-    uint32_t* bone_indices;
-    size_t bone_index_count;
-    uint16_t* indices;
-    size_t index_count;
-} gltf_mesh_t;
+    std::vector<vec3> positions;
+    std::vector<vec3> normals;
+    std::vector<vec2> uvs;
+    std::vector<uint32_t> bone_indices;
+    std::vector<uint16_t> indices;
+};
 
-typedef struct gltf_bone_filter
+struct GLTFBoneFilter
 {
-    List* exclude_bones;  // list of name_t
-    bool keep_leaf_bones;
-} gltf_bone_filter_t;
+    std::vector<std::string> exclude_bones;
+    bool keep_leaf_bones = false;
+};
 
-typedef struct gltf
+class GLTFLoader
 {
-    struct cgltf_data* data;
+private:
+    struct cgltf_data* data = nullptr;
     std::filesystem::path path;
-} gltf_t;
 
-// @init
-gltf_t* gltf_alloc(Allocator* allocator);
-void gltf_free(gltf_t* gltf);
-
-// @file
-bool gltf_open(gltf_t* gltf, const std::filesystem::path& path);
-void gltf_close(gltf_t* gltf);
-
-// @filter
-gltf_bone_filter_t* gltf_bone_filter_alloc(Allocator* allocator);
-void gltf_bone_filter_free(gltf_bone_filter_t* filter);
-gltf_bone_filter_t* gltf_bone_filter_from_meta_file(gltf_bone_filter_t* filter, const std::filesystem::path& meta_path);
-
-// @bones
-List* gltf_read_bones(gltf_t* gltf, gltf_bone_filter_t* filter, Allocator* allocator);
-
-// @animation
-gltf_animation_t* gltf_read_animation(gltf_t* gltf, List* bones, name_t* animation_name, Allocator* allocator);
-void gltf_animation_free(gltf_animation_t* animation);
-
-// @mesh
-gltf_mesh_t* gltf_read_mesh(gltf_t* gltf, List* bones, Allocator* allocator);
-void gltf_mesh_free(gltf_mesh_t* mesh);
+public:
+    GLTFLoader() = default;
+    ~GLTFLoader() { close(); }
+    
+    // Non-copyable
+    GLTFLoader(const GLTFLoader&) = delete;
+    GLTFLoader& operator=(const GLTFLoader&) = delete;
+    
+    // Movable
+    GLTFLoader(GLTFLoader&& other) noexcept : data(other.data), path(std::move(other.path))
+    {
+        other.data = nullptr;
+    }
+    
+    GLTFLoader& operator=(GLTFLoader&& other) noexcept
+    {
+        if (this != &other)
+        {
+            close();
+            data = other.data;
+            path = std::move(other.path);
+            other.data = nullptr;
+        }
+        return *this;
+    }
+    
+    bool open(const std::filesystem::path& file_path);
+    void close();
+    
+    std::vector<GLTFBone> read_bones(const GLTFBoneFilter& filter = {});
+    GLTFMesh read_mesh(const std::vector<GLTFBone>& bones = {});
+    GLTFAnimation read_animation(const std::vector<GLTFBone>& bones, const std::string& animation_name);
+    
+    // Helper methods
+    GLTFBoneFilter load_bone_filter_from_meta(const std::filesystem::path& meta_path);
+    
+private:
+    void process_bone_recursive(struct cgltf_node* node, std::vector<GLTFBone>& bones, int parent_index, const GLTFBoneFilter& filter);
+};

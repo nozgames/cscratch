@@ -15,7 +15,7 @@ namespace fs = std::filesystem;
 
 using namespace noz;
 
-static void FlattenMesh(gltf_mesh_t* mesh)
+static void FlattenMesh(GLTFMesh* mesh)
 {
     // Create a vector of triangle indices with their max z values
     struct TriangleInfo
@@ -26,7 +26,7 @@ static void FlattenMesh(gltf_mesh_t* mesh)
     std::vector<TriangleInfo> triangles;
 
     // Process each triangle (3 consecutive indices)
-    for (size_t i = 0; i < mesh->index_count; i += 3)
+    for (size_t i = 0; i < mesh->indices.size(); i += 3)
     {
         uint16_t idx0 = mesh->indices[i];
         uint16_t idx1 = mesh->indices[i + 1];
@@ -67,7 +67,7 @@ static void FlattenMesh(gltf_mesh_t* mesh)
 
 static void WriteMeshData(
     Stream* stream,
-    const gltf_mesh_t* mesh,
+    const GLTFMesh* mesh,
     Props* meta)
 {
     // Write asset header
@@ -79,10 +79,10 @@ static void WriteMeshData(
 
     // Calculate bounds from positions
     bounds3 bounds = {};
-    if (mesh->position_count > 0)
+    if (!mesh->positions.empty())
     {
         bounds.min = bounds.max = mesh->positions[0];
-        for (size_t i = 1; i < mesh->position_count; i++)
+        for (size_t i = 1; i < mesh->positions.size(); i++)
         {
             const vec3& pos = mesh->positions[i];
             bounds.min.x = std::min(bounds.min.x, pos.x);
@@ -96,8 +96,8 @@ static void WriteMeshData(
     WriteBytes(stream, &bounds, sizeof(bounds3));
     
     // Write vertex data
-    WriteU32(stream, static_cast<uint32_t>(mesh->position_count));
-    for (size_t i = 0; i < mesh->position_count; ++i)
+    WriteU32(stream, static_cast<uint32_t>(mesh->positions.size()));
+    for (size_t i = 0; i < mesh->positions.size(); ++i)
     {
         mesh_vertex vertex = {};
         vertex.position = mesh->positions[i];
@@ -105,21 +105,21 @@ static void WriteMeshData(
         vertex.bone = 0;
         vertex.normal = vec3(0, 1, 0);
         
-        if (mesh->normal_count == mesh->position_count && i < mesh->normal_count)
+        if (mesh->normals.size() == mesh->positions.size() && i < mesh->normals.size())
             vertex.normal = mesh->normals[i];
             
-        if (mesh->uv_count == mesh->position_count && i < mesh->uv_count)
+        if (mesh->uvs.size() == mesh->positions.size() && i < mesh->uvs.size())
             vertex.uv0 = mesh->uvs[i];
             
-        if (mesh->bone_index_count == mesh->position_count && i < mesh->bone_index_count)
+        if (mesh->bone_indices.size() == mesh->positions.size() && i < mesh->bone_indices.size())
             vertex.bone = static_cast<float>(mesh->bone_indices[i]);
             
         WriteBytes(stream, &vertex, sizeof(mesh_vertex));
     }
     
     // Write index data
-    WriteU32(stream, static_cast<uint32_t>(mesh->index_count));
-    WriteBytes(stream, mesh->indices, mesh->index_count * sizeof(uint16_t));
+    WriteU32(stream, static_cast<uint32_t>(mesh->indices.size()));
+    WriteBytes(stream, const_cast<uint16_t*>(mesh->indices.data()), mesh->indices.size() * sizeof(uint16_t));
 }
 
 void ImportMesh(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
@@ -131,45 +131,31 @@ void ImportMesh(const fs::path& source_path, Stream* output_stream, Props* confi
         return;
 
     // Load GLTF/GLB file
-    gltf_t* gltf = gltf_alloc(nullptr);
-    if (!gltf_open(gltf, src_path))
+    GLTFLoader gltf;
+    if (!gltf.open(src_path))
     {
-        gltf_free(gltf);
         throw std::runtime_error("Failed to open GLTF/GLB file");
     }
     
     // Create bone filter from meta file
-    gltf_bone_filter_t* bone_filter = gltf_bone_filter_alloc(nullptr);
     fs::path meta_path = fs::path(src_path.string() + ".meta");
-    gltf_bone_filter_from_meta_file(bone_filter, meta_path);
+    GLTFBoneFilter bone_filter = gltf.load_bone_filter_from_meta(meta_path);
     
     // Read bones and mesh
-    List* bones = gltf_read_bones(gltf, bone_filter, nullptr);
-    gltf_mesh_t* mesh = gltf_read_mesh(gltf, bones, nullptr);
+    std::vector<GLTFBone> bones = gltf.read_bones(bone_filter);
+    GLTFMesh mesh = gltf.read_mesh(bones);
     
-    if (!mesh || mesh->position_count == 0)
+    if (mesh.positions.empty())
     {
-        if (mesh) gltf_mesh_free(mesh);
-        if (bones) Destroy(bones);
-        gltf_bone_filter_free(bone_filter);
-        gltf_close(gltf);
-        gltf_free(gltf);
         throw std::runtime_error("No mesh data found");
     }
     
     // Apply flatten if requested
     if (meta->GetBool("mesh", "flatten", false))
-        FlattenMesh(mesh);
+        FlattenMesh(&mesh);
 
     // Write mesh data to stream
-    WriteMeshData(output_stream, mesh, meta);
-    
-    // Clean up
-    gltf_mesh_free(mesh);
-    if (bones) Destroy(bones);
-    gltf_bone_filter_free(bone_filter);
-    gltf_close(gltf);
-    gltf_free(gltf);
+    WriteMeshData(output_stream, &mesh, meta);
 }
 
 bool DoesMeshDependOn(const fs::path& source_path, const fs::path& dependency_path)
