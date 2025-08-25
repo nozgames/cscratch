@@ -1,0 +1,13 @@
+[StyleSheet]
+inherit = common
+
+[inventory]
+width=auto
+height=auto
+flex-direction=column
+margin-left=auto
+margin-right=auto
+margin-top=auto
+margin-bottom=150
+padding=5
+

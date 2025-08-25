@@ -1,0 +1,7 @@
+[Texture]
+clamp_u = repeat
+clamp_v = repeat
+mipmaps = true
+min_filter = linear
+mag_filter = linear
+srgb = true
