@@ -7,11 +7,14 @@ struct ApplicationTraits
     const char* title;
     int width;
     int height;
-    size_t scratch_size;
+    size_t asset_memory_size;
+    size_t scratch_memory_size;
     RendererTraits renderer;
+    bool (*load_assets)(size_t size);
+    void (*unload_assets)();
 };
 
-void InitDefaults(ApplicationTraits* traits);
+void Init(ApplicationTraits& traits);
 
 void InitApplication(ApplicationTraits* traits);
 void ShutdownApplication();

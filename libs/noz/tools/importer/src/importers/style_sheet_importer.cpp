@@ -36,7 +36,7 @@ static StyleColor ParseStyleColor(const std::string& value)
     Tokenizer tk = {};
     Token token = {};
     color color = color_transparent;
-    InitTokenizer(tk, value.c_str());
+    Init(tk, value.c_str());
     ExpectColor(tk, &token, &color);
     return StyleColor{ {STYLE_KEYWORD_OVERWRITE}, color };
 }

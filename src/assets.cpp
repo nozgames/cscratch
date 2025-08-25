@@ -21,7 +21,7 @@ bool LoadAssets(size_t arena_size)
 
     if (arena_size > 0)
     {
-        g_asset_allocator = CreateArenaAllocator(arena_size);
+        g_asset_allocator = CreateArenaAllocator(arena_size, "assets");
         if (!g_asset_allocator)
             return false;
     }

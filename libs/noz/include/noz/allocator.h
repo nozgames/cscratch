@@ -3,6 +3,12 @@
 //
 #pragma once
 
+struct AllocatorStats
+{
+    size_t total;
+    size_t available;
+};
+
 // @allocator
 struct Allocator
 {
@@ -12,6 +18,8 @@ struct Allocator
     void (*push)(Allocator*);
     void (*pop)(Allocator*);
     void (*clear)(Allocator*);
+    AllocatorStats (*stats)(Allocator*);
+    const char* name;
 };
 
 void* Alloc(Allocator* a, size_t size);
@@ -23,7 +31,7 @@ void Clear(Allocator* a);
 void Destroy(Allocator* a);
 
 // @arena
-Allocator* CreateArenaAllocator(size_t size);
+Allocator* CreateArenaAllocator(size_t size, const char* name);
 
 // @pool
 Allocator* CreatePoolAllocator(size_t entry_size, size_t entry_count);

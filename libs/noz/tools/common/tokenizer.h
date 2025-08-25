@@ -40,7 +40,7 @@ struct Tokenizer
 };
 
 // @tokenizer
-void InitTokenizer(Tokenizer& tok, const char* input);
+void Init(Tokenizer& tok, const char* input);
 bool HasTokens(Tokenizer& tok);
 bool ExpectToken(Tokenizer& tok, TokenType type, Token* token);
 bool ExpectQuotedString(Tokenizer& tok, Token* token);

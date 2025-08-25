@@ -82,7 +82,15 @@ void ArenaPop(Allocator* a)
         ;
 }
 
-Allocator* CreateArenaAllocator(size_t size)
+AllocatorStats ArenaStats(Allocator* a)
+{
+    auto* impl = (ArenaAllocator*)a;
+    assert(impl);
+
+    return { impl->size, impl->used };
+}
+
+Allocator* CreateArenaAllocator(size_t size, const char* name)
 {
     auto* allocator = (ArenaAllocator*)calloc(
         1,
@@ -99,7 +107,9 @@ Allocator* CreateArenaAllocator(size_t size)
         .realloc = ArenaRealloc,
         .push = ArenaPush,
         .pop = ArenaPop,
-        .clear = ArenaClear
+        .clear = ArenaClear,
+        .stats = ArenaStats,
+        .name = name,
     };
     allocator->stack = (size_t*)(allocator + 1);
     allocator->stack_size = ARENA_ALLOCATOR_MAX_STACK;

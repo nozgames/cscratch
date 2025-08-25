@@ -14,7 +14,7 @@ static bool IsIdentifier(char c, bool first_char);
 static bool IsNumber(char c);
 static bool IsWhitespace(char c);
 
-void InitTokenizer(Tokenizer& tok, const char* input)
+void Init(Tokenizer& tok, const char* input)
 {
     tok.input = input;
     tok.position = 0;

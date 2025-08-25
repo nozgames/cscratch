@@ -8,7 +8,8 @@ static ApplicationTraits g_default_traits =
     .title = "noz",
     .width = 800,
     .height = 600,
-    .scratch_size = 8 * noz::MB,
+    .asset_memory_size = 32 * noz::MB,
+    .scratch_memory_size = 8 * noz::MB,
     .renderer = 
     {
         .max_textures = 32,
@@ -33,14 +34,14 @@ struct Application
     ivec2 screen_size;
     float screen_aspect_ratio;
     const char* title;
+    ApplicationTraits traits;
 };
 
 static Application g_application = {0};
 
-void InitDefaults(ApplicationTraits* traits)
+void Init(ApplicationTraits& traits)
 {
-    assert(traits);
-    memcpy(traits, &g_default_traits, sizeof(ApplicationTraits));
+    memcpy(&traits, &g_default_traits, sizeof(ApplicationTraits));
 }
 
 // @error
@@ -89,14 +90,13 @@ void InitApplication(ApplicationTraits* traits)
 {
     traits = traits ? traits : &g_default_traits;
 
-    g_application.title = traits->title;
-
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD) != 1)
         return;
 
     Uint32 windowFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
 
     memset(&g_application, 0, sizeof(Application));
+    g_application.title = traits->title;
     g_application.window = SDL_CreateWindow(traits->title, traits->width, traits->height, windowFlags);
     if (!g_application.window)
     {
@@ -104,15 +104,23 @@ void InitApplication(ApplicationTraits* traits)
         return;
     }
 
+    g_application.traits = *traits;
+
     UpdateScreenSize();
 
     InitRenderer(&traits->renderer, g_application.window);
     InitScene();
+
+    if (traits->load_assets)
+        traits->load_assets(traits->asset_memory_size);
 }
 
 // @shutdown
 void ShutdownApplication()
 {
+    if (g_application.traits.unload_assets)
+        g_application.traits.unload_assets();
+
     ShutdownScene();
     ShutdownRenderer();
 }

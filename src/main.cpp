@@ -5,8 +5,13 @@
 #include "assets.h"
 int main(int argc, char* argv[])
 {
-    InitApplication(nullptr);
-    LoadAssets();
+    ApplicationTraits traits = {};
+    Init(traits);
+    traits.title = "TEST!";
+    traits.asset_memory_size = 8 * noz::MB;
+    traits.load_assets = LoadAssets;
+    traits.unload_assets = UnloadAssets;
+    InitApplication(&traits);
 
     auto material = CreateMaterial(ALLOCATOR_DEFAULT, Assets.shaders._default);
     SetTexture(material, Assets.textures.palette);
@@ -32,6 +37,5 @@ int main(int argc, char* argv[])
         EndRenderFrame();
     }
 
-    UnloadAssets();
     ShutdownApplication();
 }

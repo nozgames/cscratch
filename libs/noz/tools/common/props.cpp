@@ -82,7 +82,7 @@ int Props::GetInt(const char* group, const char* key, int default_value) const
         return default_value;
     
     Tokenizer tok = {};
-    InitTokenizer(tok, value.c_str());
+    Init(tok, value.c_str());
 
     Token token = {};
     int result = default_value;
@@ -99,7 +99,7 @@ float Props::GetFloat(const char* group, const char* key, float default_value) c
         return default_value;
 
     Tokenizer tok = {};
-    InitTokenizer(tok, value.c_str());
+    Init(tok, value.c_str());
 
     Token token = {};
     float result = default_value;
@@ -128,7 +128,7 @@ vec3 Props::GetVec3(const char* group, const char* key, vec3 default_value) cons
         return default_value;
 
     Tokenizer tok = {};
-    InitTokenizer(tok, value.c_str());
+    Init(tok, value.c_str());
 
     Token token = {};
     vec3 result = default_value;
@@ -145,7 +145,7 @@ color_t Props::GetColor(const char* group, const char* key, color_t default_valu
         return default_value;
 
     Tokenizer tok = {};
-    InitTokenizer(tok, value.c_str());
+    Init(tok, value.c_str());
 
     Token token = {};
     color_t result = default_value;
@@ -172,7 +172,7 @@ Props* Props::Load(const char* content, size_t content_length)
 
     auto props = new Props();
     Tokenizer tok = {};
-    InitTokenizer(tok, content);
+    Init(tok, content);
     
     std::string group_name;
     
@@ -196,7 +196,7 @@ Props* Props::Load(const char* content, size_t content_length)
         std::string value;
 
         Tokenizer line_tok = {};
-        InitTokenizer(line_tok, line_str.c_str());
+        Init(line_tok, line_str.c_str());
 
         Token key_token = {};
         ReadUntil(line_tok, &key_token, '=', false);

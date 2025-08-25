@@ -292,7 +292,7 @@ static std::vector<uint32_t> ParseUniformBufferSizes(const std::string& hlsl_sou
     
     
     Tokenizer tokenizer = {};
-    InitTokenizer(tokenizer, hlsl_source.c_str());
+    Init(tokenizer, hlsl_source.c_str());
     
     Token token = {};
     bool found_any_cbuffer = false;

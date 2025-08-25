@@ -371,7 +371,7 @@ static void GenerateManifestCode(ManifestGenerator* generator)
         "        return false; // Already initialized\n\n"
         "    if (arena_size > 0)\n"
         "    {\n"
-        "        g_asset_allocator = CreateArenaAllocator(arena_size);\n"
+        "        g_asset_allocator = CreateArenaAllocator(arena_size, \"assets\");\n"
         "        if (!g_asset_allocator)\n"
         "            return false;\n"
         "    }\n\n");
