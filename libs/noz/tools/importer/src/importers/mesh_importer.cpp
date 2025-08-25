@@ -77,26 +77,13 @@ static void WriteMeshData(
     header.flags = 0;
     WriteAssetHeader(stream, &header);
 
-    // Calculate bounds from positions
-    bounds3 bounds = {};
-    if (!mesh->positions.empty())
-    {
-        bounds.min = bounds.max = mesh->positions[0];
-        for (size_t i = 1; i < mesh->positions.size(); i++)
-        {
-            const vec3& pos = mesh->positions[i];
-            bounds.min.x = std::min(bounds.min.x, pos.x);
-            bounds.min.y = std::min(bounds.min.y, pos.y);
-            bounds.min.z = std::min(bounds.min.z, pos.z);
-            bounds.max.x = std::max(bounds.max.x, pos.x);
-            bounds.max.y = std::max(bounds.max.y, pos.y);
-            bounds.max.z = std::max(bounds.max.z, pos.z);
-        }
-    }
+    // header
+    bounds3 bounds = to_bounds(mesh->positions.data(), mesh->positions.size());
     WriteBytes(stream, &bounds, sizeof(bounds3));
-    
-    // Write vertex data
     WriteU32(stream, static_cast<uint32_t>(mesh->positions.size()));
+    WriteU32(stream, static_cast<uint32_t>(mesh->indices.size()));
+
+    // verts
     for (size_t i = 0; i < mesh->positions.size(); ++i)
     {
         mesh_vertex vertex = {};
@@ -117,8 +104,7 @@ static void WriteMeshData(
         WriteBytes(stream, &vertex, sizeof(mesh_vertex));
     }
     
-    // Write index data
-    WriteU32(stream, static_cast<uint32_t>(mesh->indices.size()));
+    // indices
     WriteBytes(stream, const_cast<uint16_t*>(mesh->indices.data()), mesh->indices.size() * sizeof(uint16_t));
 }
 

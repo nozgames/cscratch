@@ -255,7 +255,7 @@ void BindBoneTransforms(const mat4* bones, size_t bone_count)
     AddRenderCommand(&cmd);
 }
 
-void render_buffer_bind_color(color_t color)
+void BindColor(color_t color)
 {
     RenderCommand cmd = {
         .type = command_type_bind_color,

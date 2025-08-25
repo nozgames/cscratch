@@ -6,6 +6,16 @@
 // @fonts
 // LoadedAssets.fonts.roboto_black
 //
+// @meshs
+// LoadedAssets.meshes.buildings.chestsmall
+// LoadedAssets.meshes.buildings.conveyor
+// LoadedAssets.meshes.buildings.extractor
+// LoadedAssets.meshes.buildings.stone
+// LoadedAssets.meshes.cursors.defaultcursor
+// LoadedAssets.meshes.cursors.pickaxecursor
+// LoadedAssets.meshes.resources.stoneore
+// LoadedAssets.meshes.tiles.ore
+//
 // @shaders
 // LoadedAssets.shaders.border_effect
 // LoadedAssets.shaders._default
@@ -16,6 +26,11 @@
 // LoadedAssets.shaders.text
 // LoadedAssets.shaders.ui
 // LoadedAssets.shaders.vignette
+//
+// @stylesheets
+// LoadedAssets.ui.common
+// LoadedAssets.ui.hud
+// LoadedAssets.ui.inventory
 //
 // @textures
 // LoadedAssets.textures.grid
@@ -40,6 +55,29 @@ struct LoadedAssets
     {
         Font* roboto_black;
     } fonts;
+    struct
+    {
+        struct
+        {
+            Mesh* chestsmall;
+            Mesh* conveyor;
+            Mesh* extractor;
+            Mesh* stone;
+        } buildings;
+        struct
+        {
+            Mesh* defaultcursor;
+            Mesh* pickaxecursor;
+        } cursors;
+        struct
+        {
+            Mesh* stoneore;
+        } resources;
+        struct
+        {
+            Mesh* ore;
+        } tiles;
+    } meshes;
     struct
     {
         Shader* border_effect;
@@ -68,6 +106,12 @@ struct LoadedAssets
         Texture* grid;
         Texture* palette;
     } textures;
+    struct
+    {
+        StyleSheet* common;
+        StyleSheet* hud;
+        StyleSheet* inventory;
+    } ui;
 };
 
 extern LoadedAssets Assets;

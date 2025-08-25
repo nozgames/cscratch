@@ -378,7 +378,7 @@ static vec3 convert_vector3(float* vector3)
     if (!vector3)
         return vec3(0.0f);
 
-    return vec3(vector3[0], vector3[1], vector3[2]);
+    return vec3(vector3[0], vector3[2], vector3[1]);
 }
 
 static vec2 convert_vector2(float* vector2)

@@ -10,7 +10,7 @@ struct StyleSheetImpl
 
 static StyleSheetImpl* Impl(StyleSheet* s) { return (StyleSheetImpl*)Cast(s, TYPE_STYLE_SHEET); }
 
-Object* LoadStyleSheet(Allocator* allocator, Stream* stream, const char* name)
+Object* LoadStyleSheet(Allocator* allocator, Stream* stream, AssetHeader* header, const char* name)
 {
     auto style_count = ReadU32(stream);
     auto keys_size = style_count * sizeof(u64);

@@ -50,7 +50,11 @@ static const char* ToStringFromSignature(asset_signature_t signature, const std:
 static const char* ToMacroFromSignature(asset_signature_t signature, const std::vector<AssetImporterTraits*>& importers);
 static void GenerateRendererSetupCalls(ManifestGenerator* generator, Stream* stream);
 
-bool GenerateAssetManifest(const fs::path& output_directory, const fs::path& manifest_output_path, const std::vector<AssetImporterTraits*>& importers, Props* config)
+bool GenerateAssetManifest(
+    const fs::path& output_directory,
+    const fs::path& manifest_output_path,
+    const std::vector<AssetImporterTraits*>& importers,
+    Props* config)
 {
     if (output_directory.empty() || manifest_output_path.empty())
     {
@@ -65,27 +69,18 @@ bool GenerateAssetManifest(const fs::path& output_directory, const fs::path& man
     generator.importers = &importers;
     generator.config = config;
 
-    generator.manifest_stream = CreateStream(nullptr, 1024);
+    generator.manifest_stream = CreateStream(nullptr, 4096);
     if (!generator.manifest_stream)
     {
         printf("ERROR: Failed to create manifest stream\n");
         return false;
     }
 
-
-    // Check if output directory exists
     if (!fs::exists(generator.output_dir))
     {
-        
-        // Generate an empty manifest
         GenerateManifestCode(&generator);
-        
-        // Save the manifest
         bool success = SaveStream(generator.manifest_stream, manifest_output_path);
-        
-        // Clean up
         Destroy(generator.manifest_stream);
-        
         return success;
     }
 
@@ -114,7 +109,6 @@ bool GenerateAssetManifest(const fs::path& output_directory, const fs::path& man
         Destroy(generator.manifest_stream);
         return false;
     }
-
 
     // Generate the manifest C code
     GenerateManifestCode(&generator);
@@ -292,18 +286,26 @@ static bool ReadAssetHeader(const fs::path& file_path, uint32_t* signature)
 
 static void ScanAssetFile(const fs::path& file_path, ManifestGenerator* generator)
 {
-    // Check for known asset extensions
-    std::string ext = file_path.extension().string();
-    std::ranges::transform(ext, ext.begin(), ::tolower);
+    // First, try to read the asset header to get the signature
+    uint32_t signature = 0;
+    if (!ReadAssetHeader(file_path, &signature))
+    {
+        // If we can't read the header, this might not be a valid asset file
+        return;
+    }
     
-    bool is_asset = ext == ".nzt" ||   // NoZ Texture
-                    ext == ".nzm" ||   // NoZ Mesh
-                    ext == ".nzs" ||   // NoZ Sound
-                    ext == ".nzsh" ||  // NoZ Shader
-                    ext == ".nzmt" ||  // NoZ Material
-                    ext == ".nzf";     // NoZ Font
-
-    if (!is_asset)
+    // Check if any importer recognizes this signature
+    bool is_recognized_asset = false;
+    for (const auto* importer : *generator->importers)
+    {
+        if (importer && importer->signature == signature)
+        {
+            is_recognized_asset = true;
+            break;
+        }
+    }
+    
+    if (!is_recognized_asset)
         return;
 
     // Make path relative to output_dir first
@@ -334,12 +336,8 @@ static void ScanAssetFile(const fs::path& file_path, ManifestGenerator* generato
     // Generate variable name from path (without extension)
     entry.var_name = PathToVarName(entry.path);
 
-    // Read asset header to get signature
-    if (!ReadAssetHeader(file_path, &entry.signature))
-    {
-        printf("WARNING: Failed to read asset header for: %s\n", file_path.string().c_str());
-        entry.signature = 0;
-    }
+    // Use the signature we already read
+    entry.signature = signature;
     
     // Add entry to the list
     generator->asset_entries.push_back(entry);
@@ -563,8 +561,6 @@ static void WriteNestedStructs(Stream* stream, const PathNode& node, const std::
 
 static void OrganizeAssetsByType(ManifestGenerator* generator)
 {
-    auto* stream = generator->manifest_stream;
-    
     // Build directory tree
     PathNode root;
     
@@ -592,8 +588,6 @@ static void OrganizeAssetsByType(ManifestGenerator* generator)
         // Add asset to the final directory
         current->assets.push_back(modified_entry);
     }
-    
-    // Struct definition is now in the header file
 }
 
 static type_t ToTypeFromSignature(asset_signature_t signature, const std::vector<AssetImporterTraits*>& importers)

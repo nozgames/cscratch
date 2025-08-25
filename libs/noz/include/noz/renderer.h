@@ -59,7 +59,7 @@ ivec2 GetSize(Texture* texture);
 // @material
 Material* CreateMaterial(Allocator* allocator, Shader* shader);
 Shader* GetShader(Material* material);
-void SetTexture(Material* material, Texture* texture, size_t index);
+void SetTexture(Material* material, Texture* texture, size_t index=0);
 
 // @mesh
 Mesh* CreateMesh(
@@ -114,6 +114,12 @@ void AddQuad(
     vec2 uv_color,
     vec3 normal,
     uint8_t bone_index);
+void AddVertex(
+    MeshBuilder* builder,
+    vec3 position,
+    vec3 normal,
+    vec2 uv,
+    uint8_t bone_index);
 
 // @renderer
 void SetGammaPassShader(Shader* shader);
@@ -124,6 +130,7 @@ void ClearRenderCommands();
 void BeginRenderPass(bool clear, color_t clear_color, bool msaa, Texture* target);
 void BeginShadowPass(mat4 light_view, mat4 light_projection);
 void BindDefaultTexture(int texture_index);
+void BindColor(color_t color);
 void BindCamera(Camera* camera);
 void BindCamera(const mat4& view, const mat4& projection);
 void BindTransform(const mat4& transform);

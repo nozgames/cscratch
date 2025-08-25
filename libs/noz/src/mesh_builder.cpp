@@ -112,7 +112,7 @@ size_t GetIndexCount(MeshBuilder* builder)
     return Impl(builder)->index_count;
 }
 
-void mesh_builder_add_vertex(
+void AddVertex(
     MeshBuilder* builder,
     vec3 position,
     vec3 normal,
@@ -170,9 +170,9 @@ void AddTriangle(
 
     // Add vertices with computed normal
     uint16_t vertex_index = (uint16_t)Impl(builder)->vertex_count;
-    mesh_builder_add_vertex(builder, a, normal, { 0.0f, 0.0f }, bone_index);
-    mesh_builder_add_vertex(builder, a, normal, { 1.0f, 0.0f }, bone_index);
-    mesh_builder_add_vertex(builder, a, normal, { 0.5f, 1.0f }, bone_index);
+    AddVertex(builder, a, normal, { 0.0f, 0.0f }, bone_index);
+    AddVertex(builder, a, normal, { 1.0f, 0.0f }, bone_index);
+    AddVertex(builder, a, normal, { 0.5f, 1.0f }, bone_index);
     AddTriangle(builder, vertex_index, vertex_index + 1, vertex_index + 2);
 }
 
@@ -209,10 +209,10 @@ void AddQuad(
     uint16_t base_index = (uint16_t)Impl(builder)->vertex_count;
 
     // Add vertices
-    mesh_builder_add_vertex(builder, a, normal, uv_color, bone_index);
-    mesh_builder_add_vertex(builder, b, normal, uv_color, bone_index);
-    mesh_builder_add_vertex(builder, c, normal, uv_color, bone_index);
-    mesh_builder_add_vertex(builder, d, normal, uv_color, bone_index);
+    AddVertex(builder, a, normal, uv_color, bone_index);
+    AddVertex(builder, b, normal, uv_color, bone_index);
+    AddVertex(builder, c, normal, uv_color, bone_index);
+    AddVertex(builder, d, normal, uv_color, bone_index);
 
     // Add triangles
     AddTriangle(builder, base_index, base_index + 1, base_index + 2);

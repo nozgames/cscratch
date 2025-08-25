@@ -94,7 +94,7 @@ Mesh* CreateMesh(
 Object* LoadMesh(Allocator* allocator, Stream* stream, AssetHeader* header, const char* name)
 {
     // Read bounds
-    bounds3 bounds;
+    bounds3 bounds = {};
     ReadBytes(stream, &bounds, sizeof(bounds3));
 
     // counts

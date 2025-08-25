@@ -40,7 +40,7 @@ Object* LoadTexture(Allocator* allocator, Stream* stream, AssetHeader* header, c
 Object* LoadShader(Allocator* allocator, Stream* stream, AssetHeader* header, const char* name);
 Object* LoadFont(Allocator* allocator, Stream* stream, AssetHeader* header, const char* name);
 Object* LoadMesh(Allocator* allocator, Stream* stream, AssetHeader* header, const char* name);
-Object* LoadStyleSheet(Allocator* allocator, Stream* stream, const char* name);
+Object* LoadStyleSheet(Allocator* allocator, Stream* stream, AssetHeader* header, const char* name);
 
 // @macros
 #define NOZ_LOAD_SHADER(path, member) \

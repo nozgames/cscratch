@@ -27,6 +27,14 @@ bool LoadAssets(size_t arena_size)
     }
 
     NOZ_LOAD_FONT("fonts/Roboto-Black", Assets.fonts.roboto_black);
+    NOZ_LOAD_MESH("meshes/buildings/chestsmall", Assets.meshes.buildings.chestsmall);
+    NOZ_LOAD_MESH("meshes/buildings/conveyor", Assets.meshes.buildings.conveyor);
+    NOZ_LOAD_MESH("meshes/buildings/extractor", Assets.meshes.buildings.extractor);
+    NOZ_LOAD_MESH("meshes/buildings/stone", Assets.meshes.buildings.stone);
+    NOZ_LOAD_MESH("meshes/cursors/DefaultCursor", Assets.meshes.cursors.defaultcursor);
+    NOZ_LOAD_MESH("meshes/cursors/PickaxeCursor", Assets.meshes.cursors.pickaxecursor);
+    NOZ_LOAD_MESH("meshes/resources/stoneore", Assets.meshes.resources.stoneore);
+    NOZ_LOAD_MESH("meshes/tiles/ore", Assets.meshes.tiles.ore);
     NOZ_LOAD_SHADER("shaders/border_effect", Assets.shaders.border_effect);
     NOZ_LOAD_SHADER("shaders/default", Assets.shaders._default);
     NOZ_LOAD_SHADER("shaders/gamma", Assets.shaders.gamma);
@@ -40,6 +48,9 @@ bool LoadAssets(size_t arena_size)
     NOZ_LOAD_TEXTURE("textures/icons/meshes/buildings/extractor", Assets.textures.icons.meshes.buildings.extractor);
     NOZ_LOAD_TEXTURE("textures/icons/meshes/buildings/Stone", Assets.textures.icons.meshes.buildings.stone);
     NOZ_LOAD_TEXTURE("textures/palette", Assets.textures.palette);
+    NOZ_LOAD_STYLE_SHEET("ui/common", Assets.ui.common);
+    NOZ_LOAD_STYLE_SHEET("ui/hud", Assets.ui.hud);
+    NOZ_LOAD_STYLE_SHEET("ui/inventory", Assets.ui.inventory);
 
     // Setup renderer globals from config
     SetShadowPassShader(Assets.shaders.shadow);

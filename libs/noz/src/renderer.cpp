@@ -396,6 +396,9 @@ static void ResetRenderState()
     // Reset all state tracking variables to force rebinding
     g_renderer.pipeline = nullptr;
 
+    static mat4 identity = glm::identity<mat4>();
+    BindBoneTransformsGPU(&identity, 1);
+
     for (int i = 0; i < (int)(sampler_register_count); i++)
         BindTextureGPU(g_renderer.default_texture, g_renderer.command_buffer, i);
 }
@@ -415,7 +418,12 @@ static void UpdateBackBuffer()
 static void InitGammaPass()
 {
     MeshBuilder* builder = CreateMeshBuilder(nullptr, 4, 6);
-    AddQuad(builder, VEC3_RIGHT, VEC3_UP, 2, 2, VEC3_ZERO);
+    AddVertex(builder, vec3(-1.0f, -1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec2(0.0f, 1.0f), 0);
+    AddVertex(builder, vec3(1.0f, -1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec2(1.0f, 1.0f), 0);
+    AddVertex(builder, vec3(1.0f, 1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec2(1.0f, 0.0f), 0);
+    AddVertex(builder, vec3(-1.0f, 1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec2(0.0f, 0.0f), 0);
+    AddTriangle(builder, 0, 1, 2);
+    AddTriangle(builder, 0, 2, 3);
     g_renderer.gamma_mesh = CreateMesh(nullptr, builder, "gamma");
     Destroy(builder);
 }
@@ -442,13 +450,17 @@ SDL_GPURenderPass* BeginGammaPassGPU()
     if (!g_renderer.gamma_material)
         Exit("missing gamma shader");
 
-    return BeginPassGPU(g_renderer.swap_chain_texture, false, color_transparent);
+    return BeginPassGPU(g_renderer.swap_chain_texture, true, color_red);
 }
 
 static void RenderGammaPass()
 {
     SetTexture(g_renderer.gamma_material, g_renderer.linear_back_buffer, 0);
     BeginGammaPass();
+
+    static auto identity = glm::identity<mat4>();
+    BindCamera(identity, identity);
+    BindTransform(identity);
     BindMaterial(g_renderer.gamma_material);
     DrawMesh(g_renderer.gamma_mesh);
     EndRenderPass();
